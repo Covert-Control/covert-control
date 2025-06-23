@@ -8,7 +8,7 @@ export const Route = createLazyFileRoute('/about')({
 
 function RouteComponent() {
   const checkUser = () => {
-    console.log(auth)
+    console.log(auth.currentUser)
   }
 
   return <div>Hello "/about"! <Button onClick={checkUser}>Check User</Button></div>

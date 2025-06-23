@@ -1,11 +1,14 @@
 import * as React from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { useAuthStore } from '../stores/authStore'
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router'
 import { AppShell, Burger, Group } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import SchemeToggleButton from '../components/SchemeToggleButton.tsx';
 import DiscordButton from '../components/DiscordButton.tsx';
 import Navbar from '../components/Navbar/Navbar.tsx';
-
+import { useEffect } from 'react';
+import { auth } from '../config/firebase.tsx';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -13,6 +16,18 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const [opened, { toggle }] = useDisclosure();
+  const { setUser, setLoading } = useAuthStore();
+  
+  useEffect(() => {
+    const auth = getAuth();
+    setLoading(true);
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user || null);
+    });
+
+    return unsubscribe;
+  }, [setUser, setLoading]);
 
   return (
     <React.Fragment>
@@ -27,6 +42,16 @@ function RootComponent() {
             <p>Hello this is where logo go!!</p>
             <DiscordButton />
             <SchemeToggleButton />
+            <div>
+              {auth.currentUser === null ? 
+              <Link to="/authentication">
+                  <span>Login</span>
+              </Link> :
+              <a href="#" >
+                  <span>Logout</span>
+              </a>
+              }
+            </div>
           </Group>
         </AppShell.Header>
 

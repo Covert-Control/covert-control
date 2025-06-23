@@ -2,7 +2,7 @@ import { AppShell } from '@mantine/core';
 import { Link } from '@tanstack/react-router'
 import classes from './Navbar.module.css';
 import { LogOut, LogIn } from 'lucide-react';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 
 export default function Navbar() {
@@ -21,6 +21,7 @@ export default function Navbar() {
         Navbar
         <Link to="/">Home!</Link>
         <Link to="/about">About</Link>
+        <Link to="/stories">Stories</Link>
         <Link to="/submit">Submit Story</Link>
         <Link to="/authentication">Login</Link>
         {/* {Array(15)

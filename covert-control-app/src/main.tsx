@@ -16,7 +16,7 @@ declare module '@tanstack/react-router' {
 }
 
 const theme = createTheme({
-  /** Your theme override here */
+  /** No theme override */
 });
 
 createRoot(document.getElementById('root')!).render(
