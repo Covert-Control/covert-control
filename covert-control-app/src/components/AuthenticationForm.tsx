@@ -4,6 +4,7 @@ import {
     Checkbox,
     Divider,
     Group,
+    Modal,
     Paper,
     PaperProps,
     PasswordInput,
@@ -12,34 +13,47 @@ import {
     TextInput,
   } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { upperFirst, useToggle } from '@mantine/hooks';
+import { upperFirst, useToggle, useDisclosure } from '@mantine/hooks';
 import { GoogleButton } from './GoogleButton.tsx';
 import { createUserWithEmailAndPassword, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase.tsx';
 
 export function AuthenticationForm(props: PaperProps) {
+  const [opened, { open, close }] = useDisclosure(false);
   const [type, toggle] = useToggle(['login', 'register']);
   const form = useForm({
     initialValues: {
       email: '',
       name: '',
       password: '',
+      confirmPassword: '',
       terms: false,
     },
 
-    validate: {
-      email: (val) => (/^\S+@\S+$/.test(val) ? null : 'Invalid email'),
-      password: (val) => (val.length <= 6 ? 'Password should include at least 6 characters' : null),
-    },
-  });
+    validate: (values) => {
+    const errors: Record<string, string> = {};
 
-  const register = async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
-    } catch (err) {
-      console.error(err);
+    if (!/^\S+@\S+$/.test(values.email)) {
+      errors.email = 'Invalid email';
     }
-  }
+
+    if (values.password.length <= 6) {
+      errors.password = 'Password should include at least 6 characters';
+    }
+
+    // only validate these in “register” mode
+    if (type === 'register') {
+      if (values.confirmPassword !== values.password) {
+        errors.confirmPassword = 'Passwords did not match';
+      }
+      if (!values.terms) {
+        errors.terms = 'You must accept terms and conditions';
+      }
+    }
+
+    return errors;
+  },
+  });
 
   const signInWithGoogle = async () => {
     try {
@@ -49,19 +63,45 @@ export function AuthenticationForm(props: PaperProps) {
     }
   }
 
-  const login = async () => {
+  const onLogin = async () => {
+    console.log("onLogin called");
+    if (auth.currentUser) {
+      console.error('User is already logged in');
+      open();
+      return;
+    } 
     try {
       await signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
     } catch (err) {
       console.error(err);
     }
   }
-  // const register = () => {
-  //   console.log(auth.currentUser)
-  // }
+
+
+  const onRegister = async () => {
+    if (auth.currentUser) {
+      console.error('User is already logged in');
+      open();
+      return;
+    }
+    try {
+      await createUserWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
+      console.log('User successfully registered!');
+    } catch (error) {
+      console.error("Error registering user: ", error);
+    }
+  }
+
+  const logType = () => {
+    console.log("This is type: "+type)
+  }
 
   return (
     <Paper radius="md" p="xl" withBorder {...props}>
+      <Modal opened={opened} onClose={close} title="Error" centered>
+          {type === 'login' ? 'You are already logged in' : 'You are already logged in. Logout first to register.'}
+      </Modal>
+
       <Text size="lg" fw={500}>
         Welcome to Covert Control, {type} with
       </Text>
@@ -72,12 +112,12 @@ export function AuthenticationForm(props: PaperProps) {
 
       <Divider label="Or continue with email" labelPosition="center" my="lg" />
 
-      <form onSubmit={form.onSubmit(() => {})}>
+      <form onSubmit={form.onSubmit(type === 'register' ? onRegister : onLogin)}>
         <Stack>
           {type === 'register' && (
             <TextInput
               required
-              label="Userame"
+              label="Username"
               placeholder="Other users will see this"
               value={form.values.name}
               onChange={(event) => form.setFieldValue('name', event.currentTarget.value)}
@@ -106,7 +146,20 @@ export function AuthenticationForm(props: PaperProps) {
           />
 
           {type === 'register' && (
+            <PasswordInput
+              required
+              label="Confirm password"
+              placeholder="Confirm password..."
+              value={form.values.confirmPassword}
+              onChange={(event) => form.setFieldValue('confirmPassword', event.currentTarget.value)}
+              error={form.errors.confirmPassword && 'Passwords do not match'}
+              radius="md"
+            />
+          )}
+
+          {type === 'register' && (
             <Checkbox
+              required
               label="I accept terms and conditions"
               checked={form.values.terms}
               onChange={(event) => form.setFieldValue('terms', event.currentTarget.checked)}
@@ -120,14 +173,9 @@ export function AuthenticationForm(props: PaperProps) {
               ? 'Already have an account? Login'
               : "Don't have an account? Register"}
           </Anchor>
-          {type === 'register' ?
-            <Button type="submit" radius="xl" onClick={register}>
-              {upperFirst(type)}
-            </Button> :
-            <Button type="submit" radius="xl" onClick={login}>
-              {upperFirst(type)}
-            </Button>
-          }
+          <Button type="submit" radius="xl" onClick={(logType)}>
+            {upperFirst(type)}
+          </Button> 
 
         </Group>
       </form>

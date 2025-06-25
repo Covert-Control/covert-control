@@ -4,6 +4,7 @@ import { useDisclosure } from '@mantine/hooks';
 import SchemeToggleButton from '../SchemeToggleButton.tsx';
 import DiscordButton from '../DiscordButton.tsx';
 import { AppShell, Burger, Group } from '@mantine/core';
+import { LogIn, LogOut } from 'lucide-react';
 
 export default function Header() {
   const [opened, { toggle }] = useDisclosure();

@@ -15,7 +15,8 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
-  const [opened, { toggle }] = useDisclosure();
+  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
+  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const { setUser, setLoading } = useAuthStore();
   
   useEffect(() => {
@@ -33,12 +34,13 @@ function RootComponent() {
     <React.Fragment>
       <AppShell
         header={{ height: 60 }}
-        navbar={{ width: 150, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+        navbar={{ width: 190, breakpoint: 'sm', collapsed: { mobile: !mobileOpened, desktop: !desktopOpened } }}
         padding="md"
       >
         <AppShell.Header>
           <Group h="100%" px="md">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
+            <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" />
             <p>Hello this is where logo go!!</p>
             <DiscordButton />
             <SchemeToggleButton />
@@ -61,7 +63,7 @@ function RootComponent() {
           <Outlet />
         </AppShell.Main>
 
-        <AppShell.Footer zIndex={opened ? 'auto' : 201}>
+        <AppShell.Footer zIndex={mobileOpened ? 'auto' : 201}>
           This is the footer
         </AppShell.Footer>
       </AppShell>
