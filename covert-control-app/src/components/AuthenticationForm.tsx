@@ -15,10 +15,12 @@ import {
 import { useForm } from '@mantine/form';
 import { upperFirst, useToggle } from '@mantine/hooks';
 import { GoogleButton } from './GoogleButton.tsx';
-import { createUserWithEmailAndPassword, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, googleProvider, db } from '../config/firebase.tsx';
-import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth, googleProvider } from '../config/firebase.tsx';
+//import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+
 
 type ModalConfig = {
   opened: boolean;
@@ -29,7 +31,7 @@ type ModalConfig = {
 };
 
 export function AuthenticationForm(props: PaperProps) {
-  const userCollectionRef = collection(db, 'users')
+  //const userCollectionRef = collection(db, 'users')
   const [type, toggle] = useToggle(['login', 'register']);
   const [modal, setModal] = useState<ModalConfig>({
     opened: false,
@@ -38,6 +40,12 @@ export function AuthenticationForm(props: PaperProps) {
     onConfirm: () => {},
     confirmLabel: 'OK',
   });
+
+  // Initialize Cloud Functions instance
+  const functions = getFunctions();
+  // Get a reference to your callable function
+  const registerUserCallable = httpsCallable(functions, 'registerUser');
+
 
   const form = useForm({
     initialValues: {
@@ -55,12 +63,17 @@ export function AuthenticationForm(props: PaperProps) {
         errors.email = 'Invalid email';
       }
 
-      if (values.password.length <= 6) {
+      if (values.password.length < 6) {
         errors.password = 'Password should include at least 6 characters';
       }
       
       // Validation for registration section only
       if (type === 'register') {
+        if (!values.name.trim()) {
+          errors.name = 'Username is required';
+        } else if (values.name.length < 3 || values.name.length > 20) {
+          errors.name = 'Username must be between 3 and 20 characters';
+        }
         if (values.confirmPassword !== values.password) {
           errors.confirmPassword = 'Passwords did not match';
         }
@@ -100,6 +113,45 @@ export function AuthenticationForm(props: PaperProps) {
     });
   };
 
+  const showSuccess = (message: string, onConfirmAction: () => void) => {
+    setModal({
+      opened: true,
+      title: 'Success!',
+      body: <Text color="green">{message}</Text>,
+      onConfirm: onConfirmAction,
+      confirmLabel: 'Great!',
+    });
+  };
+
+
+  // const onRegister = async () => {
+  //   if (auth.currentUser) {
+  //     console.error('User is already logged in');
+  //     showError('You are already logged in. Please log out before registering a new account.');
+  //     return;
+  //   }
+
+  //   const usernameToCheck = form.getValues().name.trim();
+
+  //   const existingUsernameSnapshot = await getDocs(
+  //     query(userCollectionRef, where('username', '==', usernameToCheck))
+  //   );
+
+  //   if (!existingUsernameSnapshot.empty) {
+  //     showError('This username is already taken. Please choose a different one.');
+  //     return;
+  //   }
+
+  //   try {
+  //     await createUserWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
+  //     console.log('User successfully registered!');
+  //   } catch (error) {
+  //     showError("Error registering user: " + error)
+  //     console.error("Error registering user: ", error);
+  //   }
+  //   await addDoc(userCollectionRef, {username: form.values.name, userId: auth.currentUser.uid, createdAt: new Date()});
+  // }
+
   const onRegister = async () => {
     if (auth.currentUser) {
       console.error('User is already logged in');
@@ -107,26 +159,50 @@ export function AuthenticationForm(props: PaperProps) {
       return;
     }
 
-    const usernameToCheck = form.getValues().name.trim();
-
-    const existingUsernameSnapshot = await getDocs(
-      query(userCollectionRef, where('username', '==', usernameToCheck))
-    );
-
-    if (!existingUsernameSnapshot.empty) {
-      showError('This username is already taken. Please choose a different one.');
-      return;
-    }
-
     try {
-      await createUserWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
-      console.log('User successfully registered!');
-    } catch (error) {
-      showError("Error registering user: " + error)
-      console.error("Error registering user: ", error);
+      // Call your Cloud Function
+      const result = await registerUserCallable({
+        email: form.getValues().email,
+        password: form.getValues().password,
+        username: form.getValues().name,
+      });
+
+      // If the function returns successfully, result.data contains the returned data
+      console.log('Registration successful:', result.data);
+      showSuccess(
+        `Welcome, ${form.values.name}! Your account has been created.`,
+        () => {
+          setModal((m) => ({ ...m, opened: false }));
+          // Optionally, sign in the user after successful registration
+          // signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password);
+          // Or refresh the page, redirect, etc.
+        }
+      );
+
+    } catch (error: any) {
+      console.error("Error calling registerUser function: ", error);
+      // Handle HttpsError specifically
+      if (error.code) {
+        switch (error.code) {
+          case 'already-exists':
+            showError('This username is already taken. Please choose a different one.');
+            break;
+          case 'invalid-argument':
+            showError(`Invalid input for registration: ${error.message}`);
+            break;
+          case 'internal':
+            showError('A server error occurred during registration. Please try again.');
+            break;
+          default:
+            showError(`An unexpected error occurred: ${error.message || error.code}`);
+        }
+      } else {
+        // Fallback for general network or other unhandled errors
+        showError('An unexpected network error occurred. Please check your connection and try again.');
+      }
     }
-    await addDoc(userCollectionRef, {username: form.values.name, userId: auth.currentUser.uid, createdAt: new Date()});
-  }
+  };
+
 
   const signInWithGoogle = async () => {
     try {
@@ -193,6 +269,7 @@ export function AuthenticationForm(props: PaperProps) {
               placeholder="Other users will see this"
               value={form.values.name}
               onChange={(event) => form.setFieldValue('name', event.currentTarget.value)}
+              error={form.errors.name && 'Username must be between 3 and 20 characters'}
               radius="md"
             />
           )}
