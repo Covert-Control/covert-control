@@ -13,14 +13,32 @@ import {
     TextInput,
   } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { upperFirst, useToggle, useDisclosure } from '@mantine/hooks';
+import { upperFirst, useToggle } from '@mantine/hooks';
 import { GoogleButton } from './GoogleButton.tsx';
 import { createUserWithEmailAndPassword, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, googleProvider } from '../config/firebase.tsx';
+import { auth, googleProvider, db } from '../config/firebase.tsx';
+import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { useState } from 'react';
+
+type ModalConfig = {
+  opened: boolean;
+  title: string;
+  body: React.ReactNode;
+  onConfirm?: () => void;
+  confirmLabel?: string;
+};
 
 export function AuthenticationForm(props: PaperProps) {
-  const [opened, { open, close }] = useDisclosure(false);
+  const userCollectionRef = collection(db, 'users')
   const [type, toggle] = useToggle(['login', 'register']);
+  const [modal, setModal] = useState<ModalConfig>({
+    opened: false,
+    title: '',
+    body: null,
+    onConfirm: () => {},
+    confirmLabel: 'OK',
+  });
+
   const form = useForm({
     initialValues: {
       email: '',
@@ -31,29 +49,84 @@ export function AuthenticationForm(props: PaperProps) {
     },
 
     validate: (values) => {
-    const errors: Record<string, string> = {};
+      const errors: Record<string, string> = {};
 
-    if (!/^\S+@\S+$/.test(values.email)) {
-      errors.email = 'Invalid email';
-    }
-
-    if (values.password.length <= 6) {
-      errors.password = 'Password should include at least 6 characters';
-    }
-
-    // only validate these in “register” mode
-    if (type === 'register') {
-      if (values.confirmPassword !== values.password) {
-        errors.confirmPassword = 'Passwords did not match';
+      if (!/^\S+@\S+$/.test(values.email)) {
+        errors.email = 'Invalid email';
       }
-      if (!values.terms) {
-        errors.terms = 'You must accept terms and conditions';
-      }
-    }
 
-    return errors;
-  },
+      if (values.password.length <= 6) {
+        errors.password = 'Password should include at least 6 characters';
+      }
+      
+      // Validation for registration section only
+      if (type === 'register') {
+        if (values.confirmPassword !== values.password) {
+          errors.confirmPassword = 'Passwords did not match';
+        }
+        if (!values.terms) {
+          errors.terms = 'You must accept terms and conditions';
+        }
+      }
+
+      return errors;
+    },
   });
+
+  const showError = (message: string) => {
+    setModal({
+      opened: true,
+      title: 'Error',
+      body: <Text color="red">{message}</Text>,
+      onConfirm: () => setModal((m) => ({ ...m, opened: false })),
+      confirmLabel: 'Close',
+    });
+  };
+
+  const confirmRegistration = () => {
+    setModal({
+      opened: true,
+      title: 'Confirm Registration',
+      body: (
+        <Text>
+          You’re about to register as <b>{form.values.name}</b>. Is that correct? This cannot be changed.
+        </Text>
+      ),
+      onConfirm: () => {
+        setModal((m) => ({ ...m, opened: false }));
+        onRegister();
+      },
+      confirmLabel: 'Yes, register',
+    });
+  };
+
+  const onRegister = async () => {
+    if (auth.currentUser) {
+      console.error('User is already logged in');
+      showError('You are already logged in. Please log out before registering a new account.');
+      return;
+    }
+
+    const usernameToCheck = form.getValues().name.trim();
+
+    const existingUsernameSnapshot = await getDocs(
+      query(userCollectionRef, where('username', '==', usernameToCheck))
+    );
+
+    if (!existingUsernameSnapshot.empty) {
+      showError('This username is already taken. Please choose a different one.');
+      return;
+    }
+
+    try {
+      await createUserWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
+      console.log('User successfully registered!');
+    } catch (error) {
+      showError("Error registering user: " + error)
+      console.error("Error registering user: ", error);
+    }
+    await addDoc(userCollectionRef, {username: form.values.name, userId: auth.currentUser.uid, createdAt: new Date()});
+  }
 
   const signInWithGoogle = async () => {
     try {
@@ -67,7 +140,7 @@ export function AuthenticationForm(props: PaperProps) {
     console.log("onLogin called");
     if (auth.currentUser) {
       console.error('User is already logged in');
-      open();
+      showError('You are already logged in');
       return;
     } 
     try {
@@ -77,29 +150,26 @@ export function AuthenticationForm(props: PaperProps) {
     }
   }
 
-
-  const onRegister = async () => {
-    if (auth.currentUser) {
-      console.error('User is already logged in');
-      open();
-      return;
+  const handleSubmit = () => {
+    if (type === 'register') {
+      confirmRegistration();
+    } else {
+      onLogin();
     }
-    try {
-      await createUserWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
-      console.log('User successfully registered!');
-    } catch (error) {
-      console.error("Error registering user: ", error);
-    }
-  }
-
-  const logType = () => {
-    console.log("This is type: "+type)
-  }
+  };
 
   return (
     <Paper radius="md" p="xl" withBorder {...props}>
-      <Modal opened={opened} onClose={close} title="Error" centered>
-          {type === 'login' ? 'You are already logged in' : 'You are already logged in. Logout first to register.'}
+      <Modal
+        opened={modal.opened}
+        onClose={() => setModal((m) => ({ ...m, opened: false }))}
+        title={modal.title}
+        centered
+      >
+        {modal.body}
+        <Button fullWidth mt="md" onClick={modal.onConfirm}>
+          {modal.confirmLabel}
+        </Button>
       </Modal>
 
       <Text size="lg" fw={500}>
@@ -107,12 +177,14 @@ export function AuthenticationForm(props: PaperProps) {
       </Text>
 
       <Group grow mb="md" mt="md">
-        <GoogleButton radius="xl">Google</GoogleButton>
+        <GoogleButton radius="xl" onClick={signInWithGoogle}>
+          Google
+        </GoogleButton>
       </Group>
 
       <Divider label="Or continue with email" labelPosition="center" my="lg" />
 
-      <form onSubmit={form.onSubmit(type === 'register' ? onRegister : onLogin)}>
+      <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack>
           {type === 'register' && (
             <TextInput
@@ -173,7 +245,7 @@ export function AuthenticationForm(props: PaperProps) {
               ? 'Already have an account? Login'
               : "Don't have an account? Register"}
           </Anchor>
-          <Button type="submit" radius="xl" onClick={(logType)}>
+          <Button type="submit" radius="xl">
             {upperFirst(type)}
           </Button> 
 
@@ -182,3 +254,5 @@ export function AuthenticationForm(props: PaperProps) {
     </Paper>
   );
 }
+
+
