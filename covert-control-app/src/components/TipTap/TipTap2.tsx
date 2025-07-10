@@ -6,7 +6,7 @@ import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useState } from 'react';
 import { Button, TextInput, Textarea } from '@mantine/core';
-import { useForm, hasLength, isNotEmpty } from '@mantine/form';
+import { useForm } from '@mantine/form';
 import { db } from '../../config/firebase';
 import { addDoc, collection } from 'firebase/firestore';
 import { auth } from '../../config/firebase'
@@ -85,15 +85,15 @@ export function TipTap2() {
     },
   });
 
-  const logCharacters = () => {
-    if (!editor) return;
+  // const logCharacters = () => {
+  //   if (!editor) return;
     
-    const text = editor.getText();
-    console.log('Current text:', text);
-    console.log('WORDS:', text.trim() === '' ? 0 : text.trim().split(/\s+/).length);
-    console.log('CHARS:', text.length)
-    console.log(wordCount);
-  };
+  //   const text = editor.getText();
+  //   console.log('Current text:', text);
+  //   console.log('WORDS:', text.trim() === '' ? 0 : text.trim().split(/\s+/).length);
+  //   console.log('CHARS:', text.length)
+  //   console.log(wordCount);
+  // };
 
   const logData = () => {
     console.log('Form data: ' + form.values.title + ' Description: ' + form.values.description + ' Content: ' + editor?.getText());
