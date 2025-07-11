@@ -1,106 +1,4 @@
-// import { onCall, HttpsError } from 'firebase-functions/v2/https'; // Import HttpsError
-// import * as logger from 'firebase-functions/logger';
-// import * as admin from 'firebase-admin';
-// // Import setGlobalOptions from v2 for global configuration
-// import { setGlobalOptions } from 'firebase-functions/v2';
-
-// admin.initializeApp();
-
-// // Use onCall as an HTTP callable function, designed for client-side calls
-// export const registerUser = onCall(async (req) => { // req.body is for HTTP functions, use req for onCall
-//   // Input for onCall functions is in req.data
-//   const { email, password, username } = req.data as {
-//     email: string;
-//     password: string;
-//     username: string;
-//   };
-
-//   // Validate input (basic example, expand as needed)
-//   if (!email || !password || !username) {
-//     // Throw HttpsError for client-understandable errors
-//     throw new HttpsError('invalid-argument', 'Missing required fields: email, password, or username.');
-//   }
-//   if (password.length < 6) { // Firebase Auth requires minimum 6 characters
-//     throw new HttpsError('invalid-argument', 'Password must be at least 6 characters long.');
-//   }
-
-//   const username_lc = username.trim().toLowerCase();
-//   if (!username_lc) { // Ensure username is not empty after trim
-//     throw new HttpsError('invalid-argument', 'Username cannot be empty or just whitespace.');
-//   }
-
-//   try {
-//     return await admin.firestore().runTransaction(async (tx) => {
-//       // Reference to the lowercase username document for uniqueness check
-//       const nameRef = admin.firestore().doc(`usernames/${username_lc}`);
-
-//       // Check if username is already taken
-//       const nameSnap = await tx.get(nameRef);
-//       if (nameSnap.exists) {
-//         // If it exists, throw an HttpsError with a specific code
-//         throw new HttpsError('already-exists', 'This username is already taken. Please choose a different one.');
-//       }
-
-//       // Reserve the lowercase username by writing to it within the transaction
-//       // This document acts as a unique index for usernames
-//       tx.set(nameRef, {
-//         originalUsername: username, // Store original casing if needed
-//         reservedAt: admin.firestore.FieldValue.serverTimestamp(),
-//         // Potentially store the UID here after user creation to link
-//         // This is a common pattern: usernames/{username} -> { uid: "...", ... }
-//       });
-
-//       // Create the Firebase Auth user
-//       const userRecord = await admin.auth().createUser({
-//         email,
-//         password,
-//       });
-
-//       // Update the 'usernames' entry with the UID now that the user is created
-//       // This is crucial to link the username to the actual user
-//       tx.update(nameRef, { uid: userRecord.uid });
-
-//       // Write the user profile to the 'users' collection
-//       // Document ID is the user's UID from Firebase Auth
-//       const userRef = admin.firestore().doc(`users/${userRecord.uid}`);
-//       tx.set(userRef, {
-//         username: username, // Store original casing for display
-//         username_lc: username_lc, // Store lowercase for searching/uniqueness
-//         email: userRecord.email,
-//         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-//       });
-
-//       // Log success
-//       logger.log(`Registered new user: ${userRecord.uid} with username: ${username}`);
-
-//       // Return data to the client upon successful registration
-//       // This is the data that req.data will receive on the client
-//       return {
-//         uid: userRecord.uid,
-//         email: userRecord.email,
-//         username: username,
-//         message: 'Registration successful!',
-//       };
-//     });
-//   } catch (err: unknown) {
-
-//     // If it's already an HttpsError, re-throw it.
-//     if (err instanceof HttpsError) {
-//       throw err;
-//     }
-
-//     // Log unexpected errors
-//     logger.error('registerUser unexpected error:', err);
-//     // For any other unexpected errors, throw a generic internal error
-//     if (err instanceof Error) {
-//         throw new HttpsError('internal', 'Registration failed due to an unexpected server error.', err.message);
-//     } else {
-//         throw new HttpsError('internal', 'Registration failed due to an unexpected server error.');
-//     }
-//   }
-// });
-
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import * as admin from 'firebase-admin';
 
@@ -115,7 +13,6 @@ setGlobalOptions({
   serviceAccount: 'covert-control@appspot.gserviceaccount.com', // Set the service account here
   // You can also set other global options like memory, timeout, etc.
 });
-
 
 // Use onCall as an HTTP callable function, designed for client-side calls
 export const registerUser = onCall(async (req) => {
@@ -233,3 +130,114 @@ export const registerUser = onCall(async (req) => {
 });
 
 
+
+
+export const completeGoogleRegistration = onCall(async (req: CallableRequest) => {
+  // Ensure the user is authenticated; req.auth will contain user info if authenticated
+  if (!req.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated to complete registration.');
+  }
+
+  const { username } = req.data as { username: string };
+  const uid = req.auth.uid; // Get UID from the authenticated request
+  const email = req.auth.token.email || null; // Get email from the authenticated request token
+
+  // Input validation for username
+  const username_lc = username.trim().toLowerCase();
+  if (!username_lc) {
+    throw new HttpsError('invalid-argument', 'Username cannot be empty or just whitespace.');
+  }
+
+  if (username_lc.length < 3 || username_lc.length > 20) {
+    throw new HttpsError('invalid-argument', 'Username must be between 3 and 20 characters.');
+  }
+
+  try {
+    return await admin.firestore().runTransaction(async (tx) => {
+
+      const nameRef = admin.firestore().doc(`usernames/${username_lc}`);
+      const nameSnap = await tx.get(nameRef);
+
+      // Check for username duplication
+      if (nameSnap.exists) {
+        // If the existing username entry belongs to the *current* user, it's fine (they're just re-submitting)
+        // But if it belongs to someone else, then it's a duplicate.
+        const existingUid = nameSnap.data()?.uid;
+
+        if (existingUid && existingUid !== uid) {
+          throw new HttpsError('already-exists', 'This username is already taken. Please choose a different one.');
+        } else if (existingUid === uid) {
+          // If the username already exists and belongs to this user, we might be re-running this function.
+          // Just ensure the user record exists and return success.
+          logger.warn(`User ${uid} attempted to re-register existing username ${username_lc}. Skipping update.`);
+
+          const userDocRef = admin.firestore().doc(`users/${uid}`);
+          const userDocSnap = await tx.get(userDocRef);
+
+          if (!userDocSnap.exists) {
+            // This case should ideally not happen if username entry exists and belongs to them, but as a safeguard.
+             tx.set(userDocRef, {
+                username: username,
+                username_lc: username_lc,
+                email: email, // Use the email from the auth token
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                // Add any other fields you track for a Google-signed-in user
+              });
+          }
+
+          return {
+            uid: uid,
+            username: username,
+            message: 'Username successfully set (or already set)!',
+          };
+
+        }
+      }
+
+      // If username is new or belongs to this user (and needs updating/setting)
+      tx.set(nameRef, {
+        originalUsername: username,
+        uid: uid, // Link username to the user's UID
+        reservedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Update the main user document in Firestore
+      const userRef = admin.firestore().doc(`users/${uid}`);
+
+      tx.set(userRef, {
+        username: username,
+        username_lc: username_lc,
+        email: email, // Use the email from the auth token
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+
+        // Add any other fields you track for a Google-signed-in user
+      }, { merge: true }); // Use merge: true to avoid overwriting other potential fields
+
+      logger.log(`User ${uid} successfully set username: ${username}`);
+
+      return {
+        uid: uid,
+        username: username,
+        message: 'Username successfully set!',
+      };
+    });
+
+  } catch (err: unknown) {
+    logger.error('completeGoogleRegistration unexpected error:', err);
+    if (err instanceof HttpsError) {
+      throw err;
+    }
+
+    // Handle specific Firebase Admin SDK errors if needed, similar to registerUser
+    if (err && typeof err === 'object' && 'code' in err) {
+
+      // If it's another auth-related error or Firestore error that we don't specifically handle here,
+      // return a generic internal error.
+      throw new HttpsError(
+        'internal',
+        `Failed to set username due to a server error. Please try again.`
+      );
+    }
+    throw new HttpsError('internal', 'An unexpected server error occurred.');
+  }
+});
