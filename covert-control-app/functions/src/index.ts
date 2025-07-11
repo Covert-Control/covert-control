@@ -180,20 +180,56 @@ export const registerUser = onCall(async (req) => {
     });
 
   } catch (err: unknown) { // Changed to unknown for better type safety
+    logger.error('Caught error during registration attempt:', err);
+    // If it's an HttpsError we threw deliberately, re-throw it as is.
     if (err instanceof HttpsError) {
       throw err;
     }
 
+    // Now, let's specifically check for Firebase Authentication errors!
+    // The Admin SDK errors often have a 'code' property similar to client SDKs.
+    if (err && typeof err === 'object' && 'code' in err) {
+      const firebaseErrorCode = (err as { code: string }).code;
+
+      if (firebaseErrorCode === 'auth/email-already-exists') {
+        logger.warn(`Registration failed: Email already in use for email: ${email}`);
+        // This is the magic! Throw a custom HttpsError with your desired message.
+        throw new HttpsError(
+          'already-exists', // A suitable standard HttpsError code
+          'This email is already registered. Please sign in or use a different email.'
+        );
+      }
+
+      // You could also catch other specific Firebase Auth errors if you wish, for example:
+      if (firebaseErrorCode === 'auth/weak-password') {
+        logger.warn(`Registration failed: Weak password provided for email: ${email}`);
+        throw new HttpsError(
+          'invalid-argument',
+          'The password is too weak. Please choose a stronger password.'
+        );
+      }
+
+      // If it's another auth-related error we don't specifically handle, log it and
+      // return a more generic internal error to the client.
+      if (firebaseErrorCode.startsWith('auth/')) {
+        logger.error(`registerUser Firebase Auth error: ${firebaseErrorCode}`, err);
+        throw new HttpsError(
+          'internal',
+          `An authentication issue occurred during registration. Please try again or contact support if the problem persists.`
+        );
+      }
+    }
+
+    // For any other truly unexpected errors (not HttpsError or specific Firebase Auth errors)
     logger.error('registerUser unexpected error:', err);
 
-    // Handle unexpected errors gracefully
     if (err instanceof Error) {
         throw new HttpsError('internal', 'Registration failed due to an unexpected server error.', err.message);
     } else {
         throw new HttpsError('internal', 'Registration failed due to an unexpected server error. (Non-Error type)');
     }
-
   }
+
 });
 
 
