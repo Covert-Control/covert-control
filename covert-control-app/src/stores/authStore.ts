@@ -3,14 +3,26 @@ import { User } from 'firebase/auth';
 
 interface AuthState {
   user: User | null;
+  isProfileComplete: boolean | null;
   loading: boolean;
-  setUser: (user: User | null) => void;
+  profileCheckedForUid: string | null;
+  setAuthState: (currentUser: User | null, isProfileComplete: boolean | null, profileCheckedForUid: string | null) => void;
   setLoading: (loading: boolean) => void;
+  clearAuth: () => void; 
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  loading: true,
-  setUser: (user) => set({ user, loading: false }),
+  isProfileComplete: null,
+  loading: true, 
+  profileCheckedForUid: null, // Initialize as null
+
+  setAuthState: (user, isProfileComplete, profileCheckedForUid) => set({ 
+    user, 
+    isProfileComplete, 
+    profileCheckedForUid, // Set the UID here
+    loading: false 
+  }),
   setLoading: (loading) => set({ loading }),
+  clearAuth: () => set({ user: null, isProfileComplete: null, loading: false, profileCheckedForUid: null }),
 }));
