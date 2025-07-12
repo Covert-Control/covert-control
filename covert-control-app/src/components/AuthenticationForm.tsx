@@ -301,7 +301,7 @@ export function AuthenticationForm(props: PaperProps) {
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   return (
-    <Paper radius="md" p="xl" withBorder {...props}>
+    <Paper radius="md" p="md" {...props}>
       <Modal
         opened={modal.opened}
         onClose={() => setModal((m) => ({ ...m, opened: false }))}

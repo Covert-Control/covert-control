@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useAuthStore } from '../stores/authStore'
 import { Link, Outlet, createRootRoute } from '@tanstack/react-router'
@@ -19,7 +19,7 @@ export const Route = createRootRoute({
 function RootComponent() {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const { user, isProfileComplete, loading, profileCheckedForUid, setAuthState, setLoading, clearAuth } = useAuthStore();
+  const { user, isProfileComplete, loading, profileCheckedForUid, setAuthState, setLoading } = useAuthStore();
   
 
   // useEffect(() => {
@@ -117,22 +117,29 @@ function RootComponent() {
         padding="md"
       >
         <AppShell.Header>
-          <Group h="100%" px="md">
-            <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
-            <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" />
-            <p>Hello this is where logo go!!</p>
-            <DiscordButton />
-            <SchemeToggleButton />
-            <div>
-              {auth.currentUser === null ? 
-              <Link to="/authentication">
-                  <span>Login</span>
-              </Link> :
-              <a href="#" >
-                  <span>Logout</span>
-              </a>
-              }
-            </div>
+          <Group h="100%" px="md" justify="space-between">
+            {/* Left-aligned items */}
+            <Group>
+              <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
+              <Burger opened={desktopOpened} onClick={toggleDesktop} visibleFrom="sm" size="sm" />
+              <p>Hello this is where logo go!!</p>
+            </Group>
+
+            {/* Right-aligned items */}
+            <Group>
+              <DiscordButton />
+              <SchemeToggleButton />
+              <div>
+                {user === null ? 
+                <Link to="/authentication">
+                    <span>Login</span>
+                </Link> :
+                <a href="#" onClick={() => auth.signOut()}> 
+                    <span>Logout</span>
+                </a>
+                }
+              </div>
+            </Group>
           </Group>
         </AppShell.Header>
 
