@@ -63,7 +63,7 @@ export function SetUsernamePage() {
       // Crucial: Update the Zustand store to reflect that the profile is now complete.
       // This will cause `__root.tsx` to re-evaluate and allow navigation to the main app.
       // We pass `currentUser` again to ensure the user object remains fresh in the store.
-      setAuthState(currentUser, true, currentUser.uid); 
+      setAuthState(currentUser, true, currentUser.uid, values.newUsername); 
       navigate({ to: '/' });
 
     } catch (error: any) {

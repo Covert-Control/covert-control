@@ -284,6 +284,7 @@ export function AuthenticationForm(props: PaperProps) {
     } 
     try {
       await signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
+      navigate({ to: '/' });
     } catch (err) {
       console.error(err);
     }

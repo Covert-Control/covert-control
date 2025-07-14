@@ -19,19 +19,7 @@ export const Route = createRootRoute({
 function RootComponent() {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const { user, isProfileComplete, loading, profileCheckedForUid, setAuthState, setLoading } = useAuthStore();
-  
-
-  // useEffect(() => {
-  //   const auth = getAuth();
-  //   setLoading(true);
-    
-  //   const unsubscribe = onAuthStateChanged(auth, (user) => {
-  //     setUser(user || null);
-  //   });
-
-  //   return unsubscribe;
-  // }, [setUser, setLoading]);
+  const { user, isProfileComplete, loading, profileCheckedForUid, setAuthState, setLoading, clearAuth } = useAuthStore();
 
   useEffect(() => {
     // Set loading true initially or if a new auth check is definitely needed
@@ -49,9 +37,11 @@ function RootComponent() {
         // AND that user is the same as the one whose profile we previously checked
         // AND their profile was already found to be complete
         if (currentUser.uid === currentProfileCheckedForUid && currentIsProfileComplete === true) {
-          useAuthStore.getState().setAuthState(currentUser, true, currentUser.uid); 
-          console.log(`[__root.tsx] Profile for ${currentUser.uid} already confirmed complete. Skipping Firestore read.`);
-          return; 
+          if (useAuthStore.getState().username !== null) { // Only skip if username is already present in store
+            setAuthState(currentUser, true, currentUser.uid, useAuthStore.getState().username); 
+            console.log(`[__root.tsx] Profile for ${currentUser.uid} already confirmed complete. Skipping Firestore read.`);
+            return; 
+          }
         }
 
         // --- END CACHING LOGIC ---
@@ -60,22 +50,28 @@ function RootComponent() {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
-          if (userDocSnap.exists() && userDocSnap.data()?.username_lc) {
-            // User document exists AND has a username
-            setAuthState(currentUser, true, currentUser.uid); // Profile is complete, cache this user's UID
+          let fetchedUsername: string | null = null; // Declare a variable for the fetched username
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            if (userData?.username) { // Check for the 'username' field
+              fetchedUsername = userData.username;
+            }
+          }
+
+          if (fetchedUsername) { // If username was found
+            setAuthState(currentUser, true, currentUser.uid, fetchedUsername); 
             console.log(`[__root.tsx] Profile for ${currentUser.uid} confirmed complete via Firestore.`);
           } else {
             // User is logged in but profile is NOT complete (no username or doc missing)
-            setAuthState(currentUser, false, null); // Profile is incomplete, do NOT cache UID as complete
+            setAuthState(currentUser, false, null, null); // <--- Pass null for username
             console.log(`[__root.tsx] Profile for ${currentUser.uid} found incomplete via Firestore.`);
           }
         } catch (error) {
           console.error("Error fetching user profile in __root.tsx:", error);
-          setAuthState(currentUser, false, null); // Assume incomplete on error, do NOT cache UID as complete
+          setAuthState(currentUser, false, null, null); // <--- Pass null for username on error
         }
       } else {
-        // User is signed out
-        useAuthStore.getState().clearAuth(); // Clear state, including profileCheckedForUid
+        clearAuth(); 
         console.log(`[__root.tsx] User signed out.`);
       }
     });

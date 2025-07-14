@@ -13,7 +13,7 @@ import { createFileRoute } from '@tanstack/react-router'
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as StoryIdImport } from './routes/story/$id'
+import { Route as StoriesStoryIdImport } from './routes/stories/$storyId'
 
 // Create Virtual Routes
 
@@ -64,10 +64,10 @@ const IndexLazyRoute = IndexLazyImport.update({
   getParentRoute: () => rootRoute,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
 
-const StoryIdRoute = StoryIdImport.update({
-  id: '/story/$id',
-  path: '/story/$id',
-  getParentRoute: () => rootRoute,
+const StoriesStoryIdRoute = StoriesStoryIdImport.update({
+  id: '/$storyId',
+  path: '/$storyId',
+  getParentRoute: () => StoriesLazyRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -116,26 +116,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubmitLazyImport
       parentRoute: typeof rootRoute
     }
-    '/story/$id': {
-      id: '/story/$id'
-      path: '/story/$id'
-      fullPath: '/story/$id'
-      preLoaderRoute: typeof StoryIdImport
-      parentRoute: typeof rootRoute
+    '/stories/$storyId': {
+      id: '/stories/$storyId'
+      path: '/$storyId'
+      fullPath: '/stories/$storyId'
+      preLoaderRoute: typeof StoriesStoryIdImport
+      parentRoute: typeof StoriesLazyImport
     }
   }
 }
 
 // Create and export the route tree
 
+interface StoriesLazyRouteChildren {
+  StoriesStoryIdRoute: typeof StoriesStoryIdRoute
+}
+
+const StoriesLazyRouteChildren: StoriesLazyRouteChildren = {
+  StoriesStoryIdRoute: StoriesStoryIdRoute,
+}
+
+const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
+  StoriesLazyRouteChildren,
+)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
-  '/stories': typeof StoriesLazyRoute
+  '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
-  '/story/$id': typeof StoryIdRoute
+  '/stories/$storyId': typeof StoriesStoryIdRoute
 }
 
 export interface FileRoutesByTo {
@@ -143,9 +155,9 @@ export interface FileRoutesByTo {
   '/about': typeof AboutLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
-  '/stories': typeof StoriesLazyRoute
+  '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
-  '/story/$id': typeof StoryIdRoute
+  '/stories/$storyId': typeof StoriesStoryIdRoute
 }
 
 export interface FileRoutesById {
@@ -154,9 +166,9 @@ export interface FileRoutesById {
   '/about': typeof AboutLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
-  '/stories': typeof StoriesLazyRoute
+  '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
-  '/story/$id': typeof StoryIdRoute
+  '/stories/$storyId': typeof StoriesStoryIdRoute
 }
 
 export interface FileRouteTypes {
@@ -168,7 +180,7 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
-    | '/story/$id'
+    | '/stories/$storyId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,7 +189,7 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
-    | '/story/$id'
+    | '/stories/$storyId'
   id:
     | '__root__'
     | '/'
@@ -186,7 +198,7 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
-    | '/story/$id'
+    | '/stories/$storyId'
   fileRoutesById: FileRoutesById
 }
 
@@ -195,9 +207,8 @@ export interface RootRouteChildren {
   AboutLazyRoute: typeof AboutLazyRoute
   AuthenticationLazyRoute: typeof AuthenticationLazyRoute
   NothingFoundLazyRoute: typeof NothingFoundLazyRoute
-  StoriesLazyRoute: typeof StoriesLazyRoute
+  StoriesLazyRoute: typeof StoriesLazyRouteWithChildren
   SubmitLazyRoute: typeof SubmitLazyRoute
-  StoryIdRoute: typeof StoryIdRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -205,9 +216,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutLazyRoute: AboutLazyRoute,
   AuthenticationLazyRoute: AuthenticationLazyRoute,
   NothingFoundLazyRoute: NothingFoundLazyRoute,
-  StoriesLazyRoute: StoriesLazyRoute,
+  StoriesLazyRoute: StoriesLazyRouteWithChildren,
   SubmitLazyRoute: SubmitLazyRoute,
-  StoryIdRoute: StoryIdRoute,
 }
 
 export const routeTree = rootRoute
@@ -225,8 +235,7 @@ export const routeTree = rootRoute
         "/authentication",
         "/nothing-found",
         "/stories",
-        "/submit",
-        "/story/$id"
+        "/submit"
       ]
     },
     "/": {
@@ -242,13 +251,17 @@ export const routeTree = rootRoute
       "filePath": "nothing-found.lazy.tsx"
     },
     "/stories": {
-      "filePath": "stories.lazy.tsx"
+      "filePath": "stories.lazy.tsx",
+      "children": [
+        "/stories/$storyId"
+      ]
     },
     "/submit": {
       "filePath": "submit.lazy.tsx"
     },
-    "/story/$id": {
-      "filePath": "story/$id.tsx"
+    "/stories/$storyId": {
+      "filePath": "stories/$storyId.tsx",
+      "parent": "/stories"
     }
   }
 }
