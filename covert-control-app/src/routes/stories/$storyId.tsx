@@ -3,9 +3,13 @@ import { createFileRoute, useParams, Link } from '@tanstack/react-router'; // <-
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase'; // Ensure 'db' is imported
-import { Loader, Text, Title, Paper, Group, Button, Space } from '@mantine/core'; // Mantine components
+import { Loader, Text, Title, Paper, Button, Space } from '@mantine/core'; // Mantine components
 import { CircleArrowLeft } from 'lucide-react'; // Example icon, replace with Lucide if preferred
-
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import { Link as TipTapLink } from '@tiptap/extension-link'
+import { useEffect, useMemo } from 'react';
 // Define the route with a parameter
 export const Route = createFileRoute('/stories/$storyId')({
   component: StoryDetailPage,
@@ -24,6 +28,7 @@ interface Story {
 function StoryDetailPage() {
   const { storyId } = useParams({ from: '/stories/$storyId' }); // <--- Get the storyId from the URL params
 
+  
   // Use TanStack Query to fetch the single story
   const { data: story, isLoading, error } = useQuery<Story>({
     queryKey: ['storyDetail', storyId], // Query key includes storyId for unique caching
@@ -36,11 +41,13 @@ function StoryDetailPage() {
         throw new Error(`Story with ID "${storyId}" not found.`);
       }
 
+      
+
       return {
         id: storyDocSnap.id,
         title: storyDocSnap.data()?.title,
         description: storyDocSnap.data()?.description,
-        content: storyDocSnap.data()?.content,
+        content: JSON.parse(storyDocSnap.data()?.content),
         uid: storyDocSnap.data()?.uid,
         createdAt: storyDocSnap.data()?.createdAt?.toDate(),
       } as Story;
@@ -49,6 +56,20 @@ function StoryDetailPage() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  console.log("Loaded story content:", story?.content);
+
+  const readOnlyEditor = useEditor({
+    extensions: [StarterKit, Underline, TipTapLink],
+    editable: false,
+    content: '',          // start blank every time
+    autofocus: false,     // optional
+  });
+
+  useEffect(() => {
+    if (story?.content && readOnlyEditor) {
+      readOnlyEditor.commands.setContent(story.content);
+    }
+  }, [story?.content, readOnlyEditor]);
 
   if (error) {
     console.error("Full useQuery error object:", error);
@@ -88,17 +109,22 @@ function StoryDetailPage() {
   }
 
   return (
+    
     <Paper p="xl" shadow="sm" radius="md" style={{ maxWidth: 800, margin: '20px auto' }}>
       <Link to="/stories" style={{ marginBottom: '20px', display: 'inline-block' }}>
         <Button variant="subtle" leftSection={<CircleArrowLeft size={14} />}>Back to all stories</Button>
       </Link>
       <Title order={1} mb="md">{story.title}</Title>
       <Text color="dimmed" size="lg" mb="xl">{story.description}</Text>
-      <Text style={{ whiteSpace: 'pre-wrap' }}>{story.content}</Text> {/* Renders plain text with line breaks */}
       <Space h="xl" />
-      <Text size="sm" color="gray" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', paddingTop: '10px' }}>
+      {/* <Text size="sm" color="gray" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', paddingTop: '10px' }}>
         Submitted by UID: {story.uid} on {story.createdAt ? story.createdAt.toLocaleDateString() : 'N/A'}
-      </Text>
+      </Text> */}
+      {readOnlyEditor ? (
+        <EditorContent editor={readOnlyEditor} />
+      ) : (
+        <Loader />
+      )}
     </Paper>
   );
 

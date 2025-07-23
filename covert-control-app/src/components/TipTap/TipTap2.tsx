@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { db } from '../../config/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth } from '../../config/firebase'
 
 const content = '';
@@ -51,7 +51,7 @@ export function TipTap2() {
         if (wordCount < 20) {
           return 'A chapter must have at least 20 words';
         }
-        if (wordCount > 30) {
+        if (wordCount > 500) {
           return 'Maximum of 500 words allowed. Please split longer stories into multiple chapters';
         }
         if (charCount > limit) {
@@ -106,7 +106,7 @@ export function TipTap2() {
       return;
     }
     try {
-      await addDoc(storyCollectionRef, {title: form.values.title, description: form.values.description, content: editor?.getText(), uid: auth.currentUser.uid, createdAt: new Date()});
+      await addDoc(storyCollectionRef, {title: form.values.title, description: form.values.description, content: JSON.stringify(editor?.getJSON()), ownerId: auth.currentUser.uid, createdAt: serverTimestamp()});
       console.log('Document successfully written!');
     } catch (error) {
       console.error("Error adding document: ", error);

@@ -38,7 +38,7 @@
 // }
 
 // src/routes/stories.tsx
-import { createLazyFileRoute, Link, Outlet, useMatch, useLocation } from '@tanstack/react-router';
+import { createLazyFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query'; // <--- Import useQuery
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase'; // Ensure 'db' is imported
