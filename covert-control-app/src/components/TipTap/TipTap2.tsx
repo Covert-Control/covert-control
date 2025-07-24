@@ -12,7 +12,7 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth } from '../../config/firebase'
 
 const content = '';
-const limit = 1000; // Character limit for the story
+const limit = 10000; // Character limit for the story
 
 export function TipTap2() {
   const [wordCount, setWordCount] = useState(0);
@@ -51,8 +51,8 @@ export function TipTap2() {
         if (wordCount < 20) {
           return 'A chapter must have at least 20 words';
         }
-        if (wordCount > 500) {
-          return 'Maximum of 500 words allowed. Please split longer stories into multiple chapters';
+        if (wordCount > 1000) {
+          return 'Maximum of 1000 words allowed. Please split longer stories into multiple chapters';
         }
         if (charCount > limit) {
           return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;

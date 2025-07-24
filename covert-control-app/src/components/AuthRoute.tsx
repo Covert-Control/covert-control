@@ -1,7 +1,7 @@
 import { useRouter } from '@tanstack/react-router';
 import { useAuthStore } from '../stores/authStore';
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore();
   const router = useRouter();
 

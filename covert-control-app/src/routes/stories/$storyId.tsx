@@ -3,13 +3,13 @@ import { createFileRoute, useParams, Link } from '@tanstack/react-router'; // <-
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase'; // Ensure 'db' is imported
-import { Loader, Text, Title, Paper, Button, Space } from '@mantine/core'; // Mantine components
+import { Skeleton, Text, Title, Paper, Button, Space } from '@mantine/core'; // Mantine components
 import { CircleArrowLeft } from 'lucide-react'; // Example icon, replace with Lucide if preferred
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { Link as TipTapLink } from '@tiptap/extension-link'
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 // Define the route with a parameter
 export const Route = createFileRoute('/stories/$storyId')({
   component: StoryDetailPage,
@@ -78,11 +78,14 @@ function StoryDetailPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Loader size="xl" />
-      </div>
+      <Paper p="xl" shadow="sm" radius="md" style={{ maxWidth: 800, margin: '20px auto' }}>
+        <Skeleton height={30} mb="md" />
+        <Skeleton height={20} mb="lg" />
+        <Skeleton height={400} radius="md" />
+      </Paper>
     );
   }
+
 
   if (error) {
     return (
@@ -117,14 +120,11 @@ function StoryDetailPage() {
       <Title order={1} mb="md">{story.title}</Title>
       <Text color="dimmed" size="lg" mb="xl">{story.description}</Text>
       <Space h="xl" />
-      {/* <Text size="sm" color="gray" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', paddingTop: '10px' }}>
-        Submitted by UID: {story.uid} on {story.createdAt ? story.createdAt.toLocaleDateString() : 'N/A'}
-      </Text> */}
-      {readOnlyEditor ? (
-        <EditorContent editor={readOnlyEditor} />
-      ) : (
-        <Loader />
-      )}
+      <EditorContent editor={readOnlyEditor!} />
+      <Space h="xl" />
+      <Text size="sm" color="gray" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', paddingTop: '10px' }}>
+        Submitted by UID: {story.uid} on {story.createdAt.toLocaleDateString()}
+      </Text>
     </Paper>
   );
 
