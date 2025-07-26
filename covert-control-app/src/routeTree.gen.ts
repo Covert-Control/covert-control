@@ -17,6 +17,7 @@ import { Route as StoriesStoryIdImport } from './routes/stories/$storyId'
 
 // Create Virtual Routes
 
+const YourSubmissionsLazyImport = createFileRoute('/your-submissions')()
 const SubmitLazyImport = createFileRoute('/submit')()
 const StoriesLazyImport = createFileRoute('/stories')()
 const NothingFoundLazyImport = createFileRoute('/nothing-found')()
@@ -25,6 +26,14 @@ const AboutLazyImport = createFileRoute('/about')()
 const IndexLazyImport = createFileRoute('/')()
 
 // Create/Update Routes
+
+const YourSubmissionsLazyRoute = YourSubmissionsLazyImport.update({
+  id: '/your-submissions',
+  path: '/your-submissions',
+  getParentRoute: () => rootRoute,
+} as any).lazy(() =>
+  import('./routes/your-submissions.lazy').then((d) => d.Route),
+)
 
 const SubmitLazyRoute = SubmitLazyImport.update({
   id: '/submit',
@@ -116,6 +125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubmitLazyImport
       parentRoute: typeof rootRoute
     }
+    '/your-submissions': {
+      id: '/your-submissions'
+      path: '/your-submissions'
+      fullPath: '/your-submissions'
+      preLoaderRoute: typeof YourSubmissionsLazyImport
+      parentRoute: typeof rootRoute
+    }
     '/stories/$storyId': {
       id: '/stories/$storyId'
       path: '/$storyId'
@@ -147,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
+  '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRoute
 }
 
@@ -157,6 +174,7 @@ export interface FileRoutesByTo {
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
+  '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRoute
 }
 
@@ -168,6 +186,7 @@ export interface FileRoutesById {
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
+  '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRoute
 }
 
@@ -180,6 +199,7 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
+    | '/your-submissions'
     | '/stories/$storyId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -189,6 +209,7 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
+    | '/your-submissions'
     | '/stories/$storyId'
   id:
     | '__root__'
@@ -198,6 +219,7 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
+    | '/your-submissions'
     | '/stories/$storyId'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +231,7 @@ export interface RootRouteChildren {
   NothingFoundLazyRoute: typeof NothingFoundLazyRoute
   StoriesLazyRoute: typeof StoriesLazyRouteWithChildren
   SubmitLazyRoute: typeof SubmitLazyRoute
+  YourSubmissionsLazyRoute: typeof YourSubmissionsLazyRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -218,6 +241,7 @@ const rootRouteChildren: RootRouteChildren = {
   NothingFoundLazyRoute: NothingFoundLazyRoute,
   StoriesLazyRoute: StoriesLazyRouteWithChildren,
   SubmitLazyRoute: SubmitLazyRoute,
+  YourSubmissionsLazyRoute: YourSubmissionsLazyRoute,
 }
 
 export const routeTree = rootRoute
@@ -235,7 +259,8 @@ export const routeTree = rootRoute
         "/authentication",
         "/nothing-found",
         "/stories",
-        "/submit"
+        "/submit",
+        "/your-submissions"
       ]
     },
     "/": {
@@ -258,6 +283,9 @@ export const routeTree = rootRoute
     },
     "/submit": {
       "filePath": "submit.lazy.tsx"
+    },
+    "/your-submissions": {
+      "filePath": "your-submissions.lazy.tsx"
     },
     "/stories/$storyId": {
       "filePath": "stories/$storyId.tsx",

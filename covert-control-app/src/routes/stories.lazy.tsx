@@ -1,42 +1,3 @@
-// import { createLazyFileRoute } from '@tanstack/react-router'
-// import { db } from '../config/firebase'
-// import { useEffect, useState } from 'react'
-// import { getDocs, collection } from 'firebase/firestore'
-
-// export const Route = createLazyFileRoute('/stories')({
-//   component: RouteComponent,
-// })
-
-// function RouteComponent() {
-//   const [storyList, setStoryList] = useState<any[]>([])
-//   const storyCollectionRef = collection(db, 'stories')
-
-//   useEffect(() => {
-//     const fetchStories = async () => {
-//       try {
-//         const storiesCollection = await getDocs(storyCollectionRef)
-//         const filteredData = storiesCollection.docs.map((doc) => ({...doc.data(), id: doc.id}))
-//         setStoryList(filteredData)
-//       } catch (error) {
-//         console.error("Error fetching stories:", error)
-//       }
-//     }
-//     fetchStories();
-//   }, [])
-
-
-//   return <div>Hello "/stories"!
-//     <ul>
-//       {storyList.map((story) => (
-//         <li key={story.id}>
-//           <h3>{story.title}</h3>
-//           <p>{story.description}</p>
-//         </li>
-//       ))}
-//     </ul>
-//   </div>
-// }
-
 // src/routes/stories.tsx
 import { createLazyFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query'; // <--- Import useQuery
@@ -64,9 +25,6 @@ function StoriesListComponent() { // Renamed from RouteComponent to keep it cons
   const location = useLocation();
   //const isCurrentlyAtStoriesBase = useMatch({ to: '/stories', strict: true });
   const isCurrentlyAtStoriesBase = location.pathname === '/stories';
-
-
-
 
   // Use TanStack Query to fetch stories
   const { data: stories, isLoading, error } = useQuery<Story[]>({
@@ -101,27 +59,34 @@ function StoriesListComponent() { // Renamed from RouteComponent to keep it cons
 
   return (
     <div style={{ padding: '20px' }}>
-      <Title order={2} mb="xl">All Stories</Title>
-      <Space h="lg" />
+      {/* Conditionally render the title and list OR the Outlet */}
+      {isCurrentlyAtStoriesBase ? (
+        <> 
+          <Title order={2} mb="xl">All Stories</Title>
+          <Space h="lg" />
 
-      {/* Conditionally render the list OR the Outlet */}
-      {isCurrentlyAtStoriesBase
-        ? ( // If exactly at /stories, show the list
-          stories && stories.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+          {stories && stories.length > 0 ? (
+            <div style={{ gap: '20px', display: 'flex', flexDirection: 'column' }}>
               {stories.map(story => (
                 <Link key={story.id} to="/stories/$storyId" params={{ storyId: story.id }} style={{ textDecoration: 'none' }}>
-                  <Card shadow="sm" padding="lg" radius="md" withBorder > 
-                    <Card.Section p="md">
+                  <Card shadow="sm" padding="lg" radius="md" withBorder >
+                    {/* Combine Title, Text, and Button into one Card.Section */}
+                    <Card.Section p="md" style={{
+                      display: 'flex',
+                      flexDirection: 'column', // Arrange title, description, button vertically by default
+                      justifyContent: 'space-between', // Push button to bottom if space allows
+                      flexGrow: 1, // Allow this section to grow if other parts of the card are fixed height
+                    }}>
                       <Title order={3} size="h4" mb="xs">{story.title}</Title>
-                      <Text size="sm" color="dimmed" lineClamp={3}>
+                      <Text size="sm" color="dimmed" lineClamp={3} mb="sm"> {/* Added mb="sm" for spacing */}
                         {story.description}
                       </Text>
-                    </Card.Section>
-                    <Card.Section p="md" style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--mantine-color-gray-2)' }}>
-                      <Button variant="light" size="xs" rightSection={<ArrowRight size={14} />}>
-                        Read Story
-                      </Button>
+                      {/* Move the button here */}
+                      <div style={{ alignSelf: 'flex-end', marginTop: 'auto' }}> {/* Push button to bottom-right within its flex container */}
+                        <Button variant="light" size="xs" rightSection={<ArrowRight size={14} />}>
+                          Read Story
+                        </Button>
+                      </div>
                     </Card.Section>
                   </Card>
                 </Link>
@@ -129,10 +94,11 @@ function StoriesListComponent() { // Renamed from RouteComponent to keep it cons
             </div>
           ) : (
             <Text>No stories found. Be the first to submit one!</Text>
-          )
-        ) : ( // If a child route is active (e.g., /stories/some-id), render the Outlet
-          <Outlet /> 
-        )}
+          )}
+        </>
+      ) : (
+        <Outlet />
+      )}
     </div>
   );
 }

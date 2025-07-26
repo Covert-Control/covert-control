@@ -8,6 +8,7 @@ import { useDisclosure } from '@mantine/hooks';
 import SchemeToggleButton from '../components/SchemeToggleButton.tsx';
 import DiscordButton from '../components/DiscordButton.tsx';
 import Navbar from '../components/Navbar/Navbar.tsx';
+import { AccountDropDown } from '../components/AccountDropDown.tsx';
 import { useEffect } from 'react';
 import { auth, db } from '../config/firebase.tsx';
 import { SetUsernamePage } from '../components/SetUsernamePage.tsx';
@@ -38,7 +39,7 @@ function RootComponent() {
         // AND their profile was already found to be complete
         if (currentUser.uid === currentProfileCheckedForUid && currentIsProfileComplete === true) {
           if (useAuthStore.getState().username !== null) { // Only skip if username is already present in store
-            setAuthState(currentUser, true, currentUser.uid, useAuthStore.getState().username); 
+            setAuthState(currentUser, true, currentUser.uid, useAuthStore.getState().username, currentUser.email); 
             console.log(`[__root.tsx] Profile for ${currentUser.uid} already confirmed complete. Skipping Firestore read.`);
             return; 
           }
@@ -59,16 +60,16 @@ function RootComponent() {
           }
 
           if (fetchedUsername) { // If username was found
-            setAuthState(currentUser, true, currentUser.uid, fetchedUsername); 
+            setAuthState(currentUser, true, currentUser.uid, fetchedUsername, currentUser.email); 
             console.log(`[__root.tsx] Profile for ${currentUser.uid} confirmed complete via Firestore.`);
           } else {
             // User is logged in but profile is NOT complete (no username or doc missing)
-            setAuthState(currentUser, false, null, null); // <--- Pass null for username
+            setAuthState(currentUser, false, null, null, null); // <--- Pass null for username and email
             console.log(`[__root.tsx] Profile for ${currentUser.uid} found incomplete via Firestore.`);
           }
         } catch (error) {
           console.error("Error fetching user profile in __root.tsx:", error);
-          setAuthState(currentUser, false, null, null); // <--- Pass null for username on error
+          setAuthState(currentUser, false, null, null, null); // <--- Pass null for username and email on error
         }
       } else {
         clearAuth(); 
@@ -128,11 +129,9 @@ function RootComponent() {
               <div>
                 {user === null ? 
                 <Link to="/authentication">
-                    <span>Login</span>
+                    <span>Login ddasf    </span>
                 </Link> :
-                <a href="#" onClick={() => auth.signOut()}> 
-                    <span>Logout</span>
-                </a>
+                  <AccountDropDown />
                 }
               </div>
             </Group>

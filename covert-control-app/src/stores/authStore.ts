@@ -7,7 +7,8 @@ interface AuthState {
   loading: boolean;
   profileCheckedForUid: string | null;
   username: string | null;
-  setAuthState: (currentUser: User | null, isProfileComplete: boolean | null, profileCheckedForUid: string | null, username: string | null) => void;
+  email: string | null;
+  setAuthState: (currentUser: User | null, isProfileComplete: boolean | null, profileCheckedForUid: string | null, username: string | null, email: string | null) => void;
   setLoading: (loading: boolean) => void;
   clearAuth: () => void; 
 }
@@ -18,14 +19,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true, 
   profileCheckedForUid: null,
   username: null, 
+  email: null,
 
-  setAuthState: (user, isProfileComplete, profileCheckedForUid, username) => set({ 
+  setAuthState: (user, isProfileComplete, profileCheckedForUid, username, email) => set({ 
     user, 
     isProfileComplete, 
     profileCheckedForUid, // Set the UID here
     username,
+    email,
     loading: false 
   }),
   setLoading: (loading) => set({ loading }),
-  clearAuth: () => set({ user: null, isProfileComplete: null, loading: false, profileCheckedForUid: null, username: null }),
+  clearAuth: () => set({ user: null, isProfileComplete: null, loading: false, profileCheckedForUid: null, username: null, email: null }),
 }));
