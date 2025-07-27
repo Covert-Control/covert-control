@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'; // <--- Import useQuery
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase'; // Ensure 'db' is imported
 import { Loader, Card, Text, Title, Space, Button } from '@mantine/core'; // Added Mantine components for display
-import { ArrowRight } from 'lucide-react'; // <--- Using Lucide ArrowRight
+import { ArrowRight, Link2Icon } from 'lucide-react'; // <--- Using Lucide ArrowRight
 
 export const Route = createLazyFileRoute('/stories')({
   component: StoriesListComponent,
@@ -17,6 +17,8 @@ interface Story {
   description: string;
   content: string; // From your TipTap2 component, you're currently storing plain text
   uid: string;
+  viewCount: number;
+  username: string;
   createdAt: Date; // Or Timestamp if you store it as Firestore Timestamp
 }
 
@@ -38,6 +40,8 @@ function StoriesListComponent() { // Renamed from RouteComponent to keep it cons
         description: doc.data().description,
         content: doc.data().content, // Assuming content is plain text
         uid: doc.data().uid,
+        viewCount: doc.data().viewCount || 0, // Default to 0 if views field is missing
+        username: doc.data().username || 'Unknown', // Default to 'Anonymous' if username is missing
         createdAt: doc.data().createdAt?.toDate(), // Convert Firestore Timestamp to Date
       } as Story)); // Cast to Story type
     },
@@ -70,19 +74,28 @@ function StoriesListComponent() { // Renamed from RouteComponent to keep it cons
               {stories.map(story => (
                 <Link key={story.id} to="/stories/$storyId" params={{ storyId: story.id }} style={{ textDecoration: 'none' }}>
                   <Card shadow="sm" padding="lg" radius="md" withBorder >
-                    {/* Combine Title, Text, and Button into one Card.Section */}
                     <Card.Section p="md" style={{
                       display: 'flex',
-                      flexDirection: 'column', // Arrange title, description, button vertically by default
-                      justifyContent: 'space-between', // Push button to bottom if space allows
-                      flexGrow: 1, // Allow this section to grow if other parts of the card are fixed height
+                      flexDirection: 'column', 
+                      justifyContent: 'space-between', 
+                      flexGrow: 1, 
                     }}>
-                      <Title order={3} size="h4" mb="xs">{story.title}</Title>
-                      <Text size="sm" color="dimmed" lineClamp={3} mb="sm"> {/* Added mb="sm" for spacing */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'xs' }}>
+                          <Title order={3} size="h4" mb="0" style={{ display: 'inline' }}> {/* Added display: 'inline' to Title's style */}
+                            {story.title}{' '} {/* Add a space here if you want space between title and "by" */}
+                            <Text component="span" size="sm" color="dimmed" style={{ display: 'inline' }}> {/* Use component="span" for inline rendering */}
+                              by 
+                              <Link to="/authors/$authorId" params={{ authorId: story.uid }} style={{ textDecoration: 'underline', color: 'inherit' }}>
+                                {story.username}
+                              </Link>
+                            </Text>
+                          </Title>
+                        <Text size="sm" color="dimmed" style={{ flexShrink: 0 }}>Views: {story.viewCount}</Text> {/* flexShrink: 0 prevents it from shrinking if title is long */}
+                      </div>
+                      <Text size="sm" color="dimmed" lineClamp={3} mb="sm">
                         {story.description}
                       </Text>
-                      {/* Move the button here */}
-                      <div style={{ alignSelf: 'flex-end', marginTop: 'auto' }}> {/* Push button to bottom-right within its flex container */}
+                      <div style={{ alignSelf: 'flex-end', marginTop: 'auto' }}> 
                         <Button variant="light" size="xs" rightSection={<ArrowRight size={14} />}>
                           Read Story
                         </Button>

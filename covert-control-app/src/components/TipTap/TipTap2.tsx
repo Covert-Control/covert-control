@@ -10,6 +10,7 @@ import { useForm } from '@mantine/form';
 import { db } from '../../config/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth } from '../../config/firebase'
+import { useAuthStore } from '../../stores/authStore';
 
 const content = '';
 const limit = 10000; // Character limit for the story
@@ -18,6 +19,7 @@ export function TipTap2() {
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const storyCollectionRef = collection(db, 'stories')
+  const { username } = useAuthStore();
 
   const form = useForm({
     initialValues: {
@@ -106,7 +108,15 @@ export function TipTap2() {
       return;
     }
     try {
-      await addDoc(storyCollectionRef, {title: form.values.title, description: form.values.description, content: JSON.stringify(editor?.getJSON()), ownerId: auth.currentUser.uid, createdAt: serverTimestamp()});
+      await addDoc(storyCollectionRef, {
+        title: form.values.title,
+        description: form.values.description,
+        content: JSON.stringify(editor?.getJSON()),
+        ownerId: auth.currentUser.uid,
+        username: username,
+        viewCount: 0,
+        createdAt: serverTimestamp(),
+      });
       console.log('Document successfully written!');
     } catch (error) {
       console.error("Error adding document: ", error);

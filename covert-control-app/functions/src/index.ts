@@ -241,3 +241,35 @@ export const completeGoogleRegistration = onCall(async (req: CallableRequest) =>
     throw new HttpsError('internal', 'An unexpected server error occurred.');
   }
 });
+
+// Function to increment the view count of a story
+export const incrementStoryView = onCall(async (req: CallableRequest) => {
+  // Extract storyId from the request data
+  const { storyId } = req.data as { storyId: string };
+
+  // Validate input
+  if (!storyId) {
+    throw new HttpsError('invalid-argument', 'The function must be called with a storyId.');
+  }
+
+  const storyRef = admin.firestore().collection('stories').doc(storyId);
+
+  try {
+    // Atomically increment the viewCount field
+    await storyRef.update({
+      viewCount: admin.firestore.FieldValue.increment(1)
+    });
+    logger.log(`View count incremented for story ${storyId}`);
+    return { success: true, message: `View count for story ${storyId} incremented.` };
+  } catch (error: unknown) {
+    logger.error(`Failed to increment view count for story ${storyId}:`, error);
+
+    // If it's a specific Firestore error, you might handle it. Otherwise,
+    // throw a generic internal error.
+    if (error instanceof Error) {
+        throw new HttpsError('internal', 'Unable to increment view count due to server error.', error.message);
+    } else {
+        throw new HttpsError('internal', 'Unable to increment view count due to an unknown server error.');
+    }
+  }
+});

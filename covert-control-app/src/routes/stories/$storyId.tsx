@@ -9,7 +9,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { Link as TipTapLink } from '@tiptap/extension-link'
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 // Define the route with a parameter
 export const Route = createFileRoute('/stories/$storyId')({
   component: StoryDetailPage,
@@ -22,13 +23,16 @@ interface Story {
   description: string;
   content: string; 
   uid: string;
+  username: string;
   createdAt: Date;
 }
 
 function StoryDetailPage() {
   const { storyId } = useParams({ from: '/stories/$storyId' }); // <--- Get the storyId from the URL params
+  const hasIncrementedRef = useRef<{ [key: string]: boolean }>({});
+  const functions = getFunctions();
+  const incrementViewCount = httpsCallable(functions, 'incrementStoryView');
 
-  
   // Use TanStack Query to fetch the single story
   const { data: story, isLoading, error } = useQuery<Story>({
     queryKey: ['storyDetail', storyId], // Query key includes storyId for unique caching
@@ -48,7 +52,8 @@ function StoryDetailPage() {
         title: storyDocSnap.data()?.title,
         description: storyDocSnap.data()?.description,
         content: JSON.parse(storyDocSnap.data()?.content),
-        uid: storyDocSnap.data()?.uid,
+        uid: storyDocSnap.data()?.ownerId,
+        username: storyDocSnap.data()?.username || 'Anonymous',
         createdAt: storyDocSnap.data()?.createdAt?.toDate(),
       } as Story;
     },
@@ -70,6 +75,29 @@ function StoryDetailPage() {
       readOnlyEditor.commands.setContent(story.content);
     }
   }, [story?.content, readOnlyEditor]);
+
+  useEffect(() => {
+    // Ensure storyId exists and we haven't already incremented for this storyId in this session
+    if (storyId && !hasIncrementedRef.current[storyId]) {
+      incrementViewCount({ storyId })
+        .then(() => {
+          // Mark as incremented for this storyId to prevent multiple calls
+          hasIncrementedRef.current[storyId] = true;
+          // Optional: Invalidate the query to refetch the updated view count if desired
+          // queryClient.invalidateQueries(['storyDetail', storyId]);
+        })
+        .catch(error => {
+          console.error('Error incrementing view count:', error.code, error.message);
+          // You might want to show a subtle toast notification to the user here
+        });
+    }
+    // Cleanup function: if component unmounts and remounts, reset for that storyId
+    return () => {
+        // You might consider a more sophisticated check (e.g., local storage)
+        // if you want to prevent multiple views from the same user across sessions.
+        // For simple page view count, marking it true in a ref is fine for a single session.
+    };
+  }, [storyId]); // Dependency array: run when storyId changes
 
   if (error) {
     console.error("Full useQuery error object:", error);
@@ -122,9 +150,9 @@ function StoryDetailPage() {
       <Space h="xl" />
       <EditorContent editor={readOnlyEditor!} />
       <Space h="xl" />
-      <Text size="sm" color="gray" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', paddingTop: '10px' }}>
-        Submitted by UID: {story.uid} on {story.createdAt.toLocaleDateString()}
-      </Text>
+        <Link to="/authors/$authorId" params={{ authorId: story.uid }} style={{ textDecoration: 'underline', color: 'inherit' }}>
+          {story.username}
+        </Link>{' '}on {story.createdAt.toLocaleDateString()}
     </Paper>
   );
 
