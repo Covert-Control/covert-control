@@ -18,11 +18,10 @@ import { GoogleButton } from './GoogleButton.tsx';
 import { signInWithPopup, signInWithEmailAndPassword, getAdditionalUserInfo } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase.tsx';
 import { useState } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useNavigate } from '@tanstack/react-router';
 import { notifications } from '@mantine/notifications';
 import { PartyPopperIcon, CheckIcon, XIcon } from 'lucide-react';
-
+import { registerUserCallable, completeGoogleRegistrationCallable } from '../config/firebase.tsx';
 
 type ModalConfig = {
   opened: boolean;
@@ -43,13 +42,7 @@ export function AuthenticationForm(props: PaperProps) {
     confirmLabel: 'OK',
   });
 
-  // Initialize Cloud Functions instance
-  const functions = getFunctions();
-  // Get a reference to your callable function
-  const registerUserCallable = httpsCallable(functions, 'registerUser');
-
   const [usernameModalOpened, setUsernameModalOpened] = useState(false);
-  const completeGoogleRegistrationCallable = httpsCallable(functions, 'completeGoogleRegistration');
 
   const navigate = useNavigate(); 
 

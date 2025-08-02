@@ -1,41 +1,63 @@
-// src/routes/stories.$storyId.tsx
-import { createFileRoute, useParams, Link } from '@tanstack/react-router'; // <--- Import useParams and Link
+import { createFileRoute, useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase'; // Ensure 'db' is imported
-import { Skeleton, Text, Title, Paper, Button, Space } from '@mantine/core'; // Mantine components
-import { CircleArrowLeft } from 'lucide-react'; // Example icon, replace with Lucide if preferred
+import { db } from '../../config/firebase';
+import { Skeleton, Text, Title, Paper, Button, Space } from '@mantine/core';
+import { CircleArrowLeft } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { Link as TipTapLink } from '@tiptap/extension-link'
-import { useEffect, useRef } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useEffect, useRef } from 'react'; // <--- Import useRef
+import { incrementStoryViewCallable } from '../../config/firebase';
+
 // Define the route with a parameter
 export const Route = createFileRoute('/stories/$storyId')({
   component: StoryDetailPage,
 });
 
-// Reuse the Story interface from stories.tsx
+// A simple type definition for your story documents
 interface Story {
   id: string; // The Firestore document ID
   title: string;
   description: string;
   content: string; 
-  uid: string;
+  ownerId: string; // Updated to ownerId for consistency
   username: string;
   createdAt: Date;
 }
 
+// Helper functions for sessionStorage
+function hasSessionViewedStory(storyId: string): boolean {
+  try {
+    const viewedStories = JSON.parse(sessionStorage.getItem('viewedStories') || '{}');
+    return !!viewedStories[storyId];
+  } catch (e) {
+    console.error("Error parsing sessionStorage for viewedStories:", e);
+    return false; // Assume not viewed if there's an error
+  }
+}
+
+function markStoryAsViewed(storyId: string): void {
+  try {
+    const viewedStories = JSON.parse(sessionStorage.getItem('viewedStories') || '{}');
+    viewedStories[storyId] = true;
+    sessionStorage.setItem('viewedStories', JSON.stringify(viewedStories));
+  } catch (e) {
+    console.error("Error setting sessionStorage for viewedStories:", e);
+  }
+}
+
 function StoryDetailPage() {
-  const { storyId } = useParams({ from: '/stories/$storyId' }); // <--- Get the storyId from the URL params
-  const hasIncrementedRef = useRef<{ [key: string]: boolean }>({});
-  const functions = getFunctions();
-  const incrementViewCount = httpsCallable(functions, 'incrementStoryView');
+  const { storyId } = useParams({ from: '/stories/$storyId' });
+  
+  // A ref to prevent the API call from running more than once on a single mount.
+  // This is the key to solving the double increment in Strict Mode.
+  const hasAttemptedIncrementRef = useRef(false);
 
   // Use TanStack Query to fetch the single story
   const { data: story, isLoading, error } = useQuery<Story>({
-    queryKey: ['storyDetail', storyId], // Query key includes storyId for unique caching
+    queryKey: ['storyDetail', storyId],
     queryFn: async () => {
       if (!storyId) throw new Error("Story ID is missing.");
       const storyDocRef = doc(db, 'stories', storyId);
@@ -44,21 +66,23 @@ function StoryDetailPage() {
       if (!storyDocSnap.exists()) {
         throw new Error(`Story with ID "${storyId}" not found.`);
       }
-
       
+      const storyData = storyDocSnap.data();
+
+      // Ensure content is parsed correctly
+      const content = storyData?.content ? JSON.parse(storyData.content) : '';
 
       return {
         id: storyDocSnap.id,
-        title: storyDocSnap.data()?.title,
-        description: storyDocSnap.data()?.description,
-        content: JSON.parse(storyDocSnap.data()?.content),
-        uid: storyDocSnap.data()?.ownerId,
-        username: storyDocSnap.data()?.username || 'Anonymous',
-        createdAt: storyDocSnap.data()?.createdAt?.toDate(),
+        title: storyData?.title,
+        description: storyData?.description,
+        content: content,
+        ownerId: storyData?.ownerId,
+        username: storyData?.username || 'Anonymous',
+        createdAt: storyData?.createdAt?.toDate(),
       } as Story;
     },
-    // Optional: Keep the data for a certain time even if the component unmounts
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   console.log("Loaded story content:", story?.content);
@@ -66,8 +90,8 @@ function StoryDetailPage() {
   const readOnlyEditor = useEditor({
     extensions: [StarterKit, Underline, TipTapLink],
     editable: false,
-    content: '',          // start blank every time
-    autofocus: false,     // optional
+    content: '',
+    autofocus: false,
   });
 
   useEffect(() => {
@@ -77,32 +101,37 @@ function StoryDetailPage() {
   }, [story?.content, readOnlyEditor]);
 
   useEffect(() => {
-    // Ensure storyId exists and we haven't already incremented for this storyId in this session
-    if (storyId && !hasIncrementedRef.current[storyId]) {
-      incrementViewCount({ storyId })
+    // This is the new, guarded logic for a single view count increment.
+    // 1. Check if we've already attempted this increment in this mount.
+    // 2. Check if a valid storyId exists.
+    // 3. Check if the user hasn't viewed this story in this session yet.
+    if (hasAttemptedIncrementRef.current) {
+        console.log(`[DEBOUNCED] View count increment already attempted for ${storyId}. Skipping.`);
+        return; // Exit early to prevent the second API call
+    }
+    
+    if (storyId && !hasSessionViewedStory(storyId)) {
+      console.log(`[TRIGGERED] Attempting to increment view count for storyId: ${storyId}`);
+      // Immediately set the ref to true to prevent a second call from Strict Mode.
+      hasAttemptedIncrementRef.current = true;
+      
+      incrementStoryViewCallable({ storyId })
         .then(() => {
-          // Mark as incremented for this storyId to prevent multiple calls
-          hasIncrementedRef.current[storyId] = true;
-          // Optional: Invalidate the query to refetch the updated view count if desired
-          // queryClient.invalidateQueries(['storyDetail', storyId]);
+          markStoryAsViewed(storyId); // Mark as viewed in session storage
+          console.log(`[SUCCESS] View count incremented successfully for storyId: ${storyId}`);
         })
         .catch(error => {
-          console.error('Error incrementing view count:', error.code, error.message);
-          // You might want to show a subtle toast notification to the user here
+          console.error('[ERROR] Error incrementing view count:', error.code, error.message);
         });
+    } else {
+        if (!storyId) {
+            console.log("Skipping increment: storyId is not yet available.");
+        }
+        if (hasSessionViewedStory(storyId)) {
+            console.log(`Skipping increment: Story ${storyId} has already been viewed in this session.`);
+        }
     }
-    // Cleanup function: if component unmounts and remounts, reset for that storyId
-    return () => {
-        // You might consider a more sophisticated check (e.g., local storage)
-        // if you want to prevent multiple views from the same user across sessions.
-        // For simple page view count, marking it true in a ref is fine for a single session.
-    };
-  }, [storyId]); // Dependency array: run when storyId changes
-
-  if (error) {
-    console.error("Full useQuery error object:", error);
-    console.error("Error code:", (error as any).code); // Try to get a 'code' if it exists
-  }
+  }, [storyId]); // The dependency array now only needs storyId.
 
   if (isLoading) {
     return (
@@ -113,7 +142,6 @@ function StoryDetailPage() {
       </Paper>
     );
   }
-
 
   if (error) {
     return (
@@ -127,8 +155,6 @@ function StoryDetailPage() {
   }
 
   if (!story) {
-    // This case theoretically shouldn't be hit if error handling works,
-    // but as a safeguard.
     return (
       <Paper p="xl" shadow="sm" radius="md" style={{ maxWidth: 800, margin: '20px auto' }}>
         <Text>Story not found.</Text>
@@ -140,7 +166,6 @@ function StoryDetailPage() {
   }
 
   return (
-    
     <Paper p="xl" shadow="sm" radius="md" style={{ maxWidth: 800, margin: '20px auto' }}>
       <Link to="/stories" style={{ marginBottom: '20px', display: 'inline-block' }}>
         <Button variant="subtle" leftSection={<CircleArrowLeft size={14} />}>Back to all stories</Button>
@@ -150,10 +175,11 @@ function StoryDetailPage() {
       <Space h="xl" />
       <EditorContent editor={readOnlyEditor!} />
       <Space h="xl" />
-        <Link to="/authors/$authorId" params={{ authorId: story.uid }} style={{ textDecoration: 'underline', color: 'inherit' }}>
+      <Text color="dimmed" size="sm" style={{ display: 'inline' }}>
+        <Link to="/authors/$authorId" params={{ authorId: story.ownerId }} style={{ textDecoration: 'underline', color: 'inherit' }}>
           {story.username}
         </Link>{' '}on {story.createdAt.toLocaleDateString()}
+      </Text>
     </Paper>
   );
-
 }

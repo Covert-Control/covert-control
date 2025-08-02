@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 //import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions, httpsCallable } from 'firebase/functions';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -21,6 +22,13 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 //const analytics = getAnalytics(app);
+// Initialize Firebase services
+const functions = getFunctions(app, 'us-central1');
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
+
+export const incrementStoryViewCallable = httpsCallable(functions, 'incrementStoryView');
+export const registerUserCallable = httpsCallable(functions, 'registerUser'); 
+export const completeGoogleRegistrationCallable = httpsCallable(functions, 'completeGoogleRegistration'); 
