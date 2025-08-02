@@ -1,4 +1,3 @@
-// src/routes/stories.tsx
 import { createLazyFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { collection, getDocs } from 'firebase/firestore';
@@ -10,13 +9,12 @@ export const Route = createLazyFileRoute('/stories')({
   component: StoriesListComponent,
 });
 
-// A simple type definition for your story documents
 interface Story {
-  id: string; // The Firestore document ID
+  id: string; 
   title: string;
   description: string;
   content: string; 
-  ownerId: string; // <-- Corrected to ownerId
+  ownerId: string; 
   viewCount: number;
   username: string;
   createdAt: Date;
@@ -36,7 +34,7 @@ function StoriesListComponent() {
         title: doc.data().title,
         description: doc.data().description,
         content: doc.data().content,
-        ownerId: doc.data().ownerId, // <-- Corrected to map doc.data().ownerId
+        ownerId: doc.data().ownerId,
         viewCount: doc.data().viewCount || 0,
         username: doc.data().username || 'Unknown',
         createdAt: doc.data().createdAt?.toDate(),
@@ -83,7 +81,6 @@ function StoriesListComponent() {
                         </Link>
                         <Text component="span" size="sm" color="dimmed" ml={8}>
                           by {' '}
-                          {/* Corrected to use story.ownerId for the link params */}
                           <Link to="/authors/$authorId" params={{ authorId: story.ownerId }} style={{ textDecoration: 'underline', color: 'inherit' }}>
                             {story.username}
                           </Link>
