@@ -23,6 +23,7 @@ const StoriesLazyImport = createFileRoute('/stories')()
 const NothingFoundLazyImport = createFileRoute('/nothing-found')()
 const AuthorsLazyImport = createFileRoute('/authors')()
 const AuthenticationLazyImport = createFileRoute('/authentication')()
+const AccountSettingsLazyImport = createFileRoute('/account-settings')()
 const AboutLazyImport = createFileRoute('/about')()
 const IndexLazyImport = createFileRoute('/')()
 const AuthorsAuthorIdLazyImport = createFileRoute('/authors/$authorId')()
@@ -69,6 +70,14 @@ const AuthenticationLazyRoute = AuthenticationLazyImport.update({
   import('./routes/authentication.lazy').then((d) => d.Route),
 )
 
+const AccountSettingsLazyRoute = AccountSettingsLazyImport.update({
+  id: '/account-settings',
+  path: '/account-settings',
+  getParentRoute: () => rootRoute,
+} as any).lazy(() =>
+  import('./routes/account-settings.lazy').then((d) => d.Route),
+)
+
 const AboutLazyRoute = AboutLazyImport.update({
   id: '/about',
   path: '/about',
@@ -111,6 +120,13 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutLazyImport
+      parentRoute: typeof rootRoute
+    }
+    '/account-settings': {
+      id: '/account-settings'
+      path: '/account-settings'
+      fullPath: '/account-settings'
+      preLoaderRoute: typeof AccountSettingsLazyImport
       parentRoute: typeof rootRoute
     }
     '/authentication': {
@@ -201,6 +217,7 @@ const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
 export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
+  '/account-settings': typeof AccountSettingsLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/nothing-found': typeof NothingFoundLazyRoute
@@ -214,6 +231,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
+  '/account-settings': typeof AccountSettingsLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/nothing-found': typeof NothingFoundLazyRoute
@@ -228,6 +246,7 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
+  '/account-settings': typeof AccountSettingsLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/nothing-found': typeof NothingFoundLazyRoute
@@ -243,6 +262,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/account-settings'
     | '/authentication'
     | '/authors'
     | '/nothing-found'
@@ -255,6 +275,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/account-settings'
     | '/authentication'
     | '/authors'
     | '/nothing-found'
@@ -267,6 +288,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/account-settings'
     | '/authentication'
     | '/authors'
     | '/nothing-found'
@@ -281,6 +303,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
   AboutLazyRoute: typeof AboutLazyRoute
+  AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
   AuthenticationLazyRoute: typeof AuthenticationLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
   NothingFoundLazyRoute: typeof NothingFoundLazyRoute
@@ -292,6 +315,7 @@ export interface RootRouteChildren {
 const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
   AboutLazyRoute: AboutLazyRoute,
+  AccountSettingsLazyRoute: AccountSettingsLazyRoute,
   AuthenticationLazyRoute: AuthenticationLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
   NothingFoundLazyRoute: NothingFoundLazyRoute,
@@ -312,6 +336,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/about",
+        "/account-settings",
         "/authentication",
         "/authors",
         "/nothing-found",
@@ -325,6 +350,9 @@ export const routeTree = rootRoute
     },
     "/about": {
       "filePath": "about.lazy.tsx"
+    },
+    "/account-settings": {
+      "filePath": "account-settings.lazy.tsx"
     },
     "/authentication": {
       "filePath": "authentication.lazy.tsx"

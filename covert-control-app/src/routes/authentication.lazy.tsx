@@ -6,5 +6,5 @@ export const Route = createLazyFileRoute('/authentication')({
 })
 
 function RouteComponent() {
-  return <div><AuthenticationForm /></div>
+  return <AuthenticationForm />
 }
