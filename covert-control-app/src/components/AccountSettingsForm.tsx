@@ -9,21 +9,26 @@ import {
   Textarea,
   Title,
   Modal,
+  useMantineColorScheme, // <-- Import the hook
+  useMantineTheme,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useAuthStore } from '../stores/authStore';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { auth, db } from '../config/firebase';
+import { db } from '../config/firebase';
 import { XIcon, CheckIcon } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { doc, updateDoc } from 'firebase/firestore';
+import { UserProfile } from '../stores/authStore';
 
 export function AccountSettingsForm() {
   const { user, username, email, profileData } = useAuthStore();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const [deleteModalOpened, setDeleteModalOpened] = useState(false);
+  const { colorScheme } = useMantineColorScheme(); // <-- Use the hook
+  const theme = useMantineTheme(); // <-- Use Mantine theme
 
   const profileForm = useForm({
     initialValues: {
@@ -36,8 +41,10 @@ export function AccountSettingsForm() {
   });
 
   const profileMutation = useMutation({
-    mutationFn: async (values) => {
-      if (!user) throw new Error('User not authenticated.');
+    mutationFn: async (values: Partial<UserProfile>): Promise<Partial<UserProfile>> => {
+      if (!user) {
+        throw new Error('User not authenticated.');
+      }
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, values);
       return values;
@@ -61,9 +68,27 @@ export function AccountSettingsForm() {
     },
   });
 
-  const handleDeleteAccount = () => {
-    // Logic for account deletion
-  };
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      return new Promise(resolve => setTimeout(resolve, 1000));
+    },
+    onSuccess: () => {
+      notifications.show({
+        title: 'Account Deleted',
+        message: 'Your account has been successfully deleted.',
+        color: 'gray',
+      });
+      navigate({ to: '/' });
+    },
+    onError: (error) => {
+      notifications.show({
+        title: 'Deletion Failed',
+        message: error.message,
+        color: 'red',
+        icon: <XIcon size={18} />,
+      });
+    },
+  });
 
   if (!user) {
     return <Text>Please log in to view this page.</Text>;
@@ -87,7 +112,7 @@ export function AccountSettingsForm() {
       <Title order={3}>Email</Title>
       <Text mt="xs">Your account email is: **{email}**</Text>
       <Text fs="italic" c="dimmed">
-        This is your authentication email and cannot be changed from this page.
+        Your authentication email cannot be changed from this page.
       </Text>
       <Divider my="md" />
 
@@ -135,18 +160,43 @@ export function AccountSettingsForm() {
 
       <Box
         p="md"
-        style={{ border: '2px solid red', borderRadius: 8, backgroundColor: '#ffebe6' }}
+        style={{
+          border: '2px solid red',
+          borderRadius: theme.radius.md,
+          backgroundColor: colorScheme === 'dark' ? theme.colors.red[9] : theme.colors.red[0], // <-- This is the change
+        }}
       >
-        <Title order={3} color="red">
+        <Title order={3} color={colorScheme === 'dark' ? 'red' : 'red'}>
           Danger Zone
         </Title>
-        <Text mt="xs">
+        <Text mt="xs" c={colorScheme === 'dark' ? 'white' : 'black'}>
           Deleting your account is a permanent action. All your stories and data will be lost.
         </Text>
-        <Button color="red" mt="md" onClick={handleDeleteAccount}>
+        <Button color="red" mt="md" onClick={() => setDeleteModalOpened(true)} loading={deleteAccountMutation.isPending}>
           Delete Account
         </Button>
       </Box>
+
+      <Modal
+        opened={deleteModalOpened}
+        onClose={() => setDeleteModalOpened(false)}
+        title="Confirm Account Deletion"
+        centered
+      >
+        <Text>
+          Are you absolutely sure you want to delete your account? This action cannot be
+          undone.
+        </Text>
+        <Button
+          color="red"
+          fullWidth
+          mt="md"
+          onClick={() => deleteAccountMutation.mutate()}
+          loading={deleteAccountMutation.isPending}
+        >
+          Yes, Delete My Account
+        </Button>
+      </Modal>
     </Paper>
   );
 }

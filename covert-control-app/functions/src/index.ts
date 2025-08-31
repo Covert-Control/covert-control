@@ -2,6 +2,12 @@ import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https
 import * as logger from 'firebase-functions/logger';
 import * as admin from 'firebase-admin';
 
+export {
+  updateTagsOnStoryCreate,
+  updateTagsOnStoryUpdate,
+  updateTagsOnStoryDelete,
+} from "./tags";
+
 // Import setGlobalOptions from v2 for global configuration
 import { setGlobalOptions } from 'firebase-functions/v2'; 
 // Initialize Admin SDK once globally

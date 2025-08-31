@@ -3,18 +3,15 @@ import { createLazyFileRoute, Link, Outlet, useLocation } from '@tanstack/react-
 import { useQuery } from '@tanstack/react-query';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Loader, Card, Text, Title, Space, Button } from '@mantine/core';
+import { Loader, Card, Text, Title, Space, Button, Group, Badge } from '@mantine/core';
 import { UserCircle, ArrowRight } from 'lucide-react';
 
-// Use UserProfile interface
-interface UserProfile {
+interface AuthorWithStory {
   uid: string;
-  username: string; // The public username
-  email: string;
-  dateCreated: Date;
-  username_lc: string;
-  bio?: string; // Add if you plan to use it for author profiles
-  contactEmail?: string; // Add if you plan to use it for author profiles
+  username: string;
+  storyCount: number;
+  lastStoryTitle: string;
+  lastStoryDate?: Date;
 }
 
 export const Route = createLazyFileRoute('/authors')({
@@ -22,23 +19,29 @@ export const Route = createLazyFileRoute('/authors')({
 });
 
 function AuthorsListComponent() {
-  const usersCollectionRef = collection(db, 'users');
+  const authorsRef = collection(db, 'authors_with_stories');
   const location = useLocation();
-  const isCurrentlyAtAuthorsBase = location.pathname === '/authors';
+  const isAtAuthorsBase = location.pathname === '/authors';
 
-  const { data: authors, isLoading, error } = useQuery<UserProfile[]>({
-    queryKey: ['authorsList'],
+  const { data: authors, isLoading, error } = useQuery<AuthorWithStory[]>({
+    queryKey: ['authorsWithStories'],
     queryFn: async () => {
-      const querySnapshot = await getDocs(usersCollectionRef);
-      return querySnapshot.docs.map(doc => ({
-        uid: doc.id,
-        username: doc.data().username,
-        email: doc.data().email,
-        dateCreated: doc.data().dateCreated?.toDate(),
-        username_lc: doc.data().username_lc,
-        bio: doc.data().bio || '', // Fetch if you add it
-        contactEmail: doc.data().contactEmail || '', // Fetch if you add it
-      } as UserProfile));
+      const snapshot = await getDocs(authorsRef);
+      const authorsList = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          username: data.username || 'Unknown Author',
+          storyCount: data.storyCount || 0,
+          lastStoryTitle: data.lastStoryTitle || '',
+          lastStoryDate: data.lastStoryDate?.toDate(),
+        };
+      });
+
+      // Sort alphabetically by username (case-insensitive)
+      return authorsList.sort((a, b) =>
+        a.username.toLowerCase().localeCompare(b.username.toLowerCase())
+      );
     },
     staleTime: 1000 * 60 * 10,
   });
@@ -52,29 +55,55 @@ function AuthorsListComponent() {
   }
 
   if (error) {
-    return <Text color="red">Error loading authors: {error.message}</Text>;
+    return <Text c="red">Error loading authors: {(error as Error).message}</Text>;
   }
 
   return (
     <div style={{ padding: '20px' }}>
-      {isCurrentlyAtAuthorsBase ? (
+      {isAtAuthorsBase ? (
         <>
-          <Title order={2} mb="xl">All Authors</Title>
+          <Title order={2} mb="xl">Authors with Stories</Title>
           <Space h="lg" />
 
           {authors && authors.length > 0 ? (
             <div style={{ gap: '20px', display: 'flex', flexDirection: 'column' }}>
               {authors.map(author => (
-                <Link key={author.uid} to="/authors/$authorId" params={{ authorId: author.uid }} style={{ textDecoration: 'none' }}>
+                <Link
+                  key={author.username}
+                  to="/authors/$authorId"
+                  params={{ authorId: author.username }}
+                  style={{ textDecoration: 'none' }}
+                >
                   <Card shadow="sm" padding="lg" radius="md" withBorder>
                     <Card.Section p="md" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       <UserCircle size={48} />
-                      <div>
-                        <Title order={3} size="h4" mb="xs">{author.username}</Title> {/* Display username */}
-                        {author.bio && <Text size="sm" color="dimmed" lineClamp={2}>{author.bio}</Text>}
+                      <div style={{ flex: 1 }}>
+                        <Group justify="space-between" mb={4}>
+                          <Title order={3} size="h4">{author.username}</Title>
+                          <Badge color="blue" variant="light">
+                            {author.storyCount} {author.storyCount === 1 ? 'Story' : 'Stories'}
+                          </Badge>
+                        </Group>
+                        {author.lastStoryTitle && (
+                          <Text size="sm" c="dimmed" lineClamp={1}>
+                            Latest: {author.lastStoryTitle}
+                          </Text>
+                        )}
+                        {author.lastStoryDate && (
+                          <Text size="xs" c="dimmed">
+                            Updated: {author.lastStoryDate.toLocaleDateString()}
+                          </Text>
+                        )}
                       </div>
                     </Card.Section>
-                    <Card.Section p="md" style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+                    <Card.Section
+                      p="md"
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        borderTop: '1px solid var(--mantine-color-gray-2)',
+                      }}
+                    >
                       <Button variant="light" size="xs" rightSection={<ArrowRight size={14} />}>
                         View Profile
                       </Button>

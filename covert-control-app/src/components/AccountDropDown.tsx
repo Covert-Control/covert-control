@@ -10,8 +10,9 @@ import {
   StarIcon,
   ArrowRightLeftIcon,
 } from 'lucide-react';
-import { ActionIcon, Avatar, Group, Menu, Text, useMantineTheme } from '@mantine/core';
+import { ActionIcon, Avatar, Group, Menu, Stack, Text, useMantineTheme } from '@mantine/core';
 import { useAuthStore } from '../stores/authStore'
+import { Link } from '@tanstack/react-router';
 
 export function AccountDropDown() {
   const { username, email } = useAuthStore();
@@ -32,14 +33,21 @@ export function AccountDropDown() {
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item>
-            <Group>
-              <div>
+            <Link
+              key={username}
+              to="/authors/$authorId"
+              params={{ authorId: username ?? '' }}
+              style={{
+                textDecoration: 'none',
+                display: 'block', // makes the whole menu item clickable
+                width: '100%',
+              }}
+            >
+              <Stack gap={0}>
                 <Text fw={500}>{username}</Text>
-                <Text size="xs" c="dimmed">
-                  {email}
-                </Text>
-              </div>
-            </Group>
+                <Text size="xs" c="dimmed">{email}</Text>
+              </Stack>
+            </Link>
           </Menu.Item>
 
           <Menu.Divider />
@@ -61,7 +69,11 @@ export function AccountDropDown() {
           </Menu.Item>
 
           <Menu.Label>Settings</Menu.Label>
-          <Menu.Item leftSection={<SettingsIcon size={16} />}>
+          <Menu.Item
+            component={Link}
+            to="/account-settings"
+            leftSection={<SettingsIcon size={16} />}
+          >
             Account settings
           </Menu.Item>
           <Menu.Item leftSection={<LogOut size={16} />}>Logout</Menu.Item>

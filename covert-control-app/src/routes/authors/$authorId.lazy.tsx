@@ -1,7 +1,6 @@
-// src/routes/authors.$authorId.lazy.tsx
 import { createLazyFileRoute, useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc, collection, query, where, getDocs as getQueryDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs as getQueryDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Skeleton, Text, Title, Paper, Button, Space, Card } from '@mantine/core';
 import { CircleArrowLeft, Mail, Book, ArrowRight } from 'lucide-react';
@@ -33,40 +32,45 @@ export const Route = createLazyFileRoute('/authors/$authorId')({
 });
 
 function AuthorDetailPage() {
-  const { authorId } = useParams({ from: '/authors/$authorId' });
+  const { authorId } = useParams({ from: '/authors/$authorId' }); // authorId is now the username
 
-  // 1. Fetch Author Profile (1 read)
-  const { data: author, isLoading: isLoadingAuthor, error: authorError } = useQuery<UserProfile>({
+  // 1. Fetch Author Profile by Username (1 read via indexed query)
+  const { data: author, isLoading: isLoadingAuthor, error: authorError } = useQuery<UserProfile | null>({
     queryKey: ['authorDetail', authorId],
     queryFn: async () => {
-      if (!authorId) throw new Error("Author ID is missing.");
-      const userDocRef = doc(db, 'users', authorId); // Querying 'users' collection
-      const userDocSnap = await getDoc(userDocRef);
+      if (!authorId) throw new Error("Author username is missing.");
+      
+      const usersCollectionRef = collection(db, 'users');
+      const userQuery = query(usersCollectionRef, where('username', '==', authorId));
+      const userSnapshot = await getQueryDocs(userQuery);
 
-      if (!userDocSnap.exists()) {
-        throw new Error(`Author with ID "${authorId}" not found.`);
+      if (userSnapshot.empty) {
+        return null;
       }
 
+      const userDoc = userSnapshot.docs[0];
+      const userData = userDoc.data();
+
       return {
-        uid: userDocSnap.id,
-        username: userDocSnap.data()?.username,
-        email: userDocSnap.data()?.email,
-        dateCreated: userDocSnap.data()?.dateCreated?.toDate(),
-        username_lc: userDocSnap.data()?.username_lc,
-        bio: userDocSnap.data()?.bio || '', // Fetch if you add it
-        contactEmail: userDocSnap.data()?.contactEmail || '', // Fetch if you add it
+        uid: userDoc.id,
+        username: userData?.username,
+        email: userData?.email,
+        dateCreated: userData?.dateCreated?.toDate(),
+        username_lc: userData?.username_lc,
+        bio: userData?.bio || '',
+        contactEmail: userData?.contactEmail || '',
       } as UserProfile;
     },
     staleTime: 1000 * 60 * 5,
   });
 
-  // 2. Fetch Stories by this Author (1 read per story by this author, using indexed query)
+  // 2. Fetch Stories by this Author (1 read per story by this author, using the fetched UID)
   const { data: stories, isLoading: isLoadingStories, error: storiesError } = useQuery<Story[]>({
-    queryKey: ['authorStories', authorId],
+    queryKey: ['authorStories', author?.uid],
     queryFn: async () => {
-      if (!authorId) return [];
+      if (!author?.uid) return [];
       const storiesCollectionRef = collection(db, 'stories');
-      const q = query(storiesCollectionRef, where('ownerId', '==', authorId)); // Filter by ownerId
+      const q = query(storiesCollectionRef, where('ownerId', '==', author.uid));
       const querySnapshot = await getQueryDocs(q);
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -74,12 +78,12 @@ function AuthorDetailPage() {
         description: doc.data().description,
         content: doc.data().content,
         ownerId: doc.data().ownerId,
-        username: doc.data().username, // Access denormalized username
+        username: doc.data().username,
         viewCount: doc.data().viewCount || 0,
         createdAt: doc.data().createdAt?.toDate(),
       } as Story));
     },
-    enabled: !!authorId,
+    enabled: !!author?.uid, // Only run this query when the author's UID is available
     staleTime: 1000 * 60 * 1,
   });
 
@@ -125,7 +129,7 @@ function AuthorDetailPage() {
       <Link to="/authors" style={{ marginBottom: '20px', display: 'inline-block' }}>
         <Button variant="subtle" leftSection={<CircleArrowLeft size={14} />}>Back to all authors</Button>
       </Link>
-      <Title order={1} mb="md">{author.username}'s Profile</Title> {/* Display username */}
+      <Title order={1} mb="md">{author.username}'s Profile</Title>
 
       {author.bio && (
         <Text size="lg" color="dimmed" mb="xl">
@@ -141,7 +145,7 @@ function AuthorDetailPage() {
 
       <Space h="xl" />
       <Title order={2} mb="lg" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <Book size={24} /> Stories by {author.username} {/* Display username */}
+        <Book size={24} /> Stories by {author.username}
       </Title>
 
       {stories && stories.length > 0 ? (

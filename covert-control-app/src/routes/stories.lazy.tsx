@@ -81,7 +81,7 @@ function StoriesListComponent() {
                         </Link>
                         <Text component="span" size="sm" color="dimmed" ml={8}>
                           by {' '}
-                          <Link to="/authors/$authorId" params={{ authorId: story.ownerId }} style={{ textDecoration: 'underline', color: 'inherit' }}>
+                          <Link to="/authors/$authorId" params={{ authorId: story.username }} style={{ textDecoration: 'underline', color: 'inherit' }}>
                             {story.username}
                           </Link>
                         </Text>

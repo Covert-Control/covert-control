@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { db } from '../../config/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, increment, collection, serverTimestamp, setDoc, doc, getFirestore } from 'firebase/firestore';
 import { auth } from '../../config/firebase'
 import { useAuthStore } from '../../stores/authStore';
 
@@ -103,10 +103,17 @@ export function TipTap2() {
 
   const onSubmitStory = async () => {
     if (!editor) return;
+
     if (!auth.currentUser) {
       console.error('User is not authenticated');
       return;
     }
+
+    const db = getFirestore();
+    const newStoryTitle = form.values.title;
+    const now = serverTimestamp();
+    const ownerId = auth.currentUser.uid;
+
     try {
       await addDoc(storyCollectionRef, {
         title: form.values.title,
@@ -117,6 +124,18 @@ export function TipTap2() {
         viewCount: 0,
         createdAt: serverTimestamp(),
       });
+
+      const authorDocRef = doc(db, 'authors_with_stories', ownerId);
+      await setDoc(
+        authorDocRef,
+        {
+          username: username,
+          storyCount: increment(1),
+          lastStoryTitle: newStoryTitle,
+          lastStoryDate: now,
+        },
+        { merge: true }
+      );
       console.log('Document successfully written!');
     } catch (error) {
       console.error("Error adding document: ", error);
