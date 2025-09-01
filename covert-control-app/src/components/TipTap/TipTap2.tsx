@@ -11,9 +11,14 @@ import { db } from '../../config/firebase';
 import { addDoc, increment, collection, serverTimestamp, setDoc, doc, getFirestore } from 'firebase/firestore';
 import { auth } from '../../config/firebase'
 import { useAuthStore } from '../../stores/authStore';
+import { TagPicker } from '../../components/TagPicker';
 
 const content = '';
 const limit = 10000; // Character limit for the story
+const TAGS_MAX = 8; // tweak as you like
+const TAG_MIN_LEN = 2;
+const TAG_MAX_LEN = 30;
+
 
 export function TipTap2() {
   const [wordCount, setWordCount] = useState(0);
@@ -26,6 +31,7 @@ export function TipTap2() {
       title: '',
       description: '',
       content: '',
+      tags: [] as string[],
     },
     validate: {
       title: (value) => {
@@ -58,6 +64,16 @@ export function TipTap2() {
         }
         if (charCount > limit) {
           return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;
+        }
+        return null;
+      },
+      tags: (tags) => {
+        if (!Array.isArray(tags)) return 'Tags must be an array';
+        if (tags.length > TAGS_MAX) return `Please use at most ${TAGS_MAX} tags`;
+        for (const t of tags) {
+          const s = t.trim();
+          if (s.length < TAG_MIN_LEN) return `Tag "${t}" is too short`;
+          if (s.length > TAG_MAX_LEN) return `Tag "${t}" is too long`;
         }
         return null;
       },
@@ -123,6 +139,7 @@ export function TipTap2() {
         username: username,
         viewCount: 0,
         createdAt: serverTimestamp(),
+        tags: form.values.tags,
       });
 
       const authorDocRef = doc(db, 'authors_with_stories', ownerId);
@@ -159,6 +176,17 @@ export function TipTap2() {
           {...form.getInputProps('description')}
           placeholder="Provide a short description of your story"
         /> 
+        <div style={{ marginTop: 16, marginBottom: 8 }}>
+          <TagPicker
+            value={form.values.tags}
+            onChange={(tags) => form.setFieldValue('tags', tags)}
+            maxTags={TAGS_MAX}
+            placeholder="Add tags (e.g., science fiction, military)"
+          />
+          {form.errors.tags && (
+            <div style={{ color: 'red', fontSize: '0.875rem' }}>{form.errors.tags}</div>
+          )}
+        </div>
         <br></br>
         <RichTextEditor editor={editor}>
             <RichTextEditor.Toolbar sticky stickyOffset={60}>
