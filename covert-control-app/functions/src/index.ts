@@ -251,7 +251,7 @@ interface Story {
 }
 
 function normalizeTagId(tag: string) {
-  return tag.trim().toLowerCase() // if you prefer slugs, swap this for a slugify
+  return tag.trim().toLowerCase() 
 }
 
 async function batchIncrementTags(tags: Iterable<string>) {
@@ -262,7 +262,7 @@ async function batchIncrementTags(tags: Iterable<string>) {
     batch.set(
       ref,
       {
-        name: raw, // keep original casing for display
+        name: id,
         count: admin.firestore.FieldValue.increment(1),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       },

@@ -129,6 +129,9 @@ export function TipTap2() {
     const newStoryTitle = form.values.title;
     const now = serverTimestamp();
     const ownerId = auth.currentUser.uid;
+    const tagsLower = (form.values.tags ?? [])
+      .map(t => t.trim().toLowerCase().replace(/\s+/g, ' '))
+      .filter(t => t.length >= 3);
 
     try {
       await addDoc(storyCollectionRef, {
@@ -139,7 +142,7 @@ export function TipTap2() {
         username: username,
         viewCount: 0,
         createdAt: serverTimestamp(),
-        tags: form.values.tags,
+        tags: tagsLower,
       });
 
       const authorDocRef = doc(db, 'authors_with_stories', ownerId);

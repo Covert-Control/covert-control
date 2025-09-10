@@ -1,36 +1,53 @@
-import { useState, useMemo } from 'react';
-import { TagsInput, Loader } from '@mantine/core';
+// src/components/TagPicker.tsx
+import { useMemo, useState } from 'react';
+import { TagsInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import {
   collection,
+  endAt,
   getDocs,
   limit as fbLimit,
   orderBy,
-  query,
+  query as fsQuery,
   startAt,
-  endAt,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 type TagDoc = {
-  id: string;      // normalized id (e.g., lowercase)
-  name: string;    // display name, original casing
-  count: number;   // number of stories
+  id: string;    // doc id
+  name: string;  // lowercase display name (with spaces)
+  count: number; // number of stories using the tag
 };
 
 export type TagPickerProps = {
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
-  maxTags?: number;             // optional cap
-  minCharsToSearch?: number;    // default 1
+  maxTags?: number;             // optional cap on number of tags
+  minCharsToSearch?: number;    // default 3 (no query until 3+ typed)
   suggestionLimit?: number;     // default 10
+  minTagLength?: number;        // default 3 (reject new tags shorter than this)
   disabled?: boolean;
 };
 
-function normalizeId(s: string) {
-  return s.trim().toLowerCase();
+/** Lowercase + trim; collapse multiple spaces to one */
+function normalize(s: string) {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Case-insensitive dedupe that preserves first occurrence */
+function dedupeCaseInsensitive(values: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of values) {
+    const key = normalize(v);
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(key);
+    }
+  }
+  return out;
 }
 
 export function TagPicker({
@@ -38,34 +55,29 @@ export function TagPicker({
   onChange,
   placeholder = 'Add tags…',
   maxTags,
-  minCharsToSearch = 1,
+  minCharsToSearch = 3,
   suggestionLimit = 10,
+  minTagLength = 3,
   disabled,
 }: TagPickerProps) {
   const [search, setSearch] = useState('');
   const [debounced] = useDebouncedValue(search, 200);
 
-  // Query Firestore only when the user typed enough characters
-  const enabled = debounced.trim().length >= minCharsToSearch;
+  const normalizedSearch = normalize(debounced);
+  const enabled = normalizedSearch.length >= minCharsToSearch;
 
-  const { data, isFetching } = useQuery<TagDoc[]>({
-    queryKey: ['tags-suggest', debounced],
+  const { data } = useQuery<TagDoc[]>({
+    queryKey: ['tags-suggest', normalizedSearch, suggestionLimit],
     enabled,
-    staleTime: 60_000, // 1 min
-    cacheTime: 5 * 60_000,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
     queryFn: async () => {
-      const s = debounced.trim().toLowerCase();
+      const s = normalizedSearch;
       if (!s) return [];
-      // Prefix query on name_lc via orderBy + startAt/endAt
-      // You’ll want each tag doc to include name_lc; if you don’t have it yet,
-      // either add it or rely on doc ID being normalized and store display name in `name`.
-      const tagsCol = collection(db, 'tags');
 
-      // If your tag IDs are already lowercased and match the searchable field,
-      // you can orderBy('name') if 'name' is lowercase-only.
-      // Best: keep a 'name_lc' field; here we assume IDs are normalized, so we use 'name' as display only.
-      // To keep it fully generic, we try ordering by 'name' (string) and filtering via prefix bounds:
-      const qy = query(
+      // /tags docs: { name: <lowercase>, count: number }
+      const tagsCol = collection(db, 'tags');
+      const qy = fsQuery(
         tagsCol,
         orderBy('name'),
         startAt(s),
@@ -76,78 +88,50 @@ export function TagPicker({
       const snap = await getDocs(qy);
       const list: TagDoc[] = snap.docs.map((d) => {
         const doc = d.data() as any;
+        const name = typeof doc.name === 'string' ? doc.name : d.id;
         return {
-          id: d.id, // assume your Cloud Functions store tags with normalized IDs
-          name: doc.name ?? d.id,
+          id: d.id,
+          name: normalize(name),
           count: typeof doc.count === 'number' ? doc.count : 0,
         };
       });
-      // Sort alphabetically by display name
+
       list.sort((a, b) => a.name.localeCompare(b.name));
       return list;
     },
   });
 
+  // TagsInput `data` can be strings or { value, label }
   const suggestions = useMemo(
     () => (data ?? []).map((t) => ({ value: t.name, label: `${t.name} (${t.count})` })),
     [data]
   );
 
-  const handleCreate = (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed) return null;
-
-    // Enforce maxTags locally (optional)
-    if (typeof maxTags === 'number' && value.length >= maxTags) return null;
-
-    // If a suggestion matches case-insensitively, use its canonical casing
-    const match = data?.find((t) => normalizeId(t.name) === normalizeId(trimmed));
-    const newVal = match ? match.name : trimmed;
-
-    const deduped = dedupeCaseInsensitive([...value, newVal]);
-    onChange(deduped);
-    return newVal; // Mantine needs the created item returned
+  // Normalize, enforce min length, dedupe, cap
+  const sanitize = (arr: string[]) => {
+    const lowered = arr.map(normalize);
+    const minFiltered = lowered.filter((t) => t.length >= minTagLength);
+    const deduped = dedupeCaseInsensitive(minFiltered);
+    return typeof maxTags === 'number' ? deduped.slice(0, maxTags) : deduped;
   };
 
   const handleChange = (next: string[]) => {
-    // Enforce max tags if provided
-    const capped =
-      typeof maxTags === 'number' ? next.slice(0, maxTags) : next;
-
-    onChange(dedupeCaseInsensitive(capped));
+    onChange(sanitize(next));
   };
 
   return (
     <TagsInput
-      value={value}
-      onChange={handleChange}
-      searchable
-      creatable
-      getCreateLabel={(q) => `Create "${q}"`}
-      onCreate={handleCreate}
       data={suggestions}
+      value={sanitize(value)}
+      onChange={handleChange}
       placeholder={placeholder}
       searchValue={search}
       onSearchChange={setSearch}
-      rightSection={isFetching ? <Loader size="xs" /> : null}
-      disabled={disabled}
-      // Small UX niceties
-      clearable
-      nothingFound={enabled ? 'No matching tags' : 'Type to search tags'}
       maxDropdownHeight={240}
+      disabled={disabled}
+      clearable
+      // If you want comma to confirm a tag, uncomment:
+      // splitChars={[',']}
     />
   );
-}
-
-function dedupeCaseInsensitive(values: string[]) {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const v of values) {
-    const key = normalizeId(v);
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(v);
-    }
-  }
-  return out;
 }
