@@ -22,7 +22,7 @@ interface Story {
   title: string;
   description: string;
   content: string; 
-  ownerId: string; // Updated to ownerId for consistency
+  ownerId: string;
   username: string;
   createdAt: Date;
 }
