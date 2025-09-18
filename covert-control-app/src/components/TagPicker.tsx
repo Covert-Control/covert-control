@@ -33,7 +33,16 @@ export type TagPickerProps = {
 
 /** Lowercase + trim; collapse multiple spaces to one */
 function normalize(s: string) {
-  return s.trim().toLowerCase().replace(/\s+/g, ' ');
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\(\d+\)\s*$/, '') // <- remove trailing " (123)"
+    .replace(/\s+/g, ' ');         // collapse spaces
+}
+
+/** Remove all chars except a-z, 0-9, space, hyphen; collapse spaces; trim */
+function cleanAllowedChars(s: string) {
+  return s.replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /** Case-insensitive dedupe that preserves first occurrence */
@@ -109,7 +118,7 @@ export function TagPicker({
 
   // Normalize, enforce min length, dedupe, cap
   const sanitize = (arr: string[]) => {
-    const lowered = arr.map(normalize);
+    const lowered = arr.map((t) => cleanAllowedChars(normalize(t)));
     const minFiltered = lowered.filter((t) => t.length >= minTagLength);
     const deduped = dedupeCaseInsensitive(minFiltered);
     return typeof maxTags === 'number' ? deduped.slice(0, maxTags) : deduped;

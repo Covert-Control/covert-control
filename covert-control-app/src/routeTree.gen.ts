@@ -14,6 +14,8 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as StoriesStoryIdImport } from './routes/stories/$storyId'
+import { Route as StoriesStoryIdIndexImport } from './routes/stories/$storyId.index'
+import { Route as StoriesStoryIdEditImport } from './routes/stories/$storyId.edit'
 
 // Create Virtual Routes
 
@@ -104,6 +106,18 @@ const StoriesStoryIdRoute = StoriesStoryIdImport.update({
   getParentRoute: () => StoriesLazyRoute,
 } as any)
 
+const StoriesStoryIdIndexRoute = StoriesStoryIdIndexImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => StoriesStoryIdRoute,
+} as any)
+
+const StoriesStoryIdEditRoute = StoriesStoryIdEditImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => StoriesStoryIdRoute,
+} as any)
+
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
@@ -185,6 +199,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorsAuthorIdLazyImport
       parentRoute: typeof AuthorsLazyImport
     }
+    '/stories/$storyId/edit': {
+      id: '/stories/$storyId/edit'
+      path: '/edit'
+      fullPath: '/stories/$storyId/edit'
+      preLoaderRoute: typeof StoriesStoryIdEditImport
+      parentRoute: typeof StoriesStoryIdImport
+    }
+    '/stories/$storyId/': {
+      id: '/stories/$storyId/'
+      path: '/'
+      fullPath: '/stories/$storyId/'
+      preLoaderRoute: typeof StoriesStoryIdIndexImport
+      parentRoute: typeof StoriesStoryIdImport
+    }
   }
 }
 
@@ -202,12 +230,26 @@ const AuthorsLazyRouteWithChildren = AuthorsLazyRoute._addFileChildren(
   AuthorsLazyRouteChildren,
 )
 
+interface StoriesStoryIdRouteChildren {
+  StoriesStoryIdEditRoute: typeof StoriesStoryIdEditRoute
+  StoriesStoryIdIndexRoute: typeof StoriesStoryIdIndexRoute
+}
+
+const StoriesStoryIdRouteChildren: StoriesStoryIdRouteChildren = {
+  StoriesStoryIdEditRoute: StoriesStoryIdEditRoute,
+  StoriesStoryIdIndexRoute: StoriesStoryIdIndexRoute,
+}
+
+const StoriesStoryIdRouteWithChildren = StoriesStoryIdRoute._addFileChildren(
+  StoriesStoryIdRouteChildren,
+)
+
 interface StoriesLazyRouteChildren {
-  StoriesStoryIdRoute: typeof StoriesStoryIdRoute
+  StoriesStoryIdRoute: typeof StoriesStoryIdRouteWithChildren
 }
 
 const StoriesLazyRouteChildren: StoriesLazyRouteChildren = {
-  StoriesStoryIdRoute: StoriesStoryIdRoute,
+  StoriesStoryIdRoute: StoriesStoryIdRouteWithChildren,
 }
 
 const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
@@ -224,8 +266,10 @@ export interface FileRoutesByFullPath {
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
   '/your-submissions': typeof YourSubmissionsLazyRoute
-  '/stories/$storyId': typeof StoriesStoryIdRoute
+  '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
+  '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
+  '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -238,8 +282,9 @@ export interface FileRoutesByTo {
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
   '/your-submissions': typeof YourSubmissionsLazyRoute
-  '/stories/$storyId': typeof StoriesStoryIdRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
+  '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
+  '/stories/$storyId': typeof StoriesStoryIdIndexRoute
 }
 
 export interface FileRoutesById {
@@ -253,8 +298,10 @@ export interface FileRoutesById {
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
   '/your-submissions': typeof YourSubmissionsLazyRoute
-  '/stories/$storyId': typeof StoriesStoryIdRoute
+  '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
+  '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
+  '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
 }
 
 export interface FileRouteTypes {
@@ -271,6 +318,8 @@ export interface FileRouteTypes {
     | '/your-submissions'
     | '/stories/$storyId'
     | '/authors/$authorId'
+    | '/stories/$storyId/edit'
+    | '/stories/$storyId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -282,8 +331,9 @@ export interface FileRouteTypes {
     | '/stories'
     | '/submit'
     | '/your-submissions'
-    | '/stories/$storyId'
     | '/authors/$authorId'
+    | '/stories/$storyId/edit'
+    | '/stories/$storyId'
   id:
     | '__root__'
     | '/'
@@ -297,6 +347,8 @@ export interface FileRouteTypes {
     | '/your-submissions'
     | '/stories/$storyId'
     | '/authors/$authorId'
+    | '/stories/$storyId/edit'
+    | '/stories/$storyId/'
   fileRoutesById: FileRoutesById
 }
 
@@ -380,11 +432,23 @@ export const routeTree = rootRoute
     },
     "/stories/$storyId": {
       "filePath": "stories/$storyId.tsx",
-      "parent": "/stories"
+      "parent": "/stories",
+      "children": [
+        "/stories/$storyId/edit",
+        "/stories/$storyId/"
+      ]
     },
     "/authors/$authorId": {
       "filePath": "authors/$authorId.lazy.tsx",
       "parent": "/authors"
+    },
+    "/stories/$storyId/edit": {
+      "filePath": "stories/$storyId.edit.tsx",
+      "parent": "/stories/$storyId"
+    },
+    "/stories/$storyId/": {
+      "filePath": "stories/$storyId.index.tsx",
+      "parent": "/stories/$storyId"
     }
   }
 }

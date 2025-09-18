@@ -102,7 +102,7 @@ export function AccountSettingsForm() {
 
       <Button
         variant="outline"
-        onClick={() => navigate({ to: `/user/${username}` })}
+        onClick={() => navigate({ to: `/authors/${username}` })}
         mb="md"
       >
         View Public Profile Page
@@ -170,7 +170,7 @@ export function AccountSettingsForm() {
           Danger Zone
         </Title>
         <Text mt="xs" c={colorScheme === 'dark' ? 'white' : 'black'}>
-          Deleting your account is a permanent action. All your stories and data will be lost.
+          Deleting your account is a permanent action. All of your stories and data will be lost.
         </Text>
         <Button color="red" mt="md" onClick={() => setDeleteModalOpened(true)} loading={deleteAccountMutation.isPending}>
           Delete Account

@@ -251,7 +251,11 @@ interface Story {
 }
 
 function normalizeTagId(tag: string) {
-  return tag.trim().toLowerCase() 
+  return tag
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\(\d+\)\s*$/, '') // strip " (123)" suffix if present
+    .replace(/\s+/g, ' ');         // collapse spaces
 }
 
 async function batchIncrementTags(tags: Iterable<string>) {
