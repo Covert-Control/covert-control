@@ -10,251 +10,95 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 
-// Import Routes
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as StoriesStoryIdRouteImport } from './routes/stories/$storyId'
+import { Route as StoriesStoryIdIndexRouteImport } from './routes/stories/$storyId.index'
+import { Route as StoriesStoryIdEditRouteImport } from './routes/stories/$storyId.edit'
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as StoriesStoryIdImport } from './routes/stories/$storyId'
-import { Route as StoriesStoryIdIndexImport } from './routes/stories/$storyId.index'
-import { Route as StoriesStoryIdEditImport } from './routes/stories/$storyId.edit'
+const YourSubmissionsLazyRouteImport = createFileRoute('/your-submissions')()
+const SubmitLazyRouteImport = createFileRoute('/submit')()
+const StoriesLazyRouteImport = createFileRoute('/stories')()
+const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
+const AuthorsLazyRouteImport = createFileRoute('/authors')()
+const AuthenticationLazyRouteImport = createFileRoute('/authentication')()
+const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
+const AboutLazyRouteImport = createFileRoute('/about')()
+const IndexLazyRouteImport = createFileRoute('/')()
+const AuthorsAuthorIdLazyRouteImport = createFileRoute('/authors/$authorId')()
 
-// Create Virtual Routes
-
-const YourSubmissionsLazyImport = createFileRoute('/your-submissions')()
-const SubmitLazyImport = createFileRoute('/submit')()
-const StoriesLazyImport = createFileRoute('/stories')()
-const NothingFoundLazyImport = createFileRoute('/nothing-found')()
-const AuthorsLazyImport = createFileRoute('/authors')()
-const AuthenticationLazyImport = createFileRoute('/authentication')()
-const AccountSettingsLazyImport = createFileRoute('/account-settings')()
-const AboutLazyImport = createFileRoute('/about')()
-const IndexLazyImport = createFileRoute('/')()
-const AuthorsAuthorIdLazyImport = createFileRoute('/authors/$authorId')()
-
-// Create/Update Routes
-
-const YourSubmissionsLazyRoute = YourSubmissionsLazyImport.update({
+const YourSubmissionsLazyRoute = YourSubmissionsLazyRouteImport.update({
   id: '/your-submissions',
   path: '/your-submissions',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() =>
   import('./routes/your-submissions.lazy').then((d) => d.Route),
 )
-
-const SubmitLazyRoute = SubmitLazyImport.update({
+const SubmitLazyRoute = SubmitLazyRouteImport.update({
   id: '/submit',
   path: '/submit',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/submit.lazy').then((d) => d.Route))
-
-const StoriesLazyRoute = StoriesLazyImport.update({
+const StoriesLazyRoute = StoriesLazyRouteImport.update({
   id: '/stories',
   path: '/stories',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/stories.lazy').then((d) => d.Route))
-
-const NothingFoundLazyRoute = NothingFoundLazyImport.update({
+const NothingFoundLazyRoute = NothingFoundLazyRouteImport.update({
   id: '/nothing-found',
   path: '/nothing-found',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/nothing-found.lazy').then((d) => d.Route))
-
-const AuthorsLazyRoute = AuthorsLazyImport.update({
+const AuthorsLazyRoute = AuthorsLazyRouteImport.update({
   id: '/authors',
   path: '/authors',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/authors.lazy').then((d) => d.Route))
-
-const AuthenticationLazyRoute = AuthenticationLazyImport.update({
+const AuthenticationLazyRoute = AuthenticationLazyRouteImport.update({
   id: '/authentication',
   path: '/authentication',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() =>
   import('./routes/authentication.lazy').then((d) => d.Route),
 )
-
-const AccountSettingsLazyRoute = AccountSettingsLazyImport.update({
+const AccountSettingsLazyRoute = AccountSettingsLazyRouteImport.update({
   id: '/account-settings',
   path: '/account-settings',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() =>
   import('./routes/account-settings.lazy').then((d) => d.Route),
 )
-
-const AboutLazyRoute = AboutLazyImport.update({
+const AboutLazyRoute = AboutLazyRouteImport.update({
   id: '/about',
   path: '/about',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/about.lazy').then((d) => d.Route))
-
-const IndexLazyRoute = IndexLazyImport.update({
+const IndexLazyRoute = IndexLazyRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
-
-const AuthorsAuthorIdLazyRoute = AuthorsAuthorIdLazyImport.update({
+const AuthorsAuthorIdLazyRoute = AuthorsAuthorIdLazyRouteImport.update({
   id: '/$authorId',
   path: '/$authorId',
   getParentRoute: () => AuthorsLazyRoute,
 } as any).lazy(() =>
   import('./routes/authors/$authorId.lazy').then((d) => d.Route),
 )
-
-const StoriesStoryIdRoute = StoriesStoryIdImport.update({
+const StoriesStoryIdRoute = StoriesStoryIdRouteImport.update({
   id: '/$storyId',
   path: '/$storyId',
   getParentRoute: () => StoriesLazyRoute,
 } as any)
-
-const StoriesStoryIdIndexRoute = StoriesStoryIdIndexImport.update({
+const StoriesStoryIdIndexRoute = StoriesStoryIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => StoriesStoryIdRoute,
 } as any)
-
-const StoriesStoryIdEditRoute = StoriesStoryIdEditImport.update({
+const StoriesStoryIdEditRoute = StoriesStoryIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
   getParentRoute: () => StoriesStoryIdRoute,
 } as any)
-
-// Populate the FileRoutesByPath interface
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/account-settings': {
-      id: '/account-settings'
-      path: '/account-settings'
-      fullPath: '/account-settings'
-      preLoaderRoute: typeof AccountSettingsLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/authentication': {
-      id: '/authentication'
-      path: '/authentication'
-      fullPath: '/authentication'
-      preLoaderRoute: typeof AuthenticationLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/authors': {
-      id: '/authors'
-      path: '/authors'
-      fullPath: '/authors'
-      preLoaderRoute: typeof AuthorsLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/nothing-found': {
-      id: '/nothing-found'
-      path: '/nothing-found'
-      fullPath: '/nothing-found'
-      preLoaderRoute: typeof NothingFoundLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/stories': {
-      id: '/stories'
-      path: '/stories'
-      fullPath: '/stories'
-      preLoaderRoute: typeof StoriesLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/submit': {
-      id: '/submit'
-      path: '/submit'
-      fullPath: '/submit'
-      preLoaderRoute: typeof SubmitLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/your-submissions': {
-      id: '/your-submissions'
-      path: '/your-submissions'
-      fullPath: '/your-submissions'
-      preLoaderRoute: typeof YourSubmissionsLazyImport
-      parentRoute: typeof rootRoute
-    }
-    '/stories/$storyId': {
-      id: '/stories/$storyId'
-      path: '/$storyId'
-      fullPath: '/stories/$storyId'
-      preLoaderRoute: typeof StoriesStoryIdImport
-      parentRoute: typeof StoriesLazyImport
-    }
-    '/authors/$authorId': {
-      id: '/authors/$authorId'
-      path: '/$authorId'
-      fullPath: '/authors/$authorId'
-      preLoaderRoute: typeof AuthorsAuthorIdLazyImport
-      parentRoute: typeof AuthorsLazyImport
-    }
-    '/stories/$storyId/edit': {
-      id: '/stories/$storyId/edit'
-      path: '/edit'
-      fullPath: '/stories/$storyId/edit'
-      preLoaderRoute: typeof StoriesStoryIdEditImport
-      parentRoute: typeof StoriesStoryIdImport
-    }
-    '/stories/$storyId/': {
-      id: '/stories/$storyId/'
-      path: '/'
-      fullPath: '/stories/$storyId/'
-      preLoaderRoute: typeof StoriesStoryIdIndexImport
-      parentRoute: typeof StoriesStoryIdImport
-    }
-  }
-}
-
-// Create and export the route tree
-
-interface AuthorsLazyRouteChildren {
-  AuthorsAuthorIdLazyRoute: typeof AuthorsAuthorIdLazyRoute
-}
-
-const AuthorsLazyRouteChildren: AuthorsLazyRouteChildren = {
-  AuthorsAuthorIdLazyRoute: AuthorsAuthorIdLazyRoute,
-}
-
-const AuthorsLazyRouteWithChildren = AuthorsLazyRoute._addFileChildren(
-  AuthorsLazyRouteChildren,
-)
-
-interface StoriesStoryIdRouteChildren {
-  StoriesStoryIdEditRoute: typeof StoriesStoryIdEditRoute
-  StoriesStoryIdIndexRoute: typeof StoriesStoryIdIndexRoute
-}
-
-const StoriesStoryIdRouteChildren: StoriesStoryIdRouteChildren = {
-  StoriesStoryIdEditRoute: StoriesStoryIdEditRoute,
-  StoriesStoryIdIndexRoute: StoriesStoryIdIndexRoute,
-}
-
-const StoriesStoryIdRouteWithChildren = StoriesStoryIdRoute._addFileChildren(
-  StoriesStoryIdRouteChildren,
-)
-
-interface StoriesLazyRouteChildren {
-  StoriesStoryIdRoute: typeof StoriesStoryIdRouteWithChildren
-}
-
-const StoriesLazyRouteChildren: StoriesLazyRouteChildren = {
-  StoriesStoryIdRoute: StoriesStoryIdRouteWithChildren,
-}
-
-const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
-  StoriesLazyRouteChildren,
-)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
@@ -271,7 +115,6 @@ export interface FileRoutesByFullPath {
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
 }
-
 export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
@@ -286,9 +129,8 @@ export interface FileRoutesByTo {
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId': typeof StoriesStoryIdIndexRoute
 }
-
 export interface FileRoutesById {
-  __root__: typeof rootRoute
+  __root__: typeof rootRouteImport
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
@@ -303,7 +145,6 @@ export interface FileRoutesById {
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
 }
-
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
@@ -351,7 +192,6 @@ export interface FileRouteTypes {
     | '/stories/$storyId/'
   fileRoutesById: FileRoutesById
 }
-
 export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
   AboutLazyRoute: typeof AboutLazyRoute
@@ -364,6 +204,140 @@ export interface RootRouteChildren {
   YourSubmissionsLazyRoute: typeof YourSubmissionsLazyRoute
 }
 
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/your-submissions': {
+      id: '/your-submissions'
+      path: '/your-submissions'
+      fullPath: '/your-submissions'
+      preLoaderRoute: typeof YourSubmissionsLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/submit': {
+      id: '/submit'
+      path: '/submit'
+      fullPath: '/submit'
+      preLoaderRoute: typeof SubmitLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stories': {
+      id: '/stories'
+      path: '/stories'
+      fullPath: '/stories'
+      preLoaderRoute: typeof StoriesLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nothing-found': {
+      id: '/nothing-found'
+      path: '/nothing-found'
+      fullPath: '/nothing-found'
+      preLoaderRoute: typeof NothingFoundLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authors': {
+      id: '/authors'
+      path: '/authors'
+      fullPath: '/authors'
+      preLoaderRoute: typeof AuthorsLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authentication': {
+      id: '/authentication'
+      path: '/authentication'
+      fullPath: '/authentication'
+      preLoaderRoute: typeof AuthenticationLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-settings': {
+      id: '/account-settings'
+      path: '/account-settings'
+      fullPath: '/account-settings'
+      preLoaderRoute: typeof AccountSettingsLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authors/$authorId': {
+      id: '/authors/$authorId'
+      path: '/$authorId'
+      fullPath: '/authors/$authorId'
+      preLoaderRoute: typeof AuthorsAuthorIdLazyRouteImport
+      parentRoute: typeof AuthorsLazyRoute
+    }
+    '/stories/$storyId': {
+      id: '/stories/$storyId'
+      path: '/$storyId'
+      fullPath: '/stories/$storyId'
+      preLoaderRoute: typeof StoriesStoryIdRouteImport
+      parentRoute: typeof StoriesLazyRoute
+    }
+    '/stories/$storyId/': {
+      id: '/stories/$storyId/'
+      path: '/'
+      fullPath: '/stories/$storyId/'
+      preLoaderRoute: typeof StoriesStoryIdIndexRouteImport
+      parentRoute: typeof StoriesStoryIdRoute
+    }
+    '/stories/$storyId/edit': {
+      id: '/stories/$storyId/edit'
+      path: '/edit'
+      fullPath: '/stories/$storyId/edit'
+      preLoaderRoute: typeof StoriesStoryIdEditRouteImport
+      parentRoute: typeof StoriesStoryIdRoute
+    }
+  }
+}
+
+interface AuthorsLazyRouteChildren {
+  AuthorsAuthorIdLazyRoute: typeof AuthorsAuthorIdLazyRoute
+}
+
+const AuthorsLazyRouteChildren: AuthorsLazyRouteChildren = {
+  AuthorsAuthorIdLazyRoute: AuthorsAuthorIdLazyRoute,
+}
+
+const AuthorsLazyRouteWithChildren = AuthorsLazyRoute._addFileChildren(
+  AuthorsLazyRouteChildren,
+)
+
+interface StoriesStoryIdRouteChildren {
+  StoriesStoryIdEditRoute: typeof StoriesStoryIdEditRoute
+  StoriesStoryIdIndexRoute: typeof StoriesStoryIdIndexRoute
+}
+
+const StoriesStoryIdRouteChildren: StoriesStoryIdRouteChildren = {
+  StoriesStoryIdEditRoute: StoriesStoryIdEditRoute,
+  StoriesStoryIdIndexRoute: StoriesStoryIdIndexRoute,
+}
+
+const StoriesStoryIdRouteWithChildren = StoriesStoryIdRoute._addFileChildren(
+  StoriesStoryIdRouteChildren,
+)
+
+interface StoriesLazyRouteChildren {
+  StoriesStoryIdRoute: typeof StoriesStoryIdRouteWithChildren
+}
+
+const StoriesLazyRouteChildren: StoriesLazyRouteChildren = {
+  StoriesStoryIdRoute: StoriesStoryIdRouteWithChildren,
+}
+
+const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
+  StoriesLazyRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
   AboutLazyRoute: AboutLazyRoute,
@@ -375,81 +349,6 @@ const rootRouteChildren: RootRouteChildren = {
   SubmitLazyRoute: SubmitLazyRoute,
   YourSubmissionsLazyRoute: YourSubmissionsLazyRoute,
 }
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "__root.tsx",
-      "children": [
-        "/",
-        "/about",
-        "/account-settings",
-        "/authentication",
-        "/authors",
-        "/nothing-found",
-        "/stories",
-        "/submit",
-        "/your-submissions"
-      ]
-    },
-    "/": {
-      "filePath": "index.lazy.tsx"
-    },
-    "/about": {
-      "filePath": "about.lazy.tsx"
-    },
-    "/account-settings": {
-      "filePath": "account-settings.lazy.tsx"
-    },
-    "/authentication": {
-      "filePath": "authentication.lazy.tsx"
-    },
-    "/authors": {
-      "filePath": "authors.lazy.tsx",
-      "children": [
-        "/authors/$authorId"
-      ]
-    },
-    "/nothing-found": {
-      "filePath": "nothing-found.lazy.tsx"
-    },
-    "/stories": {
-      "filePath": "stories.lazy.tsx",
-      "children": [
-        "/stories/$storyId"
-      ]
-    },
-    "/submit": {
-      "filePath": "submit.lazy.tsx"
-    },
-    "/your-submissions": {
-      "filePath": "your-submissions.lazy.tsx"
-    },
-    "/stories/$storyId": {
-      "filePath": "stories/$storyId.tsx",
-      "parent": "/stories",
-      "children": [
-        "/stories/$storyId/edit",
-        "/stories/$storyId/"
-      ]
-    },
-    "/authors/$authorId": {
-      "filePath": "authors/$authorId.lazy.tsx",
-      "parent": "/authors"
-    },
-    "/stories/$storyId/edit": {
-      "filePath": "stories/$storyId.edit.tsx",
-      "parent": "/stories/$storyId"
-    },
-    "/stories/$storyId/": {
-      "filePath": "stories/$storyId.index.tsx",
-      "parent": "/stories/$storyId"
-    }
-  }
-}
-ROUTE_MANIFEST_END */

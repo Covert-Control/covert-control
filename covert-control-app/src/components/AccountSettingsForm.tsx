@@ -9,48 +9,95 @@ import {
   Textarea,
   Title,
   Modal,
-  useMantineColorScheme, // <-- Import the hook
+  useMantineColorScheme,
   useMantineTheme,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useAuthStore } from '../stores/authStore';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { db } from '../config/firebase';
 import { XIcon, CheckIcon } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
-import { doc, updateDoc } from 'firebase/firestore';
-import { UserProfile } from '../stores/authStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import type { UserProfile } from '../stores/authStore';
 
 export function AccountSettingsForm() {
-  const { user, username, email, profileData } = useAuthStore();
+  const { user, username, email } = useAuthStore();
   const navigate = useNavigate();
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
-  const { colorScheme } = useMantineColorScheme(); // <-- Use the hook
-  const theme = useMantineTheme(); // <-- Use Mantine theme
+  const { colorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
+  const qc = useQueryClient();
 
   const profileForm = useForm({
     initialValues: {
-      aboutMe: profileData?.aboutMe || '',
-      contactEmail: profileData?.contactEmail || '',
-      discord: profileData?.discord || '',
-      patreon: profileData?.patreon || '',
-      other: profileData?.other || '',
+      aboutMe: '',
+      contactEmail: '',
+      discord: '',
+      patreon: '',
+      other: '',
     },
   });
 
+  // Load the profile on mount (only when logged in) and hydrate store + form
+  const { data: loadedProfile } = useQuery<Partial<UserProfile>>({
+    queryKey: ['userProfile', user?.uid],
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const snap = await getDoc(doc(db, 'users', user!.uid));
+      return (snap.data() as Partial<UserProfile>) ?? {};
+    },
+  });
+
+  useEffect(() => {
+    if (!loadedProfile) return;
+
+    // merge into store (so the rest of the app can use it)
+    const next = { ...(useAuthStore.getState().profileData ?? {}), ...loadedProfile };
+    useAuthStore.getState().setProfileData(next);
+
+    // hydrate form fields
+    profileForm.setValues({
+      aboutMe: next.aboutMe ?? '',
+      contactEmail: next.contactEmail ?? '',
+      discord: next.discord ?? '',
+      patreon: next.patreon ?? '',
+      other: next.other ?? '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedProfile]); // runs once when query returns
+
   const profileMutation = useMutation({
     mutationFn: async (values: Partial<UserProfile>): Promise<Partial<UserProfile>> => {
-      if (!user) {
-        throw new Error('User not authenticated.');
-      }
-      const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, values);
-      return values;
+      if (!user) throw new Error('User not authenticated.');
+      await updateDoc(doc(db, 'users', user.uid), values);
+      return values; // return partial to merge
     },
-    onSuccess: (data) => {
-      useAuthStore.getState().setProfileData(data);
+    onSuccess: (partial) => {
+      // merge into store
+      const merged = { ...(useAuthStore.getState().profileData ?? {}), ...partial };
+      useAuthStore.getState().setProfileData(merged);
+
+      // merge into query cache
+      if (user) {
+        qc.setQueryData<Partial<UserProfile>>(
+          ['userProfile', user.uid],
+          (old) => ({ ...(old ?? {}), ...partial })
+        );
+      }
+
+      // reflect immediately in the form
+      profileForm.setValues({
+        aboutMe: merged.aboutMe ?? '',
+        contactEmail: merged.contactEmail ?? '',
+        discord: merged.discord ?? '',
+        patreon: merged.patreon ?? '',
+        other: merged.other ?? '',
+      });
+
       notifications.show({
         title: 'Profile Updated',
         message: 'Your public profile information has been saved.',
@@ -58,7 +105,7 @@ export function AccountSettingsForm() {
         icon: <CheckIcon size={18} />,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       notifications.show({
         title: 'Update Failed',
         message: error.message,
@@ -70,7 +117,8 @@ export function AccountSettingsForm() {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
-      return new Promise(resolve => setTimeout(resolve, 1000));
+      // wire up real deletion when ready
+      return new Promise((resolve) => setTimeout(resolve, 1000));
     },
     onSuccess: () => {
       notifications.show({
@@ -80,7 +128,7 @@ export function AccountSettingsForm() {
       });
       navigate({ to: '/' });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       notifications.show({
         title: 'Deletion Failed',
         message: error.message,
@@ -110,7 +158,7 @@ export function AccountSettingsForm() {
       <Divider my="md" />
 
       <Title order={3}>Email</Title>
-      <Text mt="xs">Your account email is: **{email}**</Text>
+      <Text mt="xs">Your account email is: {email}</Text>
       <Text fs="italic" c="dimmed">
         Your authentication email cannot be changed from this page.
       </Text>
@@ -118,6 +166,7 @@ export function AccountSettingsForm() {
 
       <Title order={3}>Public Profile Information</Title>
       <Text mt="xs">This information will be displayed on your public profile page.</Text>
+
       <form onSubmit={profileForm.onSubmit((values) => profileMutation.mutate(values))}>
         <Stack mt="md">
           <Textarea
@@ -156,6 +205,7 @@ export function AccountSettingsForm() {
           </Button>
         </Stack>
       </form>
+
       <Divider my="md" />
 
       <Box
@@ -163,16 +213,21 @@ export function AccountSettingsForm() {
         style={{
           border: '2px solid red',
           borderRadius: theme.radius.md,
-          backgroundColor: colorScheme === 'dark' ? theme.colors.red[9] : theme.colors.red[0], // <-- This is the change
+          backgroundColor: colorScheme === 'dark' ? theme.colors.red[9] : theme.colors.red[0],
         }}
       >
-        <Title order={3} color={colorScheme === 'dark' ? 'red' : 'red'}>
+        <Title order={3} >
           Danger Zone
         </Title>
         <Text mt="xs" c={colorScheme === 'dark' ? 'white' : 'black'}>
           Deleting your account is a permanent action. All of your stories and data will be lost.
         </Text>
-        <Button color="red" mt="md" onClick={() => setDeleteModalOpened(true)} loading={deleteAccountMutation.isPending}>
+        <Button
+          color="red"
+          mt="md"
+          onClick={() => setDeleteModalOpened(true)}
+          loading={deleteAccountMutation.isPending}
+        >
           Delete Account
         </Button>
       </Box>
@@ -184,8 +239,7 @@ export function AccountSettingsForm() {
         centered
       >
         <Text>
-          Are you absolutely sure you want to delete your account? This action cannot be
-          undone.
+          Are you absolutely sure you want to delete your account? This action cannot be undone.
         </Text>
         <Button
           color="red"
