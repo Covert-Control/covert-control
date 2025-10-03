@@ -1,4 +1,3 @@
-// src/routes/stories/$storyId.index.tsx
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Route as StoryLayout } from './$storyId';
 import { Paper, Text, Title, Button, Space } from '@mantine/core';

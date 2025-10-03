@@ -4,6 +4,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Loader, Card, Text, Title, Space, Button } from '@mantine/core';
 import { ArrowRight } from 'lucide-react';
+import FavoriteButton from '../components/FavoriteButton';
 
 export const Route = createLazyFileRoute('/stories')({
   component: StoriesListComponent,
@@ -85,6 +86,7 @@ function StoriesListComponent() {
                             {story.username}
                           </Link>
                         </Text>
+                        <FavoriteButton storyId={story.id} />
                       </div>
                       <Text size="sm" color="dimmed" style={{ flexShrink: 0 }}>Views: {story.viewCount}</Text>
                     </div>
