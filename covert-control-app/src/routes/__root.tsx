@@ -130,12 +130,7 @@ function RootComponent() {
               <DiscordButton />
               <SchemeToggleButton />
               <div>
-                {user === null ? 
-                <Link to="/authentication">
-                    <span>Login ddasf    </span>
-                </Link> :
                   <AccountDropDown />
-                }
               </div>
             </Group>
           </Group>

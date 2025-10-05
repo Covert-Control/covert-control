@@ -31,6 +31,26 @@ type ModalConfig = {
   confirmLabel?: string;
 };
 
+const mapFirebaseLoginError = (code?: string) => {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return {
+        email: 'Email or password is incorrect',
+        password: 'Email or password is incorrect',
+      };
+    case 'auth/too-many-requests':
+      return {
+        password: 'Too many attempts. Please try again later.',
+      };
+    case 'auth/invalid-email':
+      return { email: 'Invalid email address' };
+    default:
+      return { email: 'Login failed. Please try again.' };
+  }
+};
+
 export function AuthenticationForm(props: PaperProps) {
   //const userCollectionRef = collection(db, 'users')
   const [type, toggle] = useToggle(['login', 'register']);
@@ -53,6 +73,8 @@ export function AuthenticationForm(props: PaperProps) {
       password: '',
       confirmPassword: '',
       terms: false,
+      validateInputOnChange: true,
+      validateInputOnBlur: true,
     },
 
     validate: (values) => {
@@ -274,14 +296,20 @@ export function AuthenticationForm(props: PaperProps) {
       console.error('User is already logged in');
       showError('You are already logged in');
       return;
-    } 
-    try {
-      await signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password)
-      navigate({ to: '/' });
-    } catch (err) {
-      console.error(err);
     }
-  }
+
+    // Clear any previous server errors before attempting
+    form.clearErrors();
+
+    try {
+      await signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password);
+      navigate({ to: '/' });
+    } catch (err: any) {
+      console.error(err);
+      const code = err?.code as string | undefined;
+      form.setErrors(mapFirebaseLoginError(code));
+    }
+  };
 
   const handleSubmit = () => {
     if (type === 'register') {
@@ -375,7 +403,7 @@ export function AuthenticationForm(props: PaperProps) {
             placeholder="Email here..."
             value={form.values.email}
             onChange={(event) => form.setFieldValue('email', event.currentTarget.value)}
-            error={form.errors.email && 'Invalid email'}
+            error={form.errors.email}   // ⬅️ changed
             radius="md"
           />
 
@@ -385,7 +413,7 @@ export function AuthenticationForm(props: PaperProps) {
             placeholder="Your password..."
             value={form.values.password}
             onChange={(event) => form.setFieldValue('password', event.currentTarget.value)}
-            error={form.errors.password && 'Password should include at least 6 characters'}
+            error={form.errors.password}   // ⬅️ changed
             radius="md"
           />
 

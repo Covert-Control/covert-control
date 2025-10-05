@@ -22,6 +22,23 @@ import { XIcon, CheckIcon } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { UserProfile } from '../stores/authStore';
+import { getAuth, getIdTokenResult, EmailAuthProvider, GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup, signOut } from 'firebase/auth';
+import { getFunctions, httpsCallable, HttpsCallableResult } from 'firebase/functions';
+import { signOut } from 'firebase/auth';
+import { deleteMyAccountCallable } from '../config/firebase';
+import { isRecentLogin } from '../utils/auth/isRecentLogin';
+import { ReauthModal } from '../components/ReauthModal';
+
+async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (!user) return false;
+
+  const res = await getIdTokenResult(user, /* forceRefresh */ true);
+  const authTimeSec = Math.floor(new Date(res.authTime).getTime() / 1000);
+  const nowSec = Math.floor(Date.now() / 1000);
+  return (nowSec - authTimeSec) <= thresholdSeconds;
+}
 
 export function AccountSettingsForm() {
   const { user, username, email } = useAuthStore();
@@ -30,6 +47,8 @@ export function AccountSettingsForm() {
   const { colorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
   const qc = useQueryClient();
+
+  const [reauthOpen, setReauthOpen] = useState(false);
 
   const profileForm = useForm({
     initialValues: {
@@ -40,6 +59,15 @@ export function AccountSettingsForm() {
       other: '',
     },
   });
+
+  async function handleConfirmDeleteClick() {
+    const recent = await isRecentLogin();
+    if (!recent) {
+      setReauthOpen(true); // show reauth first
+      return;
+    }
+    deleteAccountMutation.mutate(); // session is fresh enough
+  }
 
   // Load the profile on mount (only when logged in) and hydrate store + form
   const { data: loadedProfile } = useQuery<Partial<UserProfile>>({
@@ -117,21 +145,27 @@ export function AccountSettingsForm() {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
-      // wire up real deletion when ready
-      return new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await deleteMyAccountCallable({ reason: 'user requested' });
+      return res.data; // { ok: true }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await signOut(getAuth());
       notifications.show({
         title: 'Account Deleted',
-        message: 'Your account has been successfully deleted.',
+        message: 'Your account was deleted. We’re sorry to see you go.',
         color: 'gray',
       });
       navigate({ to: '/' });
     },
     onError: (error: any) => {
+      const msg = error?.message ?? '';
+      if (msg.includes('RECENT_LOGIN_REQUIRED') || error?.code === 'functions/failed-precondition') {
+        setReauthOpen(true);
+        return;
+      }
       notifications.show({
         title: 'Deletion Failed',
-        message: error.message,
+        message: msg || 'Something went wrong.',
         color: 'red',
         icon: <XIcon size={18} />,
       });
@@ -245,12 +279,17 @@ export function AccountSettingsForm() {
           color="red"
           fullWidth
           mt="md"
-          onClick={() => deleteAccountMutation.mutate()}
+          onClick={handleConfirmDeleteClick} 
           loading={deleteAccountMutation.isPending}
         >
           Yes, Delete My Account
         </Button>
       </Modal>
+      <ReauthModal
+        opened={reauthOpen}
+        onClose={() => setReauthOpen(false)}
+        onSuccess={() => deleteAccountMutation.mutate()}
+      />
     </Paper>
   );
 }

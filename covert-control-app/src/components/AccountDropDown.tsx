@@ -1,22 +1,29 @@
 import {
   CircleUserRound,
   BookCopy,
-  ChevronRight,
-  CircleEllipsisIcon,
   HeartIcon,
   LogOut,
   MessageSquareText,
   SettingsIcon,
-  StarIcon,
-  ArrowRightLeftIcon,
 } from 'lucide-react';
-import { ActionIcon, Avatar, Group, Menu, Stack, Text, useMantineTheme } from '@mantine/core';
-import { useAuthStore } from '../stores/authStore'
+import { ActionIcon, Group, Menu, Stack, Text, useMantineTheme } from '@mantine/core';
+import { useAuthStore } from '../stores/authStore';
 import { Link } from '@tanstack/react-router';
+import { auth } from '../config/firebase';
+import { signOut } from 'firebase/auth'
 
 export function AccountDropDown() {
-  const { username, email } = useAuthStore();
+  const { user, username, email } = useAuthStore();
   const theme = useMantineTheme();
+
+  const logOut = async () => {
+      try {
+          await signOut(auth) 
+      } catch (err) {
+          console.error(err);
+      }
+  }
+
   return (
     <Group justify="center">
       <Menu
@@ -31,53 +38,65 @@ export function AccountDropDown() {
             <CircleUserRound size={28} strokeWidth={1.25} />
           </ActionIcon>
         </Menu.Target>
+
         <Menu.Dropdown>
-          <Menu.Item>
-            <Link
-              key={username}
-              to="/authors/$authorId"
-              params={{ authorId: username ?? '' }}
-              style={{
-                textDecoration: 'none',
-                display: 'block', // makes the whole menu item clickable
-                width: '100%',
-              }}
-            >
-              <Stack gap={0}>
-                <Text fw={500}>{username}</Text>
-                <Text size="xs" c="dimmed">{email}</Text>
-              </Stack>
-            </Link>
-          </Menu.Item>
+          {!user ? (
+            <>
+              <Menu.Label>Not signed in</Menu.Label>
+              <Menu.Item
+                component={Link}
+                to="/authentication"
+                leftSection={<CircleUserRound size={16} />}
+              >
+                Log in
+              </Menu.Item>
+            </>
+          ) : (
+            <>
+              <Menu.Item>
+                <Link
+                  to="/authors/$authorId"
+                  params={{ authorId: username ?? '' }}
+                  style={{ textDecoration: 'none', display: 'block', width: '100%' }}
+                >
+                  <Stack gap={0}>
+                    <Text fw={500}>{username}</Text>
+                    <Text size="xs" c="dimmed">
+                      {email}
+                    </Text>
+                  </Stack>
+                </Link>
+              </Menu.Item>
 
-          <Menu.Divider />
+              <Menu.Divider />
 
-          <Menu.Item
-            leftSection={<BookCopy size={16} color="#ffff00" strokeWidth={1.25} />}
-          >
-            Your submissions
-          </Menu.Item>
+              <Menu.Item
+                component={Link}
+                to={`/authors/${username ?? ''}`}
+                leftSection={<BookCopy size={16} strokeWidth={1.25} />}
+              >
+                Your profile
+              </Menu.Item>
 
-          <Menu.Item leftSection={<HeartIcon size={16} color={theme.colors.red[6]} />}>
-            Favorite Stories
-          </Menu.Item>
+              <Menu.Item leftSection={<HeartIcon size={16} color={theme.colors.red[6]} />}>
+                Favorite Stories
+              </Menu.Item>
 
-          <Menu.Item
-            leftSection={<MessageSquareText size={16} color={theme.colors.blue[6]} />}
-          >
-            Your comments
-          </Menu.Item>
+              <Menu.Item leftSection={<MessageSquareText size={16} color={theme.colors.blue[6]} />}>
+                Your comments
+              </Menu.Item>
 
-          <Menu.Label>Settings</Menu.Label>
-          <Menu.Item
-            component={Link}
-            to="/account-settings"
-            leftSection={<SettingsIcon size={16} />}
-          >
-            Account settings
-          </Menu.Item>
-          <Menu.Item leftSection={<LogOut size={16} />}>Logout</Menu.Item>
-
+              <Menu.Label>Settings</Menu.Label>
+              <Menu.Item
+                component={Link}
+                to="/account-settings"
+                leftSection={<SettingsIcon size={16} />}
+              >
+                Account settings
+              </Menu.Item>
+              <Menu.Item onClick={logOut} leftSection={<LogOut size={16} />}>Logout</Menu.Item>
+            </>
+          )}
         </Menu.Dropdown>
       </Menu>
     </Group>

@@ -4,6 +4,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import type { HttpsCallable } from 'firebase/functions';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -25,10 +26,16 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 const functions = getFunctions(app, 'us-central1');
 
+type DeleteMyAccountInput = { reason?: string };
+type DeleteMyAccountOutput = { ok: true };
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 
 export const incrementStoryViewCallable = httpsCallable(functions, 'incrementStoryView');
 export const registerUserCallable = httpsCallable(functions, 'registerUser'); 
-export const completeGoogleRegistrationCallable = httpsCallable(functions, 'completeGoogleRegistration'); 
+export const completeGoogleRegistrationCallable = httpsCallable(functions, 'completeGoogleRegistration');
+
+export const deleteMyAccountCallable: HttpsCallable<DeleteMyAccountInput, DeleteMyAccountOutput> =
+  httpsCallable(functions, 'deleteMyAccount');
