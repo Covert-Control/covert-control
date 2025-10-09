@@ -350,27 +350,4 @@ export const updateTagsOnStoryDelete = onDocumentDeleted('stories/{storyId}', as
 /* ------------------------------------------------------------------ */
 /*  Account deletion                                                  */
 /* ------------------------------------------------------------------ */
-
-type DeleteMyAccountInput = { reason?: string };
-type DeleteMyAccountOutput = { ok: true };
-
-const MAX_AGE_SECONDS = 5 * 60;
-
-export const deleteMyAccount = onCall<DeleteMyAccountInput, DeleteMyAccountOutput>(
-  async (request: CallableRequest<DeleteMyAccountInput>) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in.');
-    }
-
-    const uid = request.auth.uid;
-    const authTime = request.auth.token.auth_time ?? 0; // seconds since epoch
-    const now = Math.floor(Date.now() / 1000);
-
-    if (now - authTime > MAX_AGE_SECONDS) {
-      throw new HttpsError('failed-precondition', 'RECENT_LOGIN_REQUIRED');
-    }
-
-    await admin.auth().deleteUser(uid); // triggers the Delete User Data extension
-    return { ok: true };
-  }
-);
+export { deleteMyAccount } from './deleteAccount.v1';

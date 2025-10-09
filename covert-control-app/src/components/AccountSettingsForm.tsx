@@ -23,10 +23,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { UserProfile } from '../stores/authStore';
 import { getAuth, getIdTokenResult, EmailAuthProvider, GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup, signOut } from 'firebase/auth';
-import { getFunctions, httpsCallable, HttpsCallableResult } from 'firebase/functions';
-import { signOut } from 'firebase/auth';
 import { deleteMyAccountCallable } from '../config/firebase';
-import { isRecentLogin } from '../utils/auth/isRecentLogin';
 import { ReauthModal } from '../components/ReauthModal';
 
 async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
