@@ -78,12 +78,11 @@ export function AccountDropDown() {
                 Your profile
               </Menu.Item>
 
-              <Menu.Item leftSection={<HeartIcon size={16} color={theme.colors.red[6]} />}>
+              <Menu.Item 
+                component={Link}
+                to={`/favorites/`}
+                leftSection={<HeartIcon size={16} color={theme.colors.red[6]} />}>
                 Favorite Stories
-              </Menu.Item>
-
-              <Menu.Item leftSection={<MessageSquareText size={16} color={theme.colors.blue[6]} />}>
-                Your comments
               </Menu.Item>
 
               <Menu.Label>Settings</Menu.Label>

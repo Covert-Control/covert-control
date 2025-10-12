@@ -41,7 +41,7 @@ export function TipTap2() {
       },
       description: (value) => {
         if (!value.trim()) return 'Description is required';
-        if (value.length > 100 || value.length < 10) return 'Description must be between 10 and 100 characters';
+        if (value.length > 400 || value.length < 10) return 'Description must be between 10 and 100 characters';
         return null;
       },
       content: () => {

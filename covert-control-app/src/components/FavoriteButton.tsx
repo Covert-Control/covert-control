@@ -1,7 +1,7 @@
 // src/components/FavoriteButton.tsx
 import { ActionIcon, Tooltip } from '@mantine/core';
 import { Heart } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore';
 import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -18,11 +18,32 @@ export default function FavoriteButton({ storyId }: Props) {
 
   const [busy, setBusy] = useState(false);
 
+  const iconColor = isFav ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-dimmed)';
+
+  const icon = (
+    <motion.span
+      initial={false}
+      animate={{ scale: isFav ? 1.12 : 1 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+      style={{ display: 'inline-flex' }}
+    >
+      <Heart
+        size={18}
+        style={{ color: iconColor }}      // stroke uses currentColor
+        fill={isFav ? 'currentColor' : 'none'} // filled when favorited
+      />
+    </motion.span>
+  );
+
   if (!uid) {
     return (
       <Tooltip label="Log in to favorite" withArrow>
-        <ActionIcon variant="default" aria-label="Favorite">
-          <Heart size={18} />
+        <ActionIcon
+          variant="transparent"           // no background / no circle
+          aria-label="Favorite"
+          style={{ padding: 2, height: 26, width: 26 }}
+        >
+          {icon}
         </ActionIcon>
       </Tooltip>
     );
@@ -33,7 +54,7 @@ export default function FavoriteButton({ storyId }: Props) {
     try {
       setBusy(true);
       if (isFav) {
-        // optimistic
+        // optimistic update
         removeFavoriteLocal(storyId);
         await deleteDoc(doc(db, 'users', uid, 'favorites', storyId));
       } else {
@@ -43,9 +64,8 @@ export default function FavoriteButton({ storyId }: Props) {
           createdAt: serverTimestamp(),
         });
       }
-      // listener will reconcile if needed
     } catch (e) {
-      // basic rollback if write fails
+      // rollback on error
       if (isFav) addFavoriteLocal(storyId);
       else removeFavoriteLocal(storyId);
       console.error('Favorite toggle failed', e);
@@ -57,33 +77,16 @@ export default function FavoriteButton({ storyId }: Props) {
   return (
     <Tooltip label={isFav ? 'Unfavorite' : 'Favorite this story'} withArrow>
       <ActionIcon
+        component={motion.button}
+        whileTap={{ scale: 0.9 }}
         onClick={toggle}
+        aria-pressed={isFav}
         aria-label={isFav ? 'Unfavorite' : 'Favorite'}
-        variant={isFav ? 'filled' : 'default'}
-        color={isFav ? 'red' : undefined}
-        radius="xl"
-        size="lg"
-        // disabled={!favoritesLoaded}
-        style={{ position: 'relative' }}
+        variant="transparent"             // no circular outline / background
+        style={{ padding: 2, height: 26, width: 26, background: 'transparent' }}
+        disabled={!favoritesLoaded || busy}
       >
-        <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
-        <AnimatePresence>
-          {isFav && (
-            <motion.span
-              key="burst"
-              initial={{ scale: 0.6, opacity: 0.4 }}
-              animate={{ scale: 1.25, opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35 }}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: '9999px',
-                boxShadow: '0 0 0 4px rgba(255,0,0,0.25)',
-              }}
-            />
-          )}
-        </AnimatePresence>
+        {icon}
       </ActionIcon>
     </Tooltip>
   );

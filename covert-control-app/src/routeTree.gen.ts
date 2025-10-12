@@ -19,6 +19,7 @@ const YourSubmissionsLazyRouteImport = createFileRoute('/your-submissions')()
 const SubmitLazyRouteImport = createFileRoute('/submit')()
 const StoriesLazyRouteImport = createFileRoute('/stories')()
 const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
+const FavoritesLazyRouteImport = createFileRoute('/favorites')()
 const AuthorsLazyRouteImport = createFileRoute('/authors')()
 const AuthenticationLazyRouteImport = createFileRoute('/authentication')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
@@ -48,6 +49,11 @@ const NothingFoundLazyRoute = NothingFoundLazyRouteImport.update({
   path: '/nothing-found',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/nothing-found.lazy').then((d) => d.Route))
+const FavoritesLazyRoute = FavoritesLazyRouteImport.update({
+  id: '/favorites',
+  path: '/favorites',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/favorites.lazy').then((d) => d.Route))
 const AuthorsLazyRoute = AuthorsLazyRouteImport.update({
   id: '/authors',
   path: '/authors',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
+  '/favorites': typeof FavoritesLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
+  '/favorites': typeof FavoritesLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
+  '/favorites': typeof FavoritesLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/account-settings'
     | '/authentication'
     | '/authors'
+    | '/favorites'
     | '/nothing-found'
     | '/stories'
     | '/submit'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/account-settings'
     | '/authentication'
     | '/authors'
+    | '/favorites'
     | '/nothing-found'
     | '/stories'
     | '/submit'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/account-settings'
     | '/authentication'
     | '/authors'
+    | '/favorites'
     | '/nothing-found'
     | '/stories'
     | '/submit'
@@ -198,6 +210,7 @@ export interface RootRouteChildren {
   AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
   AuthenticationLazyRoute: typeof AuthenticationLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
+  FavoritesLazyRoute: typeof FavoritesLazyRoute
   NothingFoundLazyRoute: typeof NothingFoundLazyRoute
   StoriesLazyRoute: typeof StoriesLazyRouteWithChildren
   SubmitLazyRoute: typeof SubmitLazyRoute
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       path: '/nothing-found'
       fullPath: '/nothing-found'
       preLoaderRoute: typeof NothingFoundLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favorites': {
+      id: '/favorites'
+      path: '/favorites'
+      fullPath: '/favorites'
+      preLoaderRoute: typeof FavoritesLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/authors': {
@@ -344,6 +364,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountSettingsLazyRoute: AccountSettingsLazyRoute,
   AuthenticationLazyRoute: AuthenticationLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
+  FavoritesLazyRoute: FavoritesLazyRoute,
   NothingFoundLazyRoute: NothingFoundLazyRoute,
   StoriesLazyRoute: StoriesLazyRouteWithChildren,
   SubmitLazyRoute: SubmitLazyRoute,
