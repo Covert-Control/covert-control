@@ -1,10 +1,10 @@
 import { createLazyFileRoute, useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs as getQueryDocs, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs as getQueryDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import {
   Skeleton, Text, Title, Paper, Button, Space, Card, Anchor, Group, Divider, Stack, Box,
-  Badge, Tooltip, TextInput, SegmentedControl, Chip, Transition
+  Badge, TextInput, SegmentedControl, Chip, Transition
 } from '@mantine/core';
 import {
   CircleArrowLeft, Mail, Book, ArrowRight, Calendar, Eye, Link2, Filter as FilterIcon, Search
@@ -65,6 +65,13 @@ function alphaCompare(a?: string, b?: string) {
 function AuthorDetailPage() {
   const { authorId } = useParams({ from: '/authors/$authorId' }); // authorId is the username
 
+  // ---------- Filters UI state MUST be before any early returns ----------
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [queryText, setQueryText] = useState('');
+  const [sort, setSort] = useState<'new' | 'old' | 'alpha'>('new');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [matchMode, setMatchMode] = useState<'any' | 'all'>('any');
+
   // Author profile by username
   const { data: author, isLoading: isLoadingAuthor, error: authorError } = useQuery<UserProfile | null>({
     queryKey: ['authorDetail', authorId],
@@ -121,7 +128,47 @@ function AuthorDetailPage() {
     staleTime: 1000 * 60 * 1,
   });
 
-  // Loading / error
+  // Memos that safely handle undefined data
+  const tagStats = useMemo(() => {
+    const m = new Map<string, number>();
+    (stories ?? []).forEach((s) => (s.tags ?? []).forEach((t) => {
+      const k = String(t).trim().toLowerCase();
+      if (!k) return;
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }));
+    return Array.from(m.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => (b.count - a.count) || a.tag.localeCompare(b.tag));
+  }, [stories]);
+
+  const visibleStories = useMemo(() => {
+    let list = stories ?? [];
+
+    if (queryText.trim()) {
+      const q = queryText.trim().toLowerCase();
+      list = list.filter((s) =>
+        [s.title, s.description, s.username]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
+      );
+    }
+
+    if (selectedTags.length > 0) {
+      list = list.filter((s) => {
+        const storyTags = (s.tags ?? []).map((t) => String(t).trim().toLowerCase());
+        if (matchMode === 'any') return selectedTags.some((t) => storyTags.includes(t));
+        return selectedTags.every((t) => storyTags.includes(t));
+      });
+    }
+
+    if (sort === 'new') list = [...list].sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+    if (sort === 'old') list = [...list].sort((a, b) => (a.createdAt?.getTime?.() || 0) - (b.createdAt?.getTime?.() || 0));
+    if (sort === 'alpha') list = [...list].sort((a, b) => alphaCompare(a.title, b.title));
+
+    return list;
+  }, [stories, queryText, selectedTags, matchMode, sort]);
+
+  // ---------- Early returns AFTER all hooks ----------
   if (isLoadingAuthor || isLoadingStories) {
     return (
       <Paper p="md" shadow="xs" radius="lg" style={{ maxWidth: 900, margin: '16px auto' }}>
@@ -163,7 +210,7 @@ function AuthorDetailPage() {
     );
   }
 
-  // Derived values
+  // Derived values (non-hook)
   const patreonLink =
     author.patreon && !/^https?:\/\//i.test(author.patreon)
       ? `https://www.patreon.com/${author.patreon.replace(/^@/, '')}`
@@ -182,59 +229,10 @@ function AuthorDetailPage() {
 
   const totalViews = (stories ?? []).reduce((sum, s) => sum + (s.viewCount || 0), 0);
 
-  // ---------- Filters (re-using Favorites patterns) ----------
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [queryText, setQueryText] = useState('');
-  const [sort, setSort] = useState<'new' | 'old' | 'alpha'>('new');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [matchMode, setMatchMode] = useState<'any' | 'all'>('any');
-
-  const tagStats = useMemo(() => {
-    const m = new Map<string, number>();
-    (stories ?? []).forEach((s) => (s.tags ?? []).forEach((t) => {
-      const k = String(t).trim().toLowerCase();
-      if (!k) return;
-      m.set(k, (m.get(k) ?? 0) + 1);
-    }));
-    return Array.from(m.entries())
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => (b.count - a.count) || a.tag.localeCompare(b.tag));
-  }, [stories]);
-
-  const visibleStories = useMemo(() => {
-    let list = stories ?? [];
-
-    // Search
-    if (queryText.trim()) {
-      const q = queryText.trim().toLowerCase();
-      list = list.filter((s) =>
-        [s.title, s.description, s.username]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q))
-      );
-    }
-
-    // Tag filter
-    if (selectedTags.length > 0) {
-      list = list.filter((s) => {
-        const storyTags = (s.tags ?? []).map((t) => String(t).trim().toLowerCase());
-        if (matchMode === 'any') return selectedTags.some((t) => storyTags.includes(t));
-        return selectedTags.every((t) => storyTags.includes(t));
-      });
-    }
-
-    // Sort
-    if (sort === 'new') list = [...list].sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
-    if (sort === 'old') list = [...list].sort((a, b) => (a.createdAt?.getTime?.() || 0) - (b.createdAt?.getTime?.() || 0));
-    if (sort === 'alpha') list = [...list].sort((a, b) => alphaCompare(a.title, b.title));
-
-    return list;
-  }, [stories, queryText, selectedTags, matchMode, sort]);
-
   // ---------- UI ----------
   return (
     <Box maw={900} mx="auto" px="md" py="md">
-    {/* Back link outside to avoid extra top padding */}
+      {/* Back link outside to avoid extra top padding */}
       <Link to="/authors">
         <Button variant="subtle" size="xs" leftSection={<CircleArrowLeft size={14} />}>
           Back to all authors
@@ -269,7 +267,6 @@ function AuthorDetailPage() {
               </Badge>
             </Group>
           </div>
-
         </Group>
 
         {/* Contact section with clear labels */}
@@ -341,25 +338,25 @@ function AuthorDetailPage() {
         </Paper>
       )}
 
-      {/* Stories */}
-    <Group justify="space-between" align="center" mt="lg" mb="sm">
-      <Group gap="xs" align="center">
-        <Book size={22} />
-        <Title order={3} style={{ margin: 0 }}>
-          Stories by {author.username}
-        </Title>
+      {/* Stories header + filters toggle beside it */}
+      <Group justify="space-between" align="center" mt="lg" mb="sm">
+        <Group gap="xs" align="center">
+          <Book size={22} />
+          <Title order={3} style={{ margin: 0 }}>
+            Stories by {author.username}
+          </Title>
+        </Group>
+        <Button
+          variant="light"
+          size="xs"
+          leftSection={<FilterIcon size={14} />}
+          onClick={() => setFiltersOpen((v) => !v)}
+        >
+          Search/Filter Stories
+        </Button>
       </Group>
-      <Button
-        variant="light"
-        size="xs"
-        leftSection={<FilterIcon size={14} />}
-        onClick={() => setFiltersOpen((v) => !v)}
-      >
-        Search/Filter Stories
-      </Button>
-    </Group>
 
-      {/* Filters panel (re-used from Favorites) */}
+      {/* Filters panel */}
       <Transition mounted={filtersOpen} transition="fade" duration={160} timingFunction="ease">
         {(styles) => (
           <Paper withBorder radius="lg" p="md" mt="md" mb="lg" style={{ ...styles, backdropFilter: 'blur(4px)' }}>
@@ -427,9 +424,10 @@ function AuthorDetailPage() {
         )}
       </Transition>
 
+      {/* Stories */}
       {visibleStories.length > 0 ? (
         <Stack gap="sm">
-          {visibleStories.map((story, i) => (
+          {visibleStories.map((story) => (
             <Link
               key={story.id}
               to="/stories/$storyId"

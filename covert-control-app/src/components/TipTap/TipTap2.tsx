@@ -104,6 +104,7 @@ export function TipTap2() {
         username,
         viewCount: 0,
         createdAt: serverTimestamp(),
+        createdAtNumeric: Date.now(),
         tags: tagsLower,
       });
 

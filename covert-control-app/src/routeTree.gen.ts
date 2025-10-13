@@ -22,6 +22,7 @@ const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
 const FavoritesLazyRouteImport = createFileRoute('/favorites')()
 const AuthorsLazyRouteImport = createFileRoute('/authors')()
 const AuthenticationLazyRouteImport = createFileRoute('/authentication')()
+const AdvancedSearchLazyRouteImport = createFileRoute('/advanced-search')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const IndexLazyRouteImport = createFileRoute('/')()
@@ -65,6 +66,13 @@ const AuthenticationLazyRoute = AuthenticationLazyRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() =>
   import('./routes/authentication.lazy').then((d) => d.Route),
+)
+const AdvancedSearchLazyRoute = AdvancedSearchLazyRouteImport.update({
+  id: '/advanced-search',
+  path: '/advanced-search',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/advanced-search.lazy').then((d) => d.Route),
 )
 const AccountSettingsLazyRoute = AccountSettingsLazyRouteImport.update({
   id: '/account-settings',
@@ -110,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
+  '/advanced-search': typeof AdvancedSearchLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/favorites': typeof FavoritesLazyRoute
@@ -126,6 +135,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
+  '/advanced-search': typeof AdvancedSearchLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/favorites': typeof FavoritesLazyRoute
@@ -142,6 +152,7 @@ export interface FileRoutesById {
   '/': typeof IndexLazyRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
+  '/advanced-search': typeof AdvancedSearchLazyRoute
   '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/favorites': typeof FavoritesLazyRoute
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/account-settings'
+    | '/advanced-search'
     | '/authentication'
     | '/authors'
     | '/favorites'
@@ -176,6 +188,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/account-settings'
+    | '/advanced-search'
     | '/authentication'
     | '/authors'
     | '/favorites'
@@ -191,6 +204,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/account-settings'
+    | '/advanced-search'
     | '/authentication'
     | '/authors'
     | '/favorites'
@@ -208,6 +222,7 @@ export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
   AboutLazyRoute: typeof AboutLazyRoute
   AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
+  AdvancedSearchLazyRoute: typeof AdvancedSearchLazyRoute
   AuthenticationLazyRoute: typeof AuthenticationLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
   FavoritesLazyRoute: typeof FavoritesLazyRoute
@@ -266,6 +281,13 @@ declare module '@tanstack/react-router' {
       path: '/authentication'
       fullPath: '/authentication'
       preLoaderRoute: typeof AuthenticationLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/advanced-search': {
+      id: '/advanced-search'
+      path: '/advanced-search'
+      fullPath: '/advanced-search'
+      preLoaderRoute: typeof AdvancedSearchLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account-settings': {
@@ -362,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
   AboutLazyRoute: AboutLazyRoute,
   AccountSettingsLazyRoute: AccountSettingsLazyRoute,
+  AdvancedSearchLazyRoute: AdvancedSearchLazyRoute,
   AuthenticationLazyRoute: AuthenticationLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
   FavoritesLazyRoute: FavoritesLazyRoute,
