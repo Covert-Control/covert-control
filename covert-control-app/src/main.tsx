@@ -8,6 +8,7 @@ import '@mantine/tiptap/styles.css';
 import { NothingFoundPage } from './components/NothingFoundPage/NothingFoundPage';
 import { Notifications } from '@mantine/notifications'; 
 import '@mantine/notifications/styles.css'; 
+import '@mantine/dates/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; 
 
 const queryClient = new QueryClient(); 
