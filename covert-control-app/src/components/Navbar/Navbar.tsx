@@ -1,10 +1,11 @@
+// components/Navbar/Navbar.tsx
 import { AppShell, ActionIcon, ScrollArea } from '@mantine/core';
-import { LinksGroup } from '../NavbarLinksGroup/NavbarLinksGroup'; // update path if needed
+import { LinksGroup } from '../NavbarLinksGroup/NavbarLinksGroup';
 import { Link } from '@tanstack/react-router';
-import classes from './Navbar.module.css';
-import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft, ArrowRight } from 'lucide-react';
+import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
+import classes from './Navbar.module.css';
 
 interface NavItem {
   label: string;
@@ -29,15 +30,12 @@ const linkdata: NavItem[] = [
   { label: 'Submit Story', icon: PencilLine, link: '/submit' },
 ];
 
-type NavbarProps = {
+export type SiteNavbarProps = {
   desktopOpened: boolean;
   onToggleDesktop: () => void;
-  // If later you want this button to also control mobile state, you can extend:
-  // mobileOpened?: boolean;
-  // onToggleMobile?: () => void;
 };
 
-export default function Navbar({ desktopOpened, onToggleDesktop }: NavbarProps) {
+export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavbarProps) {
   const logOut = async () => {
     try {
       await signOut(auth);
@@ -48,9 +46,30 @@ export default function Navbar({ desktopOpened, onToggleDesktop }: NavbarProps) 
 
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
+  // IMPORTANT: return exactly ONE AppShell.Navbar element. No fragments, no siblings.
   return (
-    <AppShell.Navbar style={{ position: 'relative' }}>
+    <AppShell.Navbar>
 
+      {desktopOpened && (
+        <ActionIcon
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+          onClick={onToggleDesktop}
+          variant="default"
+          radius="xl"
+          size="lg"
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: -18, // 36px button -> half outside so it “straddles” the edge
+            zIndex: 2,
+          }}
+        >
+          <ArrowLeft size={18} />
+        </ActionIcon>
+      )}
+
+      {/* Your actual nav content */}
       <nav className={classes.navbar}>
         <ScrollArea className={classes.links}>
           <div className={classes.linksInner}>{links}</div>
