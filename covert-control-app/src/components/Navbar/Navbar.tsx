@@ -1,5 +1,6 @@
 // components/Navbar/Navbar.tsx
-import { AppShell, ActionIcon, ScrollArea } from '@mantine/core';
+import { AppShell, ActionIcon, ScrollArea, useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { LinksGroup } from '../NavbarLinksGroup/NavbarLinksGroup';
 import { Link } from '@tanstack/react-router';
 import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-react';
@@ -22,8 +23,8 @@ const linkdata: NavItem[] = [
     icon: Library,
     initiallyOpened: false,
     links: [
-      { label: 'Most Recent', link: '/stories' },
-      { label: 'Advanced Search', link: '/advanced-search' },
+      { label: 'Recent Stories', link: '/stories' },
+      { label: 'Search Stories', link: '/advanced-search' },
       { label: 'Authors', link: '/authors' },
     ],
   },
@@ -36,6 +37,10 @@ export type SiteNavbarProps = {
 };
 
 export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavbarProps) {
+
+  const theme = useMantineTheme();
+  const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
+
   const logOut = async () => {
     try {
       await signOut(auth);
@@ -50,7 +55,7 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
   return (
     <AppShell.Navbar>
 
-      {desktopOpened && (
+       {desktopOpened && isDesktop && (
         <ActionIcon
           aria-label="Collapse sidebar"
           title="Collapse sidebar"

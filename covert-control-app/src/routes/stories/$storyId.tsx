@@ -9,6 +9,7 @@ export const Route = createFileRoute('/stories/$storyId')({
     if (!snap.exists()) throw new Error(`Story ${params.storyId} not found`);
 
     const d = snap.data() as any;
+
     return {
       story: {
         id: snap.id,
@@ -18,6 +19,8 @@ export const Route = createFileRoute('/stories/$storyId')({
         ownerId: d?.ownerId ?? '',
         username: d?.username ?? 'Anonymous',
         createdAt: d?.createdAt?.toDate?.() ?? new Date(0),
+        viewCount: d?.viewCount ?? 0,
+        likesCount: d?.likesCount ?? 0,
         tags: Array.isArray(d?.tags) ? d.tags : [],
       },
     };

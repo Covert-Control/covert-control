@@ -1,28 +1,43 @@
 // src/components/StoryListCard.tsx
-import { Card, Title, Text, Button } from '@mantine/core';
+import { Card, Title, Text, Button, Badge } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
+import LikeButton from './LikeButton';
 import { useAuthStore } from '../stores/authStore';
 import type { Story } from '../types/story';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import LikeButton from './LikeButton';
+import { useMediaQuery } from '@mantine/hooks';
 
 type StoryListCardProps = {
   story: Pick<
     Story,
-    'id' | 'title' | 'likesCount' | 'description' | 'username' | 'viewCount' | 'ownerId' | 'createdAt'
+    | 'id'
+    | 'title'
+    | 'likesCount'
+    | 'description'
+    | 'username'
+    | 'viewCount'
+    | 'ownerId'
+    | 'createdAt'
+    | 'tags'
   >;
   showFavorite?: boolean;
   showViews?: boolean;
   lineClamp?: number; // collapsed lines
-  expandableDescription?: boolean; // enable/disable expand behavior
+  expandableDescription?: boolean;
 };
 
 function formatDate(d?: Date) {
   if (!d) return '';
-  return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(d);
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(d);
 }
+
+const MAX_VISIBLE_TAGS = 5;
 
 export default function StoryListCard({
   story,
@@ -34,6 +49,10 @@ export default function StoryListCard({
   const user = useAuthStore((s) => s.user);
   const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
 
+  // mobile breakpoint
+  const isMobile = useMediaQuery('(max-width: 480px)');
+
+  // ----- Description expand/collapse -----
   const [expanded, setExpanded] = useState(false);
   const [isClamped, setIsClamped] = useState(false);
   const descRef = useRef<HTMLDivElement | null>(null);
@@ -41,7 +60,6 @@ export default function StoryListCard({
   const description = story.description ?? '';
   const hasDescription = description.length > 0;
 
-  // Measure whether the text is actually clamped in collapsed mode
   const measureClamp = useCallback(() => {
     const el = descRef.current;
     if (!el) return;
@@ -49,14 +67,12 @@ export default function StoryListCard({
       setIsClamped(false);
       return;
     }
-    // If content height exceeds the visible height, it's clamped
-    const clamped = el.scrollHeight > el.clientHeight + 1; // +1 for rounding safety
+    const clamped = el.scrollHeight > el.clientHeight + 1;
     setIsClamped(clamped);
   }, [expanded]);
 
   useEffect(() => {
     const id = requestAnimationFrame(measureClamp);
-    // Fonts can change wrapping; re-measure when they load (if supported)
     (document as any)?.fonts?.ready?.then?.(() => measureClamp());
     const onResize = () => measureClamp();
     window.addEventListener('resize', onResize);
@@ -66,18 +82,48 @@ export default function StoryListCard({
     };
   }, [measureClamp, description, lineClamp]);
 
-  // Only expandable when there is text and it either overflows or is expanded
-  const canExpand = expandableDescription && hasDescription && (isClamped || expanded);
+  const canExpand =
+    expandableDescription && hasDescription && (isClamped || expanded);
+
+  // ----- Tags w/ expand/collapse -----
+  const allTags = Array.isArray(story.tags) ? story.tags : [];
+  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const visibleTags = tagsExpanded
+    ? allTags
+    : allTags.slice(0, MAX_VISIBLE_TAGS);
+  const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
       <Card.Section
         p="md"
-        style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flexGrow: 1 }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          flexGrow: 1,
+        }}
       >
-        {/* Top row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+        {/* ====== TOP ROW ====== */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: isMobile ? 'flex-start' : 'space-between',
+            alignItems: isMobile ? 'flex-start' : 'baseline',
+            marginBottom: 8,
+          }}
+        >
+          {/* Left block: title / author / favorite */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'baseline',
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
             <Link
               to="/stories/$storyId"
               params={{ storyId: story.id }}
@@ -87,7 +133,11 @@ export default function StoryListCard({
                 order={3}
                 size="h4"
                 mb="0"
-                style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                style={{
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                }}
               >
                 {story.title}
               </Title>
@@ -104,34 +154,100 @@ export default function StoryListCard({
               </Link>
             </Text>
 
-            {showFavorite && !isOwnStory && <FavoriteButton storyId={story.id} />}
+            {showFavorite && !isOwnStory && (
+              <FavoriteButton storyId={story.id} />
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
-            <LikeButton storyId={story.id} initialCount={story.likesCount ?? 0} />
+          {/* Right block: Likes • Views • Date */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              rowGap: 4,
+              columnGap: isMobile ? 8 : 12,
+              alignItems: 'center',
+              flexShrink: 0,
+              marginTop: isMobile ? 6 : 0,
+            }}
+          >
+            <LikeButton
+              storyId={story.id}
+              ownerId={story.ownerId}
+              initialCount={story.likesCount ?? 0}
+            />
+
             <Text size="sm" c="dimmed">
               •
             </Text>
+
             {showViews && (
               <Text size="sm" c="dimmed">
                 Views: {story.viewCount ?? 0}
               </Text>
             )}
+
             <Text size="sm" c="dimmed">
               •
             </Text>
-            <Text size="sm" c="dimmed" title={story.createdAt ? story.createdAt.toString() : ''}>
+
+            <Text
+              size="sm"
+              c="dimmed"
+              title={story.createdAt ? story.createdAt.toString() : ''}
+            >
               {formatDate(story.createdAt)}
             </Text>
           </div>
         </div>
 
-        {/* Description + inline button */}
+        {/* ====== TAGS ROW ====== */}
+        {allTags.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+              marginTop: 2,
+              marginBottom: 6,
+              alignItems: 'center',
+            }}
+          >
+            {visibleTags.map((tag) => (
+              <Badge
+                key={tag}
+                size="xs"
+                radius="xl"
+                variant="light"
+                color="gray"
+                style={{ textTransform: 'none' }}
+              >
+                {tag}
+              </Badge>
+            ))}
+
+            {hiddenCount > 0 && (
+              <Badge
+                size="xs"
+                radius="xl"
+                variant="outline"
+                color="gray"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setTagsExpanded((v) => !v)}
+              >
+                {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {/* ====== DESCRIPTION + BUTTON ROW ====== */}
         <div
           style={{
             display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
             gap: 12,
-            alignItems: 'flex-end',
+            alignItems: isMobile ? 'flex-start' : 'flex-end',
             justifyContent: 'space-between',
             marginTop: 4,
           }}
@@ -141,7 +257,6 @@ export default function StoryListCard({
               ref={descRef}
               size="sm"
               c="dimmed"
-              // Apply clamp only when not expanded
               {...(!expanded ? { lineClamp } : {})}
               style={{
                 marginBottom: 0,
@@ -159,7 +274,12 @@ export default function StoryListCard({
             >
               {description}
               {canExpand && (
-                <Text component="span" size="sm" c="blue" style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
+                <Text
+                  component="span"
+                  size="sm"
+                  c="blue"
+                  style={{ marginLeft: 6, whiteSpace: 'nowrap' }}
+                >
                   {expanded ? ' (show less)' : ' (show more)'}
                 </Text>
               )}
@@ -169,9 +289,17 @@ export default function StoryListCard({
           <Link
             to="/stories/$storyId"
             params={{ storyId: story.id }}
-            style={{ textDecoration: 'none', alignSelf: 'flex-end' }}
+            style={{
+              textDecoration: 'none',
+              alignSelf: isMobile ? 'flex-start' : 'flex-end',
+              marginTop: isMobile ? 8 : 0,
+            }}
           >
-            <Button variant="light" size="xs" rightSection={<ArrowRight size={14} />}>
+            <Button
+              variant="light"
+              size="xs"
+              rightSection={<ArrowRight size={14} />}
+            >
               Read Story
             </Button>
           </Link>

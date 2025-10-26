@@ -10,6 +10,7 @@ import { AccountDropDown } from '../components/AccountDropDown.tsx';
 import { useAuthStore } from '../stores/authStore';
 import { SetUsernamePage } from '../components/SetUsernamePage.tsx';
 import { useAuthListener } from '../hooks/useAuthListener';
+import SiteLogo from '../assets/logo.png';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -78,7 +79,7 @@ function RootComponent() {
                 title={desktopOpened ? 'Collapse sidebar' : 'Expand sidebar'}
               />
 
-            <p>Hello this is where logo go!!</p>
+            <img src={SiteLogo} width="50" height="50" />
           </Group>
           <Group>
             <DiscordButton />

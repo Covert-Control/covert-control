@@ -29,6 +29,7 @@ function StoriesListComponent() {
         viewCount: doc.data().viewCount || 0,
         username: doc.data().username || 'Unknown',
         createdAt: doc.data().createdAt?.toDate(),
+        tags: Array.isArray(doc.data().tags) ? doc.data().tags : [],
       } as Story));
     },
     staleTime: 1000 * 60 * 5,

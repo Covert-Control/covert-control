@@ -103,6 +103,7 @@ export function TipTap2() {
         ownerId,
         username,
         viewCount: 0,
+        likesCount: 0,
         createdAt: serverTimestamp(),
         createdAtNumeric: Date.now(),
         tags: tagsLower,
