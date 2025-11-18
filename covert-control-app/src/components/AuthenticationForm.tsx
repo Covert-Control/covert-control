@@ -24,6 +24,7 @@ import {
   signInWithEmailAndPassword,
   getAdditionalUserInfo,
   sendEmailVerification,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import {
   auth,
@@ -84,6 +85,14 @@ export function AuthenticationForm(props: PaperProps) {
   const [pendingEmail, setPendingEmail] = useState<string>('');
 
   const navigate = useNavigate();
+
+  const [termsModalOpened, setTermsModalOpened] = useState(false);
+  const [canAcceptTerms, setCanAcceptTerms] = useState(false); // becomes true after scroll-to-end
+  const [ackChecked, setAckChecked] = useState(false); 
+
+  const [forgotModalOpened, setForgotModalOpened] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState<string>('');
 
   // Main login/register form
   const form = useForm({
@@ -147,6 +156,62 @@ export function AuthenticationForm(props: PaperProps) {
     },
   });
 
+  const openTermsModal = () => {
+    setCanAcceptTerms(false);
+    setAckChecked(false);
+    setTermsModalOpened(true);
+  };
+
+  // Enable acceptance once the user has scrolled to the bottom
+  const onTermsScroll: React.UIEventHandler<HTMLDivElement> = (e) => {
+    const el = e.currentTarget;
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 12;
+    if (atBottom) setCanAcceptTerms(true);
+  };
+
+
+  const openForgotPassword = () => {
+    setForgotEmail(form.values.email || '');
+    setForgotModalOpened(true);
+  };
+
+  const handleSendReset = async () => {
+    const email = forgotEmail.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      notifications.show({
+        title: 'Invalid email',
+        message: 'Please enter a valid email address.',
+        color: 'red',
+      });
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      // Optional: add a continue URL if you want to bring users back to your site:
+      // await sendPasswordResetEmail(auth, email, { url: `${window.location.origin}/authentication` });
+      await sendPasswordResetEmail(auth, email);
+
+      // Best practice: generic success message
+      notifications.show({
+        title: 'Reset link sent',
+        message: 'If an account exists for that email, a password reset link has been sent.',
+        color: 'teal',
+      });
+      setForgotModalOpened(false);
+    } catch (err) {
+      console.error('sendPasswordResetEmail error:', err);
+      // Still show generic success to avoid user enumeration
+      notifications.show({
+        title: 'Reset link sent',
+        message: 'If an account exists for that email, a password reset link has been sent.',
+        color: 'teal',
+      });
+      setForgotModalOpened(false);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
   // Helper: show red error modal
   const showError = (message: string) => {
     setModal({
@@ -499,6 +564,114 @@ export function AuthenticationForm(props: PaperProps) {
         </Stack>
       </Modal>
 
+      <Modal
+        opened={termsModalOpened}
+        onClose={() => setTermsModalOpened(false)}
+        title="Terms & Conditions"
+        centered
+        size="lg"
+      >
+        <Stack gap="sm">
+          {/* Scrollable terms body */}
+          <div
+            onScroll={onTermsScroll}
+            style={{
+              maxHeight: 320,
+              overflowY: 'auto',
+              paddingRight: 8,
+              border: '1px solid var(--mantine-color-default-border)',
+              borderRadius: '8px',
+              padding: '12px',
+            }}
+          >
+            {/* TODO: Replace with your real terms text/markup */}
+            <Text size="sm">
+              <b>1. Introduction.</b> Welcome to Covert Control. By creating an account, you agree to these Terms…
+            </Text>
+            <Text size="sm" mt="xs">
+              <b>2. Your Content.</b> You retain ownership of your stories. You grant Covert Control a license to host and display…
+            </Text>
+            <Text size="sm" mt="xs">
+              <b>3. Prohibited Conduct.</b> No illegal content, harassment, spam, or copyright infringement…
+            </Text>
+            <Text size="sm" mt="xs">
+              <b>4. Termination.</b> We may suspend or terminate accounts that violate these Terms…
+            </Text>
+            <Text size="sm" mt="xs">
+              <b>5. Disclaimers; Limitation of Liability.</b> Service is provided “as is”…
+            </Text>
+            <Text size="sm" mt="xs">
+              <b>6. Changes.</b> We may update these Terms. Continued use after changes constitutes acceptance…
+            </Text>
+            <Text size="sm" mt="xs">
+              <b>7. Contact.</b> For questions: support@covertcontrol.example
+            </Text>
+            <Text size="xs" c="dimmed" mt="md">
+              Scroll to the bottom to enable acceptance.
+            </Text>
+          </div>
+
+          <Checkbox
+            checked={ackChecked}
+            onChange={(e) => setAckChecked(e.currentTarget.checked)}
+            disabled={!canAcceptTerms}
+            label={
+              canAcceptTerms
+                ? 'I have read and agree to the Terms & Conditions.'
+                : 'Scroll to the bottom to enable this checkbox.'
+            }
+          />
+
+          <Group justify="space-between" mt="xs">
+
+            <Group>
+              <Button variant="default" onClick={() => setTermsModalOpened(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  form.setFieldValue('terms', true);
+                  form.clearFieldError('terms');  // <-- clear error immediately
+                  setTermsModalOpened(false);
+                }}
+                disabled={!ackChecked || !canAcceptTerms}
+              >
+                Accept & continue
+              </Button>
+            </Group>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={forgotModalOpened}
+        onClose={() => setForgotModalOpened(false)}
+        title="Reset your password"
+        centered
+      >
+        <Stack>
+          <Text size="sm" c="dimmed">
+            Enter your account email and we’ll email you a link to reset your password.
+          </Text>
+
+          <TextInput
+            label="Email"
+            placeholder="you@example.com"
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.currentTarget.value)}
+            disabled={forgotLoading || isProcessing}
+          />
+
+          <Button
+            onClick={handleSendReset}
+            loading={forgotLoading}
+            disabled={isProcessing}
+          >
+            Email me a reset link
+          </Button>
+        </Stack>
+      </Modal>
+
       {/* Actual auth card */}
       <Paper radius="md" p="md" {...props}>
         <Text size="lg" fw={500}>
@@ -521,7 +694,14 @@ export function AuthenticationForm(props: PaperProps) {
           my="lg"
         />
 
-        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <form
+            onSubmit={form.onSubmit(
+              handleSubmit,
+              (errors) => {
+                if (errors.terms) setTermsModalOpened(true); // <-- auto-open Terms modal
+              }
+            )}
+          >
           <Stack>
             {type === 'register' && (
               <TextInput
@@ -564,6 +744,19 @@ export function AuthenticationForm(props: PaperProps) {
               disabled={isProcessing}
             />
 
+            {type === 'login' && (
+              <Anchor
+                component="button"
+                type="button"
+                size="xs"
+                onClick={openForgotPassword}
+                style={{ alignSelf: 'flex-end' }}
+                disabled={isProcessing}
+              >
+                Forgot password?
+              </Anchor>
+            )}
+
             {type === 'register' && (
               <PasswordInput
                 required
@@ -582,17 +775,30 @@ export function AuthenticationForm(props: PaperProps) {
               />
             )}
 
-            {type === 'register' && (
-              <Checkbox
-                required
-                label="I accept terms and conditions"
-                checked={form.values.terms}
-                onChange={(event) =>
-                  form.setFieldValue('terms', event.currentTarget.checked)
-                }
-                disabled={isProcessing}
-              />
-            )}
+          {type === 'register' && (
+            <Checkbox
+              // no "required" so we avoid any native validation quirks                            // visual cue it's required
+              checked={form.values.terms}
+              readOnly
+              disabled={isProcessing}
+              error={form.errors.terms || undefined}     // <-- single source of error text
+              onClick={(e) => {
+                e.preventDefault();
+                if (!form.values.terms) openTermsModal();  // force reading first
+                else form.setFieldValue('terms', false);   // allow un-check if already accepted
+              }}
+              label={
+                <>
+                  I accept the{' '}
+                  <Anchor component="button" onClick={openTermsModal}>
+                    Terms & Conditions
+                  </Anchor>
+                </>
+              }
+            />
+          )}
+
+
           </Stack>
 
           <Group justify="space-between" mt="xl">
