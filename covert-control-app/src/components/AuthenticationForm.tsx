@@ -34,7 +34,7 @@ import {
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { notifications } from '@mantine/notifications';
-import { PartyPopperIcon, CheckIcon, XIcon } from 'lucide-react';
+import { CheckIcon, XIcon } from 'lucide-react';
 
 type ModalConfig = {
   opened: boolean;

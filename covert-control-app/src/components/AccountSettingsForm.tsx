@@ -11,6 +11,8 @@ import {
   Modal,
   useMantineColorScheme,
   useMantineTheme,
+  Group,
+  ThemeIcon,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useAuthStore } from '../stores/authStore';
@@ -18,11 +20,11 @@ import { notifications } from '@mantine/notifications';
 import { useEffect, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { db } from '../config/firebase';
-import { XIcon, CheckIcon } from 'lucide-react';
+import { XIcon, CheckIcon, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { UserProfile } from '../stores/authStore';
-import { getAuth, getIdTokenResult, EmailAuthProvider, GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup, signOut } from 'firebase/auth';
+import { getAuth, getIdTokenResult, signOut } from 'firebase/auth';
 import { deleteMyAccountCallable } from '../config/firebase';
 import { ReauthModal } from '../components/ReauthModal';
 
@@ -44,6 +46,10 @@ export function AccountSettingsForm() {
   const { colorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
   const qc = useQueryClient();
+
+  const accent = colorScheme === 'dark' ? theme.colors.red[7] : theme.colors.red[6];
+  const subBg  = colorScheme === 'dark' ? 'rgba(220, 38, 38, 0.08)' : theme.colors.red[0]; // subtle tint
+  const border = colorScheme === 'dark' ? theme.colors.red[8] : theme.colors.red[2];
 
   const [reauthOpen, setReauthOpen] = useState(false);
 
@@ -239,29 +245,57 @@ export function AccountSettingsForm() {
 
       <Divider my="md" />
 
-      <Box
-        p="md"
-        style={{
-          border: '2px solid red',
-          borderRadius: theme.radius.md,
-          backgroundColor: colorScheme === 'dark' ? theme.colors.red[9] : theme.colors.red[0],
-        }}
-      >
-        <Title order={3} >
+<Paper
+  p="md"
+  radius="md"
+  withBorder
+  style={{
+    position: 'relative',
+    backgroundColor: subBg,
+    borderColor: border,
+  }}
+>
+  {/* slim left accent bar */}
+  <Box
+    style={{
+      position: 'absolute',
+      insetInlineStart: 0,
+      top: 0,
+      bottom: 0,
+      width: 6,
+      backgroundColor: accent,
+      borderTopLeftRadius: theme.radius.md,
+      borderBottomLeftRadius: theme.radius.md,
+    }}
+  />
+
+  <Group align="flex-start" justify="space-between" wrap="nowrap" gap="md">
+    <Group align="flex-start" gap="sm" wrap="nowrap">
+      <ThemeIcon color="red" variant="light" size="lg" radius="md">
+        <AlertTriangle size={18} />
+      </ThemeIcon>
+
+      <Stack gap={2}>
+        <Title order={4} c={colorScheme === 'dark' ? theme.colors.red[2] : theme.colors.red[7]}>
           Danger Zone
         </Title>
-        <Text mt="xs" c={colorScheme === 'dark' ? 'white' : 'black'}>
+        <Text size="sm" c="dimmed" maw={640}>
           Deleting your account is a permanent action. All of your stories and data will be lost.
         </Text>
-        <Button
-          color="red"
-          mt="md"
-          onClick={() => setDeleteModalOpened(true)}
-          loading={deleteAccountMutation.isPending}
-        >
-          Delete Account
-        </Button>
-      </Box>
+      </Stack>
+    </Group>
+
+    <Button
+      color="red"
+      variant="filled"               // strong, but not stacked on solid red bg anymore
+      onClick={() => setDeleteModalOpened(true)}
+      loading={deleteAccountMutation.isPending}
+      radius="md"
+    >
+      Delete Account
+    </Button>
+  </Group>
+</Paper>
 
       <Modal
         opened={deleteModalOpened}
