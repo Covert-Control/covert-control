@@ -1,117 +1,107 @@
+// useAuthListener.ts
 import { useEffect } from 'react';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  Unsubscribe,
-} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase.tsx';
 import { useAuthStore } from '../stores/authStore';
-import { db } from '../config/firebase';
+import type { UserProfile } from '../stores/authStore';
 
-export const useAuthListener = () => {
-  const { setAuthState, setLoading, clearAuth } = useAuthStore();
+export function useAuthListener() {
+  const setAuthState = useAuthStore((s) => s.setAuthState);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const refreshEmailVerification = useAuthStore((s) => s.refreshEmailVerification);
 
+  // Listen for login/logout and hydrate profile
   useEffect(() => {
-    const auth = getAuth();
-    setLoading(true);
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        if (fbUser) {
+          // Refresh the in-memory user so emailVerified is up-to-date
+          await fbUser.reload();
 
-    let unsubFavorites: Unsubscribe | null = null;
+          // Load profile from Firestore
+          let username: string | null = null;
+          let profileData: UserProfile | null = null;
+          let isProfileComplete: boolean | null = null;
 
-    const startFavorites = (uid: string) => {
-      // Clean up any previous listener (in case of user switch)
-      if (unsubFavorites) {
-        unsubFavorites();
-        unsubFavorites = null;
-      }
-      const qy = query(
-        collection(db, 'users', uid, 'favorites'),
-        orderBy('createdAt', 'desc')
-      );
-      unsubFavorites = onSnapshot(qy, (snap) => {
-        const ids = snap.docs.map((d) => d.id);
-        // Push into Zustand (must exist in your store)
-        useAuthStore.getState().setFavoritesIds(ids);
-      });
-    };
+          try {
+            const snap = await getDoc(doc(db, 'users', fbUser.uid));
+            if (snap.exists()) {
+              const data = snap.data() as any;
 
-    const stopFavorites = () => {
-      if (unsubFavorites) {
-        unsubFavorites();
-        unsubFavorites = null;
-      }
-      // Reset local cache so hearts/pages don't show stale state
-      if ('resetFavorites' in useAuthStore.getState()) {
-        useAuthStore.getState().resetFavorites();
-      } else {
-        // Fallback if you haven't added resetFavorites yet
-        useAuthStore.setState({
-          favoritesLoaded: false,
-          favoriteIds: [],
-          favoritesMap: {},
-        } as any);
-      }
-    };
+              username = (data?.username ?? data?.displayName ?? null) as string | null;
+              profileData = {
+                aboutMe: data?.aboutMe ?? null,
+                contactEmail: data?.contactEmail ?? null,
+                discord: data?.discord ?? null,
+                patreon: data?.patreon ?? null,
+                other: data?.other ?? null,
+              };
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
-      if (firebaseUser) {
-        try {
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as any;
-            const username = userData.username ?? null;
-            const isProfileComplete = !!username;
-
-            const profileData = {
-              aboutMe: userData.aboutMe ?? '',
-              contactEmail: userData.contactEmail ?? '',
-              discord: userData.discord ?? '',
-              patreon: userData.patreon ?? '',
-              other: userData.other ?? '',
-            };
-
-            setAuthState(
-              firebaseUser,
-              isProfileComplete,
-              firebaseUser.uid,
-              username,
-              firebaseUser.email,
-              profileData
-            );
-          } else {
-            setAuthState(
-              firebaseUser,
-              false,
-              firebaseUser.uid,
-              null,
-              firebaseUser.email,
-              null
-            );
+              // Define "complete" for your app (here: has a username)
+              isProfileComplete = Boolean(username && String(username).trim().length >= 3);
+            } else {
+              isProfileComplete = false;
+            }
+          } catch (e) {
+            console.error('Failed to read user profile:', e);
+            isProfileComplete = isProfileComplete ?? false;
           }
 
-          // ✅ Start/refresh the favorites listener for this user
-          startFavorites(firebaseUser.uid);
-        } catch (error) {
-          console.error('Error fetching user document:', error);
-          stopFavorites();
+          // Store derives/uses fbUser.emailVerified (no forced token refresh)
+          setAuthState(
+            fbUser,
+            isProfileComplete,
+            fbUser.uid,
+            username,
+            fbUser.email ?? null,
+            profileData,
+            fbUser.emailVerified
+          );
+        } else {
           clearAuth();
         }
-      } else {
-        // Logged out
-        stopFavorites();
-        clearAuth();
+      } catch (e) {
+        console.error('Auth state refresh failed:', e);
+        if (fbUser) {
+          // Fallback to at least unblock "loading"
+          setAuthState(
+            fbUser,
+            false,
+            fbUser.uid,
+            null,
+            fbUser.email ?? null,
+            null,
+            fbUser.emailVerified
+          );
+        } else {
+          clearAuth();
+        }
       }
     });
 
-    // Cleanup on unmount
-    return () => {
-      unsubscribeAuth();
-      stopFavorites();
+    return () => unsub();
+  }, [setAuthState, clearAuth]);
+
+  // On mount and when returning focus to the app, re-check (reload only)
+  useEffect(() => {
+    const run = () => {
+      refreshEmailVerification().catch((e) =>
+        console.warn('refreshEmailVerification failed', e)
+      );
     };
-  }, [setAuthState, setLoading, clearAuth]);
-};
+    run();
+
+    const onFocus = () => run();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') run();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [refreshEmailVerification]);
+}

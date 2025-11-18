@@ -1,6 +1,6 @@
 // __root.tsx
 import * as React from 'react';
-import { AppShell, Burger, Group, Skeleton, Title } from '@mantine/core';
+import { AppShell, Burger, Group, Skeleton, Title, Alert, Button, Text, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, createRootRoute } from '@tanstack/react-router';
 import SchemeToggleButton from '../components/SchemeToggleButton.tsx';
@@ -11,6 +11,8 @@ import { useAuthStore } from '../stores/authStore';
 import { SetUsernamePage } from '../components/SetUsernamePage.tsx';
 import { useAuthListener } from '../hooks/useAuthListener';
 import SiteLogo from '../assets/logo.png';
+import { sendEmailVerification } from 'firebase/auth';
+import { auth } from '../config/firebase.tsx';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -19,9 +21,31 @@ export const Route = createRootRoute({
 function RootComponent() {
   useAuthListener();
 
+  function isEmailVer() {
+    if (isEmailVerified) {
+      return "verified"
+    } else {
+      return "not verified"
+    }
+  }
+
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
-  const { user, isProfileComplete, loading } = useAuthStore();
+  const [bannerDismissed, setBannerDismissed] = React.useState(false);
+  const { user, isProfileComplete, loading, isEmailVerified, email } = useAuthStore();
+
+  const handleResendVerification = async () => {
+    if (auth.currentUser) {
+      try {
+        await sendEmailVerification(auth.currentUser);
+        // we could show a tiny in-app feedback; simplest is alert() or console for now
+        // You could also use notifications.show(...) if you want consistency
+        console.log('Verification email re-sent');
+      } catch (err) {
+        console.error('Error resending verification email:', err);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -93,6 +117,58 @@ function RootComponent() {
       <SiteNavbar desktopOpened={desktopOpened} onToggleDesktop={toggleDesktop} />
 
       <AppShell.Main>
+
+        Your email status is: {isEmailVer()}.
+
+        {/* ⬇⬇ UNVERIFIED EMAIL BANNER ⬇⬇ */}
+      {user &&
+        !isEmailVerified &&           // <-- CHANGED
+        !bannerDismissed && (
+          <Alert
+            color="yellow"
+            variant="light"
+            radius="md"
+            mb="md"
+            style={{
+              border: '1px solid rgba(255, 255, 0, 0.3)',
+            }}
+          >
+            <Stack gap="xs">
+              <Text fw={500}>
+                Please verify your email to unlock full features.
+              </Text>
+
+              <Text size="sm" c="dimmed">
+                You must verify your email to submit and like stories.
+                We sent a link to <b>{email ?? 'your email address'}</b>. Didn’t see it?
+              </Text>
+
+              <Group justify="space-between" wrap="wrap">
+                <Button
+                  size="xs"
+                  radius="sm"
+                  onClick={handleResendVerification}
+                  variant="default"
+                >
+                  Resend verification email
+                </Button>
+
+                <Button
+                  size="xs"
+                  radius="sm"
+                  color="gray"
+                  variant="subtle"
+                  onClick={() => setBannerDismissed(true)}
+                >
+                  Dismiss
+                </Button>
+              </Group>
+            </Stack>
+          </Alert>
+        )}
+
+
+        {/* Main page content */}
         <Outlet />
       </AppShell.Main>
 

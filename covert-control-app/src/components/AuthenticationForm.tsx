@@ -1,27 +1,40 @@
 import {
-    Anchor,
-    Button,
-    Checkbox,
-    Divider,
-    Group,
-    Modal,
-    Paper,
-    PaperProps,
-    PasswordInput,
-    Stack,
-    Text,
-    TextInput,
-  } from '@mantine/core';
+  Anchor,
+  Box,
+  Button,
+  Checkbox,
+  Divider,
+  Group,
+  Modal,
+  Overlay,
+  Paper,
+  PaperProps,
+  PasswordInput,
+  Stack,
+  Text,
+  TextInput,
+  Center,
+  Loader,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { upperFirst, useToggle } from '@mantine/hooks';
 import { GoogleButton } from './GoogleButton.tsx';
-import { signInWithPopup, signInWithEmailAndPassword, getAdditionalUserInfo } from 'firebase/auth';
-import { auth, googleProvider } from '../config/firebase.tsx';
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  getAdditionalUserInfo,
+  sendEmailVerification,
+} from 'firebase/auth';
+import {
+  auth,
+  googleProvider,
+  registerUserCallable,
+  completeGoogleRegistrationCallable,
+} from '../config/firebase.tsx';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { notifications } from '@mantine/notifications';
 import { PartyPopperIcon, CheckIcon, XIcon } from 'lucide-react';
-import { registerUserCallable, completeGoogleRegistrationCallable } from '../config/firebase.tsx';
 
 type ModalConfig = {
   opened: boolean;
@@ -52,7 +65,6 @@ const mapFirebaseLoginError = (code?: string) => {
 };
 
 export function AuthenticationForm(props: PaperProps) {
-  //const userCollectionRef = collection(db, 'users')
   const [type, toggle] = useToggle(['login', 'register']);
   const [modal, setModal] = useState<ModalConfig>({
     opened: false,
@@ -64,8 +76,16 @@ export function AuthenticationForm(props: PaperProps) {
 
   const [usernameModalOpened, setUsernameModalOpened] = useState(false);
 
-  const navigate = useNavigate(); 
+  // NEW: global-ish "I'm doing work" state for this screen
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Working...');
 
+  const [verifyModalOpened, setVerifyModalOpened] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string>('');
+
+  const navigate = useNavigate();
+
+  // Main login/register form
   const form = useForm({
     initialValues: {
       email: '',
@@ -87,17 +107,19 @@ export function AuthenticationForm(props: PaperProps) {
       if (values.password.length < 6) {
         errors.password = 'Password should include at least 6 characters';
       }
-      
-      // Validation for registration section only
+
+      // Registration-only validation
       if (type === 'register') {
         if (!values.name.trim()) {
           errors.name = 'Username is required';
         } else if (values.name.length < 3 || values.name.length > 20) {
           errors.name = 'Username must be between 3 and 20 characters';
         }
+
         if (values.confirmPassword !== values.password) {
           errors.confirmPassword = 'Passwords did not match';
         }
+
         if (!values.terms) {
           errors.terms = 'You must accept terms and conditions';
         }
@@ -107,6 +129,7 @@ export function AuthenticationForm(props: PaperProps) {
     },
   });
 
+  // Username form for Google new-user modal
   const usernameForm = useForm({
     initialValues: {
       newUsername: '',
@@ -119,39 +142,49 @@ export function AuthenticationForm(props: PaperProps) {
         if (value.length < 3 || value.length > 20) {
           return 'Username must be between 3 and 20 characters';
         }
-
         return null;
       },
     },
   });
 
+  // Helper: show red error modal
   const showError = (message: string) => {
     setModal({
       opened: true,
       title: 'Error',
-      body: <Text color="red">{message}</Text>,
+      body: <Text c="red">{message}</Text>,
       onConfirm: () => setModal((m) => ({ ...m, opened: false })),
       confirmLabel: 'Close',
     });
   };
 
+  const showVerifyNotice = (email: string) => {
+    setIsProcessing(false); 
+    setPendingEmail(email);
+    setVerifyModalOpened(true);
+  };
+
+  // Ask "Are you sure this username can't change?" before we actually hit Firebase
   const confirmRegistration = () => {
     setModal({
       opened: true,
       title: 'Confirm Registration',
       body: (
         <Text>
-          You’re about to register as <b>{form.values.name}</b>. Is that correct? This cannot be changed.
+          You’re about to register as <b>{form.values.name}</b>. Is that
+          correct? This cannot be changed.
         </Text>
       ),
       onConfirm: () => {
         setModal((m) => ({ ...m, opened: false }));
+        // Move on to actually create account
         onRegister();
       },
       confirmLabel: 'Yes, register',
     });
   };
 
+  // EMAIL+PASSWORD REGISTRATION
   const onRegister = async () => {
     if (auth.currentUser) {
       console.error('User is already logged in');
@@ -159,44 +192,64 @@ export function AuthenticationForm(props: PaperProps) {
       return;
     }
 
+    // START LOADING UI
+    setIsProcessing(true);
+    setLoadingMessage('Creating your account...');
+
     try {
-      // Call your Cloud Function
+      // 1. Call backend to create account + Firestore doc
       const result = await registerUserCallable({
         email: form.getValues().email,
         password: form.getValues().password,
         username: form.getValues().name,
       });
 
-      await signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password);
+      // 2. Immediately sign them in so we have auth.currentUser
+      await signInWithEmailAndPassword(
+        auth,
+        form.getValues().email,
+        form.getValues().password
+      );
 
-      // If the function returns successfully, result.data contains the returned data
       console.log('Registration successful:', result.data);
-      navigate({ to: '/' });
 
+      // 3. Send verification email
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+      }
+
+      // 4. Tell them to verify
       notifications.show({
-        title: 'Registration Successful',
-        message: `Welcome, ${form.values.name}! Your account has been created.`,
-        color: 'green',
-        autoClose:10000,
-        icon: <PartyPopperIcon size={18} />,
-        onClose: () => {
-          navigate({ to: '/' }); 
-        }
-      })
+        title: 'Almost done!',
+        message: `We sent a verification link to ${form.values.email}.`,
+        color: 'teal',
+        icon: <CheckIcon size={18} />,
+        autoClose: 7000,
+      });
+
+      // 5. Show "please verify" modal instead of navigating away
+      showVerifyNotice(form.values.email);
+
+      // DO NOT navigate('/') yet.
+      // We want them to verify first, then log in again.
+      // Also: leave isProcessing=true until they dismiss modal? We can drop it now:
+      // We drop it in the modal "Got it" button so UI unlocks.
 
     } catch (error: any) {
-      console.error("Error calling registerUser function: ", error);
-      // Handle HttpsError specifically
+      console.error('Error calling registerUser function: ', error);
+
+      // STOP LOADING
+      setIsProcessing(false);
+
       if (error.message) {
         showError(`Registration failed: ${error.message}`);
       } else {
-        // Fallback for truly unexpected errors where there's no message
         showError('An unexpected error occurred during registration. Please check your connection and try again.');
       }
     }
   };
 
-
+  // GOOGLE SIGN-IN
   const signInWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -208,14 +261,12 @@ export function AuthenticationForm(props: PaperProps) {
       console.log('Google Sign-in Result:', result);
       console.log('Is New User:', isNewUser);
 
-      // Check if user already has a 'username_lc' field in their Firestore user document.
-      // This is more robust than just `isNewUser` because a user might be old but never set a username,
-      // or if you import users.
       if (user && user.uid) {
         if (isNewUser) {
+          // brand new account -> force username modal
           setUsernameModalOpened(true);
         } else {
-          // User exists and has a username, proceed as normal login
+          // Returning user, good to go
           notifications.show({
             title: 'Welcome Back!',
             message: `Signed in as ${user.email}.`,
@@ -223,28 +274,29 @@ export function AuthenticationForm(props: PaperProps) {
             icon: <CheckIcon size={18} />,
             autoClose: 5000,
           });
-          navigate({ to: '/' }); 
+          navigate({ to: '/' });
         }
       } else {
-        throw new Error("Could not retrieve user information after Google sign-in.");
+        throw new Error(
+          'Could not retrieve user information after Google sign-in.'
+        );
       }
-
     } catch (err: any) {
       console.error(err);
       notifications.show({
         title: 'Google Sign-in Failed',
-        message: err.message || 'An unexpected error occurred during Google sign-in.',
+        message:
+          err.message ||
+          'An unexpected error occurred during Google sign-in.',
         color: 'red',
         icon: <XIcon size={18} />,
         autoClose: 5000,
       });
     }
-  }
+  };
 
-  // --- NEW FUNCTION TO HANDLE USERNAME SUBMISSION FROM MODAL ---
+  // HANDLE USERNAME SUBMISSION (GOOGLE NEW USER FINAL STEP)
   const handleUsernameSubmission = async (values: { newUsername: string }) => {
-
-    // The user is already authenticated via Google, so auth.currentUser is available
     if (!auth.currentUser) {
       notifications.show({
         title: 'Error',
@@ -256,8 +308,18 @@ export function AuthenticationForm(props: PaperProps) {
       return;
     }
 
+    // START LOADING: show global overlay and message
+    setIsProcessing(true);
+    setLoadingMessage('Finishing setup...');
+
+    // Hide the modal so the user clearly sees we're "working"
+    setUsernameModalOpened(false);
+
     try {
-      const response = await completeGoogleRegistrationCallable({ username: values.newUsername });
+      const response = await completeGoogleRegistrationCallable({
+        username: values.newUsername,
+      });
+
       console.log('Username set successfully:', response.data);
 
       notifications.show({
@@ -267,13 +329,22 @@ export function AuthenticationForm(props: PaperProps) {
         icon: <CheckIcon size={18} />,
         autoClose: 3000,
       });
-      setUsernameModalOpened(false); // Close modal
-      usernameForm.reset(); // Reset the form fields in the modal
-      navigate({ to: '/' }); // Redirect to home page
+
+      // Clean up and go home. We intentionally
+      // DO NOT clear isProcessing here because we're navigating away.
+      usernameForm.reset();
+      navigate({ to: '/' });
     } catch (error: any) {
       console.error('Error setting username:', error);
+
+      // Something went wrong:
+      // 1. Stop overlay
+      // 2. Reopen the username modal so they can try again
+      setIsProcessing(false);
+      setUsernameModalOpened(true);
+
       let errorMessage = 'Failed to set username. Please try again.';
-      if (error.message) { // Use message from HttpsError
+      if (error.message) {
         errorMessage = error.message;
       }
 
@@ -285,27 +356,43 @@ export function AuthenticationForm(props: PaperProps) {
         autoClose: 5000,
       });
 
-      // Optionally keep modal open for user to try again, clear input
-      usernameForm.setFieldError('newUsername', errorMessage); // Show error directly on input
+      // Surface error directly under the username field
+      usernameForm.setFieldError('newUsername', errorMessage);
     }
   };
 
+
+  // EMAIL+PASSWORD LOGIN
   const onLogin = async () => {
-    console.log("onLogin called");
+    console.log('onLogin called');
+
     if (auth.currentUser) {
       console.error('User is already logged in');
       showError('You are already logged in');
       return;
     }
 
-    // Clear any previous server errors before attempting
+    // Clear previous server-side errors
     form.clearErrors();
 
+    setIsProcessing(true);
+    setLoadingMessage('Signing you in...');
+
     try {
-      await signInWithEmailAndPassword(auth, form.getValues().email, form.getValues().password);
+      await signInWithEmailAndPassword(
+        auth,
+        form.getValues().email,
+        form.getValues().password
+      );
+
+      // success -> go home
       navigate({ to: '/' });
     } catch (err: any) {
       console.error(err);
+
+      // Drop loader so they can correct credentials
+      setIsProcessing(false);
+
       const code = err?.code as string | undefined;
       form.setErrors(mapFirebaseLoginError(code));
     }
@@ -319,11 +406,14 @@ export function AuthenticationForm(props: PaperProps) {
     }
   };
 
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // ─────────────────────────────────────────────────────────────
+  // RENDER
+  // We wrap everything in a Box that can paint a blocking overlay
+  // over just this "main" content (not header/nav/footer).
+  // ─────────────────────────────────────────────────────────────
   return (
-    <Paper radius="md" p="md" {...props}>
+    <Box pos="relative">
+      {/* Global lightweight error/confirm modal */}
       <Modal
         opened={modal.opened}
         onClose={() => setModal((m) => ({ ...m, opened: false }))}
@@ -336,123 +426,241 @@ export function AuthenticationForm(props: PaperProps) {
         </Button>
       </Modal>
 
+      {/* Username chooser for brand-new Google users */}
       <Modal
         opened={usernameModalOpened}
         onClose={() => {
-
-          // Consider what happens if user closes modal without setting username.
-          // They might be left in an authenticated but un-profiled state.
-          // For now, let's just close it. You might want to log out the user here.
+          // Currently: allow closing (user will technically be signed in
+          // but maybe not fully profiled). You could also force logout here.
           setUsernameModalOpened(false);
-          usernameForm.reset(); // Reset form when closing
+          usernameForm.reset();
         }}
-
         title="Choose a Username"
         centered
-        closeOnClickOutside={false} // Prevent closing without action
-        withCloseButton={false} // Force user to submit or navigate away (if you implement that)
+        closeOnClickOutside={false}
+        withCloseButton={false} // force them to submit or navigate away
       >
-        <Text>Welcome! To get started, please choose a unique username.</Text>
+        <Text>
+          Welcome! To get started, please choose a unique username.
+        </Text>
+
         <form onSubmit={usernameForm.onSubmit(handleUsernameSubmission)}>
           <Stack>
             <TextInput
               required
               label="Username"
               placeholder="Your unique username"
-              {...usernameForm.getInputProps('newUsername')} // Binds input to form state and validation
               radius="md"
               mt="md"
+              disabled={isProcessing}
+              {...usernameForm.getInputProps('newUsername')}
             />
 
-            <Button type="submit" fullWidth mt="md" radius="xl">
+            <Button
+              type="submit"
+              fullWidth
+              mt="md"
+              radius="xl"
+              loading={isProcessing}
+              disabled={isProcessing}
+            >
               Set Username
             </Button>
           </Stack>
         </form>
       </Modal>
 
-      <Text size="lg" fw={500}>
-        Welcome to Covert Control, {type} with
-      </Text>
-
-      <Group grow mb="md" mt="md">
-        <GoogleButton radius="xl" onClick={signInWithGoogle}>
-          Google
-        </GoogleButton>
-      </Group>
-
-      <Divider label="Or continue with email" labelPosition="center" my="lg" />
-
-      <form onSubmit={form.onSubmit(handleSubmit)}>
+      <Modal
+        opened={verifyModalOpened}
+        onClose={() => {
+          setVerifyModalOpened(false);
+          // optional: navigate them to login screen so they can log in after verifying
+          // toggle() if you want to flip to "login" view automatically
+        }}
+        title="Verify your email"
+        centered
+      >
         <Stack>
-          {type === 'register' && (
+          <Text>
+            We just sent a verification link to <b>{pendingEmail}</b>. Please open that email and click the link to activate your account.
+          </Text>
+
+          <Button
+            fullWidth
+            radius="xl"
+            onClick={() => {
+              setVerifyModalOpened(false);
+              setIsProcessing(false); 
+              navigate({ to: '/' });   
+            }}
+          >
+            Got it
+          </Button>
+        </Stack>
+      </Modal>
+
+      {/* Actual auth card */}
+      <Paper radius="md" p="md" {...props}>
+        <Text size="lg" fw={500}>
+          Welcome to Covert Control, {type} with
+        </Text>
+
+        <Group grow mb="md" mt="md">
+          <GoogleButton
+            radius="xl"
+            onClick={signInWithGoogle}
+            disabled={isProcessing}
+          >
+            Google
+          </GoogleButton>
+        </Group>
+
+        <Divider
+          label="Or continue with email"
+          labelPosition="center"
+          my="lg"
+        />
+
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <Stack>
+            {type === 'register' && (
+              <TextInput
+                required
+                label="Username"
+                placeholder="Other users will see this"
+                value={form.values.name}
+                onChange={(event) =>
+                  form.setFieldValue('name', event.currentTarget.value)
+                }
+                error={form.errors.name}
+                radius="md"
+                disabled={isProcessing}
+              />
+            )}
+
             <TextInput
               required
-              label="Username"
-              placeholder="Other users will see this"
-              value={form.values.name}
-              onChange={(event) => form.setFieldValue('name', event.currentTarget.value)}
-              error={form.errors.name && 'Username must be between 3 and 20 characters'}
+              label="Email"
+              placeholder="Email here..."
+              value={form.values.email}
+              onChange={(event) =>
+                form.setFieldValue('email', event.currentTarget.value)
+              }
+              error={form.errors.email}
               radius="md"
+              disabled={isProcessing}
             />
-          )}
 
-          <TextInput
-            required
-            label="Email"
-            placeholder="Email here..."
-            value={form.values.email}
-            onChange={(event) => form.setFieldValue('email', event.currentTarget.value)}
-            error={form.errors.email}   // ⬅️ changed
-            radius="md"
-          />
-
-          <PasswordInput
-            required
-            label="Password"
-            placeholder="Your password..."
-            value={form.values.password}
-            onChange={(event) => form.setFieldValue('password', event.currentTarget.value)}
-            error={form.errors.password}   // ⬅️ changed
-            radius="md"
-          />
-
-          {type === 'register' && (
             <PasswordInput
               required
-              label="Confirm password"
-              placeholder="Confirm password..."
-              value={form.values.confirmPassword}
-              onChange={(event) => form.setFieldValue('confirmPassword', event.currentTarget.value)}
-              error={form.errors.confirmPassword && 'Passwords do not match'}
+              label="Password"
+              placeholder="Your password..."
+              value={form.values.password}
+              onChange={(event) =>
+                form.setFieldValue('password', event.currentTarget.value)
+              }
+              error={form.errors.password}
               radius="md"
+              disabled={isProcessing}
             />
-          )}
 
-          {type === 'register' && (
-            <Checkbox
-              required
-              label="I accept terms and conditions"
-              checked={form.values.terms}
-              onChange={(event) => form.setFieldValue('terms', event.currentTarget.checked)}
-            />
-          )}
-        </Stack>
+            {type === 'register' && (
+              <PasswordInput
+                required
+                label="Confirm password"
+                placeholder="Confirm password..."
+                value={form.values.confirmPassword}
+                onChange={(event) =>
+                  form.setFieldValue(
+                    'confirmPassword',
+                    event.currentTarget.value
+                  )
+                }
+                error={form.errors.confirmPassword}
+                radius="md"
+                disabled={isProcessing}
+              />
+            )}
 
-        <Group justify="space-between" mt="xl">
-          <Anchor component="button" type="button" c="dimmed" onClick={() => toggle()} size="xs">
-            {type === 'register'
-              ? 'Already have an account? Login'
-              : "Don't have an account? Register"}
-          </Anchor>
-          <Button type="submit" radius="xl">
-            {upperFirst(type)}
-          </Button> 
+            {type === 'register' && (
+              <Checkbox
+                required
+                label="I accept terms and conditions"
+                checked={form.values.terms}
+                onChange={(event) =>
+                  form.setFieldValue('terms', event.currentTarget.checked)
+                }
+                disabled={isProcessing}
+              />
+            )}
+          </Stack>
 
-        </Group>
-      </form>
-    </Paper>
+          <Group justify="space-between" mt="xl">
+            <Anchor
+              component="button"
+              type="button"
+              c="dimmed"
+              size="xs"
+              onClick={() => {
+                if (isProcessing) return;
+                toggle();
+                form.clearErrors();
+              }}
+              style={{
+                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                opacity: isProcessing ? 0.5 : 1,
+              }}
+            >
+              {type === 'register'
+                ? 'Already have an account? Login'
+                : "Don\'t have an account? Register"}
+            </Anchor>
+
+            <Button
+              type="submit"
+              radius="xl"
+              loading={isProcessing}
+              disabled={isProcessing}
+            >
+              {upperFirst(type)}
+            </Button>
+          </Group>
+        </form>
+      </Paper>
+
+      {/* Processing overlay for just the <AppShell.Main> content area */}
+      {isProcessing && (
+        <>
+          {/* Dim / blur background */}
+          <Overlay
+            // Mantine Overlay is already absolute/fills parent;
+            // we bump z-index and tweak blur/opacity
+            opacity={0.4}
+            blur={3}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 200,
+            }}
+          />
+
+          {/* Centered loader + message */}
+          <Center
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 201,
+            }}
+          >
+            <Stack align="center" gap="xs">
+              <Loader size="lg" />
+              <Text c="dimmed" size="sm" ta="center" maw={260}>
+                {loadingMessage || 'Please wait...'}
+              </Text>
+            </Stack>
+          </Center>
+        </>
+      )}
+    </Box>
   );
 }
-
-

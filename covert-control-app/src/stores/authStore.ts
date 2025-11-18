@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
+import { auth } from '../config/firebase.tsx';
 
 export interface UserProfile {
   aboutMe: string | null;
@@ -17,6 +18,7 @@ interface AuthState {
   username: string | null;
   email: string | null;
   profileData: UserProfile | null;
+  isEmailVerified: boolean | null;
   favoritesLoaded: boolean;                // has the listener hydrated?
   favoriteIds: string[];                   // ordered by createdAt desc
   favoritesMap: Record<string, true>;      // O(1) membership
@@ -27,7 +29,8 @@ interface AuthState {
     profileCheckedForUid: string | null,
     username: string | null,
     email: string | null,
-    profileData: UserProfile | null
+    profileData: UserProfile | null,
+    isEmailVerified: boolean | null
   ) => void;
   setProfileData: (data: Partial<UserProfile>) => void;
   setLoading: (loading: boolean) => void;
@@ -36,6 +39,7 @@ interface AuthState {
   addFavoriteLocal: (id: string) => void;
   removeFavoriteLocal: (id: string) => void;
   resetFavorites: () => void;
+  refreshEmailVerification: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -46,7 +50,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   username: null,
   email: null,
   profileData: null,
-
+  isEmailVerified: false,
   favoritesLoaded: false,
   favoriteIds: [],
   favoritesMap: {},
@@ -59,6 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       username,
       email,
       profileData,
+      isEmailVerified: !!user?.emailVerified,
       loading: false,
     }),
 
@@ -81,10 +86,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       username: null,
       email: null,
       profileData: null,
+      isEmailVerified: false,
       favoritesLoaded: false,
       favoriteIds: [],
       favoritesMap: {},
     }),
+
+    refreshEmailVerification: async () => {
+      const u = auth.currentUser;
+      if (!u) return false;
+      await u.reload();            // force-refresh user from Firebase
+      await u.getIdToken(true);    // refresh ID token/claims just in case
+      const verified = !!u.emailVerified;
+      set({ user: u, isEmailVerified: verified });
+      return verified;
+    },
 
   // 🔽 favorites helpers
   setFavoritesIds: (ids) =>
@@ -117,4 +133,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   resetFavorites: () => set({ favoritesLoaded: false, favoriteIds: [], favoritesMap: {} }),
+  
 }));

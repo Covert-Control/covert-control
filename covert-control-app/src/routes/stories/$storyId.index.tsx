@@ -39,13 +39,11 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { Link as TipTapLink } from '@tiptap/extension-link';
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
 
 import { incrementStoryViewCallable } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
-
-// This is the same LikeButton component used in StoryListCard
 import LikeButton from '../../components/LikeButton';
 
 export const Route = createFileRoute('/stories/$storyId/')({
@@ -60,10 +58,10 @@ function StoryDetailPage() {
 
   const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
 
-  // mobile breakpoint for responsive flex tweaks (same breakpoint you used)
+  // breakpoint we already used elsewhere
   const isMobile = useMediaQuery('(max-width: 480px)');
 
-  // --- formatted date ---
+  // formatted date
   const formattedDate = useMemo(() => {
     return story.createdAt.toLocaleDateString(undefined, {
       year: 'numeric',
@@ -72,7 +70,13 @@ function StoryDetailPage() {
     });
   }, [story.createdAt]);
 
-  // --- TipTap read-only editor setup ---
+  // pluralized likes label
+  const likesLabel = useMemo(() => {
+    const n = story.likesCount ?? 0;
+    return n === 1 ? '1 like' : `${n} likes`;
+  }, [story.likesCount]);
+
+  // TipTap read-only editor setup
   const extensions = useMemo(() => [StarterKit, Underline, TipTapLink], []);
   const editor = useEditor({ extensions, editable: false, content: '' });
 
@@ -90,7 +94,7 @@ function StoryDetailPage() {
     }
   }, [editor, parsedContent]);
 
-  // --- bump view count once per session per story ---
+  // view count increment once per session
   const didTry = useRef(false);
   useEffect(() => {
     if (didTry.current || !storyId) return;
@@ -102,7 +106,7 @@ function StoryDetailPage() {
       .catch((e) => console.error('view increment failed', e));
   }, [storyId]);
 
-  // --- local reading preferences ---
+  // local reading prefs
   const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
   const [fontFamily, setFontFamily] = useState<'sans' | 'serif' | 'mono'>(
     'serif'
@@ -128,7 +132,7 @@ function StoryDetailPage() {
     mono: `"JetBrains Mono", "Fira Code", "Courier New", monospace`,
   };
 
-  // --- tags logic (same pattern as StoryListCard) ---
+  // tags logic (same pattern as StoryListCard)
   const MAX_VISIBLE_TAGS = 5;
   const allTags = Array.isArray(story.tags) ? story.tags : [];
   const [tagsExpanded, setTagsExpanded] = useState(false);
@@ -137,7 +141,7 @@ function StoryDetailPage() {
     : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
-  // --- actions ---
+  // edit/delete actions
   function handleEdit() {
     navigate({
       to: '/stories/$storyId/edit',
@@ -146,7 +150,7 @@ function StoryDetailPage() {
   }
 
   function handleDelete() {
-    // TODO: connect this to your delete logic / callable
+    // TODO: hook up to your delete logic / callable
     console.log('delete story', storyId);
   }
 
@@ -229,7 +233,9 @@ function StoryDetailPage() {
               </Text>
             )}
 
-            {/* META ROW (author / likes / views / date / settings / owner menu) */}
+            {/* META ROW:
+               by username • [like cluster] • Views • Date
+            */}
             <div
               style={{
                 display: 'flex',
@@ -262,7 +268,7 @@ function StoryDetailPage() {
                     <Anchor
                       component={RouterLink}
                       to="/authors/$authorId"
-                      // IMPORTANT: use username in the URL instead of UID
+                      // use username in the URL instead of UID
                       params={{ authorId: story.username }}
                       style={{
                         textDecoration: 'underline',
@@ -275,7 +281,7 @@ function StoryDetailPage() {
                 </Text>
               </div>
 
-              {/* RIGHT BLOCK: likes • views • date • reader settings • owner menu */}
+              {/* RIGHT BLOCK: likes • views • date */}
               <div
                 style={{
                   display: 'flex',
@@ -288,15 +294,13 @@ function StoryDetailPage() {
               >
                 {/* LIKE CLUSTER */}
                 {isOwnStory ? (
-                  // If it's your own story: show static thumbs-up + count, not interactive
                   <Group gap={4} align="center">
                     <ThumbsUp size={16} />
                     <Text size="xs" c="dimmed">
-                      {story.likesCount ?? 0} likes
+                      {likesLabel}
                     </Text>
                   </Group>
                 ) : (
-                  // If it's someone else's story: interactive LikeButton with tooltip
                   <Group gap={4} align="center">
                     <Tooltip
                       label="Like this story"
@@ -311,9 +315,8 @@ function StoryDetailPage() {
                         />
                       </div>
                     </Tooltip>
-                    {/* We want explicit label so it's obvious */}
                     <Text size="xs" c="dimmed">
-                      likes
+                      {likesLabel}
                     </Text>
                   </Group>
                 )}
@@ -323,9 +326,12 @@ function StoryDetailPage() {
                 </Text>
 
                 {/* VIEWS */}
-                <Text size="sm" c="dimmed">
-                  Views: {story.viewCount ?? 0}
-                </Text>
+                <Group gap={4} align="center">
+                  <Eye size={16} />
+                  <Text size="xs" c="dimmed">
+                    {story.viewCount} views
+                  </Text>
+                </Group>
 
                 <Text size="sm" c="dimmed">
                   •
@@ -336,11 +342,78 @@ function StoryDetailPage() {
                   size="sm"
                   c="dimmed"
                   title={story.createdAt ? story.createdAt.toString() : ''}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                 >
+                  <Calendar size={16} />
                   {formattedDate}
                 </Text>
+              </div>
+            </div>
 
-                {/* Reader settings menu (font size / family) */}
+            {/* TAGS ROW:
+               Left = tags (+more)
+               Right = reader settings gear + (if owner) kebab
+            */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                // We let the tags wrap in the left block, but we keep the menus
+                // on the far right using marginLeft:'auto' on the right block.
+                rowGap: 6,
+                columnGap: 6,
+                alignItems: 'flex-start',
+              }}
+            >
+              {/* LEFT: tag chips */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 6,
+                  minWidth: 0,
+                  flex: '1 1 auto',
+                }}
+              >
+                {visibleTags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    size="xs"
+                    radius="xl"
+                    variant="light"
+                    color="gray"
+                    style={{ textTransform: 'none' }}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+
+                {hiddenCount > 0 && (
+                  <Badge
+                    size="xs"
+                    radius="xl"
+                    variant="outline"
+                    color="gray"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setTagsExpanded((v) => !v)}
+                  >
+                    {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
+                  </Badge>
+                )}
+              </div>
+
+              {/* RIGHT: menus (gear + kebab) */}
+              <div
+                style={{
+                  display: 'flex',
+                  flex: '0 0 auto',
+                  alignItems: 'center',
+                  columnGap: 8,
+                  marginLeft: 'auto', // pushes this block to the far right
+                  flexWrap: 'nowrap',
+                }}
+              >
+                {/* Reader settings menu */}
                 <Menu withArrow shadow="md" position="bottom-end">
                   <Menu.Target>
                     <ActionIcon
@@ -434,44 +507,6 @@ function StoryDetailPage() {
                 )}
               </div>
             </div>
-
-            {/* TAGS ROW (moved up near the other info) */}
-            {allTags.length > 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 6,
-                  marginTop: 2,
-                }}
-              >
-                {visibleTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    size="xs"
-                    radius="xl"
-                    variant="light"
-                    color="gray"
-                    style={{ textTransform: 'none' }}
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-
-                {hiddenCount > 0 && (
-                  <Badge
-                    size="xs"
-                    radius="xl"
-                    variant="outline"
-                    color="gray"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setTagsExpanded((v) => !v)}
-                  >
-                    {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
-                  </Badge>
-                )}
-              </div>
-            )}
           </Stack>
         </Paper>
 
