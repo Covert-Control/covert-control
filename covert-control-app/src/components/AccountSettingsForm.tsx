@@ -24,9 +24,19 @@ import { XIcon, CheckIcon, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { UserProfile } from '../stores/authStore';
-import { getAuth, getIdTokenResult, signOut } from 'firebase/auth';
+import { 
+  getAuth, 
+  getIdTokenResult, 
+  signOut,
+  verifyBeforeUpdateEmail,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  EmailAuthProvider,
+  GoogleAuthProvider 
+} from 'firebase/auth';
 import { deleteMyAccountCallable } from '../config/firebase';
 import { ReauthModal } from '../components/ReauthModal';
+import { auth, googleProvider } from '../config/firebase.tsx';
 
 async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
   const auth = getAuth();
@@ -40,7 +50,7 @@ async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
 }
 
 export function AccountSettingsForm() {
-  const { user, username, email } = useAuthStore();
+  const { user, username } = useAuthStore();
   const navigate = useNavigate();
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
   const { colorScheme } = useMantineColorScheme();
@@ -62,6 +72,13 @@ export function AccountSettingsForm() {
       other: '',
     },
   });
+
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [changeLoading, setChangeLoading] = useState(false);
+  const [reauthNeeded, setReauthNeeded] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState(''); // for password accounts
+  const [providerIds, setProviderIds] = useState<string[]>([]);
 
   async function handleConfirmDeleteClick() {
     const recent = await isRecentLogin();
@@ -100,6 +117,100 @@ export function AccountSettingsForm() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedProfile]); // runs once when query returns
+
+  const mapEmailChangeError = (code?: string) => {
+    switch (code) {
+      case 'auth/invalid-email':
+      case 'auth/invalid-new-email':
+        return 'Please enter a valid email address.';
+      case 'auth/email-already-in-use':
+        return 'That email is already in use.';
+      case 'auth/requires-recent-login':
+        return 'For security, please confirm your identity to continue.';
+      default:
+        return 'Email update failed. Please try again.';
+    }
+  };
+
+  const openChangeEmailModal = () => {
+    const u = auth.currentUser;
+    setNewEmail(''); // leave blank; you can also prefill with u?.email ?? ''
+    setReauthNeeded(false);
+    setReauthPassword('');
+    setProviderIds(u?.providerData?.map(p => p.providerId) ?? []);
+    setEmailModalOpen(true);
+  };
+
+  const sendVerificationToNewEmail = async () => {
+    const u = auth.currentUser;
+    if (!u) return;
+    setChangeLoading(true);
+    try {
+      // Optionally include continue URL so they land back in your app:
+      // const actionCodeSettings = { url: `${window.location.origin}/authentication` };
+      await verifyBeforeUpdateEmail(u, newEmail /*, actionCodeSettings */);
+
+      notifications.show({
+        title: 'Check your inbox',
+        message:
+          'We sent a verification link to your new email. Your sign-in email will update after you click the link.',
+        color: 'teal',
+      });
+      setEmailModalOpen(false);
+    } catch (e: any) {
+      const code = e?.code as string | undefined;
+      if (code === 'auth/requires-recent-login') {
+        setReauthNeeded(true); // show reauth UI in the modal
+      } else {
+        notifications.show({
+          title: 'Couldn’t send verification',
+          message: mapEmailChangeError(code),
+          color: 'red',
+        });
+      }
+    } finally {
+      setChangeLoading(false);
+    }
+  };
+
+  const handleReauthAndRetry = async () => {
+    const u = auth.currentUser;
+    if (!u) return;
+    setChangeLoading(true);
+    try {
+      if (providerIds.includes('password')) {
+        // Reauthenticate with current email + password
+        const email = u.email ?? '';
+        const cred = EmailAuthProvider.credential(email, reauthPassword);
+        await reauthenticateWithCredential(u, cred);
+      } else if (providerIds.includes('google.com')) {
+        // Reauthenticate with Google popup
+        await reauthenticateWithPopup(u, googleProvider ?? new GoogleAuthProvider());
+      } else {
+        // Fallback: try popup with the first provider
+        await reauthenticateWithPopup(u, new GoogleAuthProvider());
+      }
+
+      // Now retry the secure operation
+      await verifyBeforeUpdateEmail(u, newEmail /*, actionCodeSettings */);
+
+      notifications.show({
+        title: 'Verification sent',
+        message:
+          'We sent a verification link to your new email. Your sign-in email will update after you click the link.',
+        color: 'teal',
+      });
+      setEmailModalOpen(false);
+    } catch (e: any) {
+      notifications.show({
+        title: 'Reauthentication failed',
+        message: mapEmailChangeError(e?.code),
+        color: 'red',
+      });
+    } finally {
+      setChangeLoading(false);
+    }
+  };
 
   const profileMutation = useMutation({
     mutationFn: async (values: Partial<UserProfile>): Promise<Partial<UserProfile>> => {
@@ -195,10 +306,15 @@ export function AccountSettingsForm() {
       <Divider my="md" />
 
       <Title order={3}>Email</Title>
-      <Text mt="xs">Your account email is: {email}</Text>
-      <Text fs="italic" c="dimmed">
-        Your authentication email cannot be changed from this page.
-      </Text>
+      <Group justify="space-between" align="end" mt="md" mb="sm">
+        <Stack gap={2}>
+          <Text size="sm" c="dimmed">Current email</Text>
+          <Text>{auth.currentUser?.email ?? '—'}</Text>
+        </Stack>
+        <Button variant="default" onClick={openChangeEmailModal}>
+          Change email
+        </Button>
+      </Group>
       <Divider my="md" />
 
       <Title order={3}>Public Profile Information</Title>
@@ -245,57 +361,120 @@ export function AccountSettingsForm() {
 
       <Divider my="md" />
 
-<Paper
-  p="md"
-  radius="md"
-  withBorder
-  style={{
-    position: 'relative',
-    backgroundColor: subBg,
-    borderColor: border,
-  }}
->
-  {/* slim left accent bar */}
-  <Box
-    style={{
-      position: 'absolute',
-      insetInlineStart: 0,
-      top: 0,
-      bottom: 0,
-      width: 6,
-      backgroundColor: accent,
-      borderTopLeftRadius: theme.radius.md,
-      borderBottomLeftRadius: theme.radius.md,
-    }}
-  />
+      <Paper
+        p="md"
+        radius="md"
+        withBorder
+        style={{
+          position: 'relative',
+          backgroundColor: subBg,
+          borderColor: border,
+        }}
+      >
+        {/* slim left accent bar */}
+        <Box
+          style={{
+            position: 'absolute',
+            insetInlineStart: 0,
+            top: 0,
+            bottom: 0,
+            width: 6,
+            backgroundColor: accent,
+            borderTopLeftRadius: theme.radius.md,
+            borderBottomLeftRadius: theme.radius.md,
+          }}
+        />
 
-  <Group align="flex-start" justify="space-between" wrap="nowrap" gap="md">
-    <Group align="flex-start" gap="sm" wrap="nowrap">
-      <ThemeIcon color="red" variant="light" size="lg" radius="md">
-        <AlertTriangle size={18} />
-      </ThemeIcon>
+        <Group align="flex-start" justify="space-between" wrap="nowrap" gap="md">
+          <Group align="flex-start" gap="sm" wrap="nowrap">
+            <ThemeIcon color="red" variant="light" size="lg" radius="md">
+              <AlertTriangle size={18} />
+            </ThemeIcon>
 
-      <Stack gap={2}>
-        <Title order={4} c={colorScheme === 'dark' ? theme.colors.red[2] : theme.colors.red[7]}>
-          Danger Zone
-        </Title>
-        <Text size="sm" c="dimmed" maw={640}>
-          Deleting your account is a permanent action. All of your stories and data will be lost.
-        </Text>
-      </Stack>
-    </Group>
+            <Stack gap={2}>
+              <Title order={4} c={colorScheme === 'dark' ? theme.colors.red[2] : theme.colors.red[7]}>
+                Danger Zone
+              </Title>
+              <Text size="sm" c="dimmed" maw={640}>
+                Deleting your account is a permanent action. All of your stories and data will be lost.
+              </Text>
+            </Stack>
+          </Group>
 
-    <Button
-      color="red"
-      variant="filled"               // strong, but not stacked on solid red bg anymore
-      onClick={() => setDeleteModalOpened(true)}
-      loading={deleteAccountMutation.isPending}
-      radius="md"
-    >
-      Delete Account
-    </Button>
-  </Group>
-</Paper>
+          <Button
+            color="red"
+            variant="filled"               // strong, but not stacked on solid red bg anymore
+            onClick={() => setDeleteModalOpened(true)}
+            loading={deleteAccountMutation.isPending}
+            radius="md"
+          >
+            Delete Account
+          </Button>
+        </Group>
+      </Paper>
+
+      <Modal
+        opened={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        title="Change email"
+        centered
+      >
+        <Stack>
+          <Text size="sm" c="dimmed">
+            We’ll email a verification link to your new address. Your sign-in email changes
+            only after you click that link.
+          </Text>
+
+          <TextInput
+            label="New email"
+            placeholder="you@newdomain.com"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.currentTarget.value)}
+            disabled={changeLoading}
+            withAsterisk
+          />
+
+          {!reauthNeeded ? (
+            <Button
+              onClick={sendVerificationToNewEmail}
+              loading={changeLoading}
+              disabled={!newEmail.trim()}
+            >
+              Send verification
+            </Button>
+          ) : (
+            <>
+              {providerIds.includes('password') ? (
+                <>
+                  <PasswordInput
+                    label="Confirm your password"
+                    placeholder="Current password"
+                    value={reauthPassword}
+                    onChange={(e) => setReauthPassword(e.currentTarget.value)}
+                    disabled={changeLoading}
+                    withAsterisk
+                  />
+                  <Button
+                    onClick={handleReauthAndRetry}
+                    loading={changeLoading}
+                    disabled={!reauthPassword}
+                  >
+                    Verify identity & send link
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleReauthAndRetry} loading={changeLoading}>
+                  Verify with your provider
+                </Button>
+              )}
+              <Text size="xs" c="dimmed">
+                For security, please confirm your identity to continue.
+              </Text>
+            </>
+          )}
+        </Stack>
+      </Modal>
+
 
       <Modal
         opened={deleteModalOpened}

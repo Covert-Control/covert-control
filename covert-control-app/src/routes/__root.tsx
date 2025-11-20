@@ -21,14 +21,6 @@ export const Route = createRootRoute({
 function RootComponent() {
   useAuthListener();
 
-  function isEmailVer() {
-    if (isEmailVerified) {
-      return "verified"
-    } else {
-      return "not verified"
-    }
-  }
-
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
   const [bannerDismissed, setBannerDismissed] = React.useState(false);
@@ -117,8 +109,6 @@ function RootComponent() {
       <SiteNavbar desktopOpened={desktopOpened} onToggleDesktop={toggleDesktop} />
 
       <AppShell.Main>
-
-        Your email status is: {isEmailVer()}.
 
         {/* ⬇⬇ UNVERIFIED EMAIL BANNER ⬇⬇ */}
       {user &&
