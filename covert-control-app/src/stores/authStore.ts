@@ -22,6 +22,7 @@ interface AuthState {
   favoritesLoaded: boolean;                // has the listener hydrated?
   favoriteIds: string[];                   // ordered by createdAt desc
   favoritesMap: Record<string, true>;      // O(1) membership
+  isAdmin: boolean;
 
   setAuthState: (
     currentUser: User | null,
@@ -40,6 +41,7 @@ interface AuthState {
   removeFavoriteLocal: (id: string) => void;
   resetFavorites: () => void;
   refreshEmailVerification: () => Promise<boolean>;
+  setIsAdmin: (value: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -54,8 +56,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   favoritesLoaded: false,
   favoriteIds: [],
   favoritesMap: {},
+  isAdmin: false,
 
-  setAuthState: (user, isProfileComplete, profileCheckedForUid, username, email, profileData) =>
+  setAuthState: (
+    user,
+    isProfileComplete,
+    profileCheckedForUid,
+    username,
+    email,
+    profileData
+  ) =>
     set({
       user,
       isProfileComplete,
@@ -90,19 +100,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesLoaded: false,
       favoriteIds: [],
       favoritesMap: {},
+      isAdmin: false,
     }),
 
-    refreshEmailVerification: async () => {
-      const u = auth.currentUser;
-      if (!u) return false;
-      await u.reload();            // force-refresh user from Firebase
-      await u.getIdToken(true);    // refresh ID token/claims just in case
-      const verified = !!u.emailVerified;
-      set({ user: u, isEmailVerified: verified });
-      return verified;
-    },
+  refreshEmailVerification: async () => {
+    const u = auth.currentUser;
+    if (!u) return false;
+    await u.reload();
+    const tokenResult = await u.getIdTokenResult(true);
+    const verified = !!u.emailVerified;
+    const isAdmin = !!tokenResult.claims.isAdmin;
+    set({ user: u, isEmailVerified: verified, isAdmin });
+    return verified;
+  },
 
-  // 🔽 favorites helpers
+  setIsAdmin: (value) => set({ isAdmin: value }),
+
+  // favorites helpers ...
   setFavoritesIds: (ids) =>
     set({
       favoritesLoaded: true,
@@ -118,7 +132,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (favoritesMap[id]) return;
     set({
       favoritesMap: { ...favoritesMap, [id]: true },
-      favoriteIds: [id, ...favoriteIds], // put newest first
+      favoriteIds: [id, ...favoriteIds],
     });
   },
 
@@ -132,6 +146,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  resetFavorites: () => set({ favoritesLoaded: false, favoriteIds: [], favoritesMap: {} }),
-  
+  resetFavorites: () =>
+    set({ favoritesLoaded: false, favoriteIds: [], favoritesMap: {} }),
 }));
+

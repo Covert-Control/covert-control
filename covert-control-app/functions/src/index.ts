@@ -358,3 +358,8 @@ export { deleteMyAccount } from './deleteAccount.v1';
 export { likeCreated } from './likeStory';
 
 export { likeDeleted } from './likeStory';
+
+/* ------------------------------------------------------------------ */
+/*  Like/Unlike Stories                                                 */
+/* ------------------------------------------------------------------ */
+export { syncUserRolesToCustomClaims } from './updateAdmin';

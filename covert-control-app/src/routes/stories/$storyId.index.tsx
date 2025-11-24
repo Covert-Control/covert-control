@@ -11,12 +11,16 @@ import {
   Anchor,
   Badge,
   Box,
+  Button,
   Container,
   Group,
   Menu,
+  Modal,
   Paper,
+  Radio,
   Stack,
   Text,
+  Textarea,
   Title,
   Tooltip,
   rem,
@@ -32,6 +36,7 @@ import {
   Trash2,
   ThumbsUp,
   User as UserIcon,
+  Flag,
 } from 'lucide-react';
 
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -42,13 +47,26 @@ import { Link as TipTapLink } from '@tiptap/extension-link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
 
-import { incrementStoryViewCallable } from '../../config/firebase';
+import { incrementStoryViewCallable, db } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
 import LikeButton from '../../components/LikeButton';
+import {
+  addDoc,
+  collection,
+  serverTimestamp,
+  getDocs,
+  query,
+  where,
+  limit,
+} from 'firebase/firestore';
+
+import { notifications } from '@mantine/notifications'; 
 
 export const Route = createFileRoute('/stories/$storyId/')({
   component: StoryDetailPage,
 });
+
+const MAX_REPORT_COMMENT_LENGTH = 500;
 
 function StoryDetailPage() {
   const navigate = useNavigate();
@@ -57,6 +75,14 @@ function StoryDetailPage() {
   const user = useAuthStore((s) => s.user);
 
   const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
+  const canReport = !!user && !isOwnStory;
+
+  // Report modal state
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportComment, setReportComment] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   // breakpoint we already used elsewhere
   const isMobile = useMediaQuery('(max-width: 480px)');
@@ -154,6 +180,100 @@ function StoryDetailPage() {
     console.log('delete story', storyId);
   }
 
+  async function handleSubmitReport() {
+    if (!user) {
+      setReportError('You must be logged in to report this story.');
+      notifications.show({
+        title: 'Not logged in',
+        message: 'You must be logged in to report a story.',
+        color: 'red',
+        position: 'bottom-center',
+      });
+      return;
+    }
+    if (!reportReason) {
+      setReportError('Please select a reason.');
+      notifications.show({
+        title: 'Reason required',
+        message: 'Please select a reason before submitting your report.',
+        color: 'yellow',
+        position: 'bottom-center',
+      });
+      return;
+    }
+
+    setReportSubmitting(true);
+    setReportError(null);
+
+    try {
+      const reportsRef = collection(db, 'reports');
+
+      // Check if this user has already reported this story
+      const existingQ = query(
+        reportsRef,
+        where('storyId', '==', story.id),
+        where('reportedBy', '==', user.uid),
+        limit(1)
+      );
+      const existingSnap = await getDocs(existingQ);
+
+      if (!existingSnap.empty) {
+        const msg =
+          'You have already reported this story. Thank you for your feedback.';
+        setReportError(msg);
+        notifications.show({
+          title: 'Already reported',
+          message: msg,
+          color: 'blue',
+          position: 'bottom-center',
+        });
+        setReportSubmitting(false);
+        return;
+      }
+
+      await addDoc(reportsRef, {
+        storyId: story.id,
+        storyTitle: story.title ?? '',
+        storyOwnerId: story.ownerId,
+        storyOwnerUsername: story.username ?? null,
+        reportedBy: user.uid,
+        reporterEmail: user.email ?? null,
+        reporterDisplayName: user.displayName ?? null,
+        reason: reportReason,
+        comment: reportComment.trim() || null,
+        status: 'open',
+        createdAt: serverTimestamp(),
+        handledAt: null,
+        handledBy: null,
+      });
+
+      // Reset & close
+      setReportModalOpen(false);
+      setReportReason('');
+      setReportComment('');
+
+      notifications.show({
+        title: 'Report submitted',
+        message: 'Thank you for helping us keep the site safe and enjoyable.',
+        color: 'green',
+        position: 'bottom-center',
+      });
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      const msg =
+        'Something went wrong while submitting the report. Please try again.';
+      setReportError(msg);
+      notifications.show({
+        title: 'Report failed',
+        message: msg,
+        color: 'red',
+        position: 'bottom-center',
+      });
+    } finally {
+      setReportSubmitting(false);
+    }
+  }
+
   return (
     <Box
       style={{
@@ -233,9 +353,7 @@ function StoryDetailPage() {
               </Text>
             )}
 
-            {/* META ROW:
-               by username • [like cluster] • Views • Date
-            */}
+            {/* META ROW */}
             <div
               style={{
                 display: 'flex',
@@ -268,7 +386,6 @@ function StoryDetailPage() {
                     <Anchor
                       component={RouterLink}
                       to="/authors/$authorId"
-                      // use username in the URL instead of UID
                       params={{ authorId: story.username }}
                       style={{
                         textDecoration: 'underline',
@@ -350,16 +467,11 @@ function StoryDetailPage() {
               </div>
             </div>
 
-            {/* TAGS ROW:
-               Left = tags (+more)
-               Right = reader settings gear + (if owner) kebab
-            */}
+            {/* TAGS ROW */}
             <div
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                // We let the tags wrap in the left block, but we keep the menus
-                // on the far right using marginLeft:'auto' on the right block.
                 rowGap: 6,
                 columnGap: 6,
                 alignItems: 'flex-start',
@@ -402,14 +514,14 @@ function StoryDetailPage() {
                 )}
               </div>
 
-              {/* RIGHT: menus (gear + kebab) */}
+              {/* RIGHT: menus (gear + report + kebab) */}
               <div
                 style={{
                   display: 'flex',
                   flex: '0 0 auto',
                   alignItems: 'center',
                   columnGap: 8,
-                  marginLeft: 'auto', // pushes this block to the far right
+                  marginLeft: 'auto',
                   flexWrap: 'nowrap',
                 }}
               >
@@ -475,6 +587,27 @@ function StoryDetailPage() {
                   </Menu.Dropdown>
                 </Menu>
 
+                {/* Report button (non-owner, logged-in users) */}
+                {canReport && (
+                  <Tooltip
+                    label="Report this story"
+                    withArrow
+                    position="bottom"
+                  >
+                    <ActionIcon
+                      variant="subtle"
+                      radius="md"
+                      aria-label="Report this story"
+                      onClick={() => {
+                        setReportError(null);
+                        setReportModalOpen(true);
+                      }}
+                    >
+                      <Flag size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+
                 {/* Owner-only kebab menu (edit/delete) */}
                 {isOwnStory && (
                   <Menu withArrow shadow="md" position="bottom-end">
@@ -532,6 +665,76 @@ function StoryDetailPage() {
             <EditorContent editor={editor!} className="story-content" />
           </Box>
         </Paper>
+
+        {/* REPORT MODAL */}
+        <Modal
+          opened={reportModalOpen}
+          onClose={() => {
+            if (!reportSubmitting) {
+              setReportModalOpen(false);
+              setReportError(null);
+            }
+          }}
+          title="Report this story"
+          centered
+        >
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              Please tell us why you are reporting this story. Reports are
+              reviewed by the site admins.
+            </Text>
+
+            <Radio.Group
+              value={reportReason}
+              onChange={setReportReason}
+              label="Reason"
+              required
+            >
+              <Stack gap={4} mt="xs">
+                <Radio value="nsfw" label="NSFW / sexual content" />
+                <Radio value="harassment" label="Harassment or hate speech" />
+                <Radio value="violence" label="Graphic violence or gore" />
+                <Radio value="spam" label="Spam or scam" />
+                <Radio value="other" label="Other" />
+              </Stack>
+            </Radio.Group>
+
+            <Textarea
+              label="Additional details (optional)"
+              placeholder="Add any details that might help the admins understand the issue"
+              minRows={3}
+              maxLength={MAX_REPORT_COMMENT_LENGTH}
+              description={`${reportComment.length}/${MAX_REPORT_COMMENT_LENGTH} characters`}
+              value={reportComment}
+              onChange={(event) =>
+                setReportComment(event.currentTarget.value)
+              }
+            />
+
+            {reportError && (
+              <Text size="sm" c="red">
+                {reportError}
+              </Text>
+            )}
+
+            <Group justify="flex-end" mt="sm">
+              <Button
+                variant="default"
+                onClick={() => {
+                  if (!reportSubmitting) {
+                    setReportModalOpen(false);
+                    setReportError(null);
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitReport} loading={reportSubmitting}>
+                Submit report
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
       </Container>
     </Box>
   );

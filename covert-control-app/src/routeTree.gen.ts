@@ -27,6 +27,7 @@ const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const IndexLazyRouteImport = createFileRoute('/')()
 const AuthorsAuthorIdLazyRouteImport = createFileRoute('/authors/$authorId')()
+const AdminReportsLazyRouteImport = createFileRoute('/admin/reports')()
 
 const YourSubmissionsLazyRoute = YourSubmissionsLazyRouteImport.update({
   id: '/your-submissions',
@@ -98,6 +99,11 @@ const AuthorsAuthorIdLazyRoute = AuthorsAuthorIdLazyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/authors/$authorId.lazy').then((d) => d.Route),
 )
+const AdminReportsLazyRoute = AdminReportsLazyRouteImport.update({
+  id: '/admin/reports',
+  path: '/admin/reports',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/admin/reports.lazy').then((d) => d.Route))
 const StoriesStoryIdRoute = StoriesStoryIdRouteImport.update({
   id: '/$storyId',
   path: '/$storyId',
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/submit': typeof SubmitLazyRoute
   '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
+  '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
   '/your-submissions': typeof YourSubmissionsLazyRoute
+  '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId': typeof StoriesStoryIdIndexRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/submit': typeof SubmitLazyRoute
   '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
+  '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/submit'
     | '/your-submissions'
     | '/stories/$storyId'
+    | '/admin/reports'
     | '/authors/$authorId'
     | '/stories/$storyId/edit'
     | '/stories/$storyId/'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/stories'
     | '/submit'
     | '/your-submissions'
+    | '/admin/reports'
     | '/authors/$authorId'
     | '/stories/$storyId/edit'
     | '/stories/$storyId'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/submit'
     | '/your-submissions'
     | '/stories/$storyId'
+    | '/admin/reports'
     | '/authors/$authorId'
     | '/stories/$storyId/edit'
     | '/stories/$storyId/'
@@ -230,6 +242,7 @@ export interface RootRouteChildren {
   StoriesLazyRoute: typeof StoriesLazyRouteWithChildren
   SubmitLazyRoute: typeof SubmitLazyRoute
   YourSubmissionsLazyRoute: typeof YourSubmissionsLazyRoute
+  AdminReportsLazyRoute: typeof AdminReportsLazyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorsAuthorIdLazyRouteImport
       parentRoute: typeof AuthorsLazyRoute
     }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/admin/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stories/$storyId': {
       id: '/stories/$storyId'
       path: '/$storyId'
@@ -392,6 +412,7 @@ const rootRouteChildren: RootRouteChildren = {
   StoriesLazyRoute: StoriesLazyRouteWithChildren,
   SubmitLazyRoute: SubmitLazyRoute,
   YourSubmissionsLazyRoute: YourSubmissionsLazyRoute,
+  AdminReportsLazyRoute: AdminReportsLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
