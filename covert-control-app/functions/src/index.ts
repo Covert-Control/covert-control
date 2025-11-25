@@ -363,3 +363,8 @@ export { likeDeleted } from './likeStory';
 /*  Like/Unlike Stories                                                 */
 /* ------------------------------------------------------------------ */
 export { syncUserRolesToCustomClaims } from './updateAdmin';
+
+/* ------------------------------------------------------------------ */
+/*  Ban Users                                                 */
+/* ------------------------------------------------------------------ */
+export { adminBanUser } from './adminBanUser.v1';

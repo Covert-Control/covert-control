@@ -24,7 +24,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 //const analytics = getAnalytics(app);
 // Initialize Firebase services
-const functions = getFunctions(app, 'us-central1');
+export const functions = getFunctions(app, 'us-central1');
 
 type DeleteMyAccountInput = { reason?: string };
 type DeleteMyAccountOutput = { ok: true };

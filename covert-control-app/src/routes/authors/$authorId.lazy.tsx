@@ -3,13 +3,36 @@ import { useQuery } from '@tanstack/react-query';
 import { collection, query, where, getDocs as getQueryDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import {
-  Skeleton, Text, Title, Paper, Button, Space, Card, Anchor, Group, Divider, Stack, Box,
-  Badge, TextInput, SegmentedControl, Chip, Transition
+  Skeleton,
+  Text,
+  Title,
+  Paper,
+  Button,
+  Space,
+  Card,
+  Anchor,
+  Group,
+  Divider,
+  Stack,
+  Box,
+  Badge,
+  TextInput,
+  SegmentedControl,
+  Chip,
+  Transition,
 } from '@mantine/core';
 import {
-  CircleArrowLeft, Mail, Book, ArrowRight, Calendar, Eye, Link2, Filter as FilterIcon, Search
+  CircleArrowLeft,
+  Book,
+  ArrowRight,
+  Calendar,
+  Eye,
+  Link2,
+  Filter as FilterIcon,
+  Search,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AdminDropdown } from '../../components/AdminDropdown';
 
 // --- Types ---
 interface Story {
@@ -36,6 +59,9 @@ interface UserProfile {
   discord?: string;
   patreon?: string;
   other?: string;
+  banned?: boolean;
+  bannedAt?: Date | null;
+  bannedReason?: string | null;
 }
 
 export const Route = createLazyFileRoute('/authors/$authorId')({
@@ -73,7 +99,11 @@ function AuthorDetailPage() {
   const [matchMode, setMatchMode] = useState<'any' | 'all'>('any');
 
   // Author profile by username
-  const { data: author, isLoading: isLoadingAuthor, error: authorError } = useQuery<UserProfile | null>({
+  const {
+    data: author,
+    isLoading: isLoadingAuthor,
+    error: authorError,
+  } = useQuery<UserProfile | null>({
     queryKey: ['authorDetail', authorId],
     queryFn: async () => {
       if (!authorId) throw new Error('Author username is missing.');
@@ -96,13 +126,20 @@ function AuthorDetailPage() {
         patreon: userData?.patreon ?? '',
         other: userData?.other ?? '',
         bio: userData?.bio ?? '',
+        banned: !!userData?.banned,
+        bannedAt: userData?.bannedAt?.toDate?.() ?? null,
+        bannedReason: userData?.bannedReason ?? null,
       } as UserProfile;
     },
     staleTime: 1000 * 60 * 5,
   });
 
   // Stories by this author (ownerId === uid)
-  const { data: stories, isLoading: isLoadingStories, error: storiesError } = useQuery<Story[]>({
+  const {
+    data: stories,
+    isLoading: isLoadingStories,
+    error: storiesError,
+  } = useQuery<Story[]>({
     queryKey: ['authorStories', author?.uid],
     queryFn: async () => {
       if (!author?.uid) return [];
@@ -131,14 +168,16 @@ function AuthorDetailPage() {
   // Memos that safely handle undefined data
   const tagStats = useMemo(() => {
     const m = new Map<string, number>();
-    (stories ?? []).forEach((s) => (s.tags ?? []).forEach((t) => {
-      const k = String(t).trim().toLowerCase();
-      if (!k) return;
-      m.set(k, (m.get(k) ?? 0) + 1);
-    }));
+    (stories ?? []).forEach((s) =>
+      (s.tags ?? []).forEach((t) => {
+        const k = String(t).trim().toLowerCase();
+        if (!k) return;
+        m.set(k, (m.get(k) ?? 0) + 1);
+      })
+    );
     return Array.from(m.entries())
       .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => (b.count - a.count) || a.tag.localeCompare(b.tag));
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }, [stories]);
 
   const visibleStories = useMemo(() => {
@@ -161,8 +200,14 @@ function AuthorDetailPage() {
       });
     }
 
-    if (sort === 'new') list = [...list].sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
-    if (sort === 'old') list = [...list].sort((a, b) => (a.createdAt?.getTime?.() || 0) - (b.createdAt?.getTime?.() || 0));
+    if (sort === 'new')
+      list = [...list].sort(
+        (a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
+      );
+    if (sort === 'old')
+      list = [...list].sort(
+        (a, b) => (a.createdAt?.getTime?.() || 0) - (b.createdAt?.getTime?.() || 0)
+      );
     if (sort === 'alpha') list = [...list].sort((a, b) => alphaCompare(a.title, b.title));
 
     return list;
@@ -224,7 +269,9 @@ function AuthorDetailPage() {
     (!!author.other && author.other.trim() !== '');
 
   const createdStr = author.dateCreated
-    ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short' }).format(author.dateCreated)
+    ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short' }).format(
+        author.dateCreated
+      )
     : undefined;
 
   const totalViews = (stories ?? []).reduce((sum, s) => sum + (s.viewCount || 0), 0);
@@ -265,8 +312,20 @@ function AuthorDetailPage() {
               <Badge variant="outline" leftSection={<Eye size={14} />}>
                 {totalViews} total views
               </Badge>
+              {author.banned && (
+                <Badge color="red" variant="filled">
+                  Banned
+                </Badge>
+              )}
             </Group>
           </div>
+
+          <AdminDropdown
+            targetUid={author.uid}
+            displayName={author.username}
+            isBanned={!!author.banned}
+            bannedReason={author.bannedReason ?? null}
+          />
         </Group>
 
         {/* Contact section with clear labels */}
@@ -276,7 +335,9 @@ function AuthorDetailPage() {
             <Stack gap={6}>
               {author.contactEmail?.trim() && (
                 <Group gap="xs" wrap="nowrap">
-                  <Text fw={600} w={90}>Email:</Text>
+                  <Text fw={600} w={90}>
+                    Email:
+                  </Text>
                   <Anchor href={`mailto:${author.contactEmail}`} style={{ cursor: 'pointer' }}>
                     {author.contactEmail}
                   </Anchor>
@@ -285,20 +346,29 @@ function AuthorDetailPage() {
 
               {author.discord?.trim() && (
                 <Group gap="xs" wrap="nowrap">
-                  <Text fw={600} w={90}>Discord:</Text>
+                  <Text fw={600} w={90}>
+                    Discord:
+                  </Text>
                   <Text>{author.discord}</Text>
                 </Group>
               )}
 
               {author.patreon?.trim() && (
                 <Group gap="xs" wrap="nowrap">
-                  <Text fw={600} w={90}>Patreon:</Text>
+                  <Text fw={600} w={90}>
+                    Patreon:
+                  </Text>
                   {patreonLink && /^https?:\/\//i.test(patreonLink) ? (
                     <Anchor
                       href={patreonLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: 'pointer',
+                      }}
                     >
                       <Link2 size={14} /> Visit
                     </Anchor>
@@ -310,13 +380,20 @@ function AuthorDetailPage() {
 
               {author.other?.trim() && (
                 <Group gap="xs" wrap="nowrap">
-                  <Text fw={600} w={90}>Other:</Text>
+                  <Text fw={600} w={90}>
+                    Other:
+                  </Text>
                   {otherLink && /^https?:\/\//i.test(otherLink) ? (
                     <Anchor
                       href={otherLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        cursor: 'pointer',
+                      }}
                     >
                       <Link2 size={14} /> Open link
                     </Anchor>
@@ -331,10 +408,12 @@ function AuthorDetailPage() {
       </Paper>
 
       {/* About */}
-      {(author.aboutMe && author.aboutMe.trim() !== '') && (
+      {author.aboutMe && author.aboutMe.trim() !== '' && (
         <Paper mt="md" p="md" shadow="xs" radius="lg" withBorder>
           <Title order={4}>About</Title>
-          <Text mt="xs" size="sm">{author.aboutMe}</Text>
+          <Text mt="xs" size="sm">
+            {author.aboutMe}
+          </Text>
         </Paper>
       )}
 
@@ -359,7 +438,14 @@ function AuthorDetailPage() {
       {/* Filters panel */}
       <Transition mounted={filtersOpen} transition="fade" duration={160} timingFunction="ease">
         {(styles) => (
-          <Paper withBorder radius="lg" p="md" mt="md" mb="lg" style={{ ...styles, backdropFilter: 'blur(4px)' }}>
+          <Paper
+            withBorder
+            radius="lg"
+            p="md"
+            mt="md"
+            mb="lg"
+            style={{ ...styles, backdropFilter: 'blur(4px)' }}
+          >
             <Stack gap="sm">
               <Group justify="space-between" wrap="wrap">
                 <TextInput
@@ -371,7 +457,9 @@ function AuthorDetailPage() {
                   radius="md"
                 />
                 <Group gap="xs" align="center">
-                  <Text c="dimmed" size="sm">Sort by:</Text>
+                  <Text c="dimmed" size="sm">
+                    Sort by:
+                  </Text>
                   <SegmentedControl
                     value={sort}
                     onChange={(v) => setSort(v as 'new' | 'old' | 'alpha')}
@@ -389,7 +477,9 @@ function AuthorDetailPage() {
                 <Stack gap="xs">
                   <Group justify="space-between" align="center">
                     <Group gap="xs" align="center">
-                      <Text c="dimmed" size="sm">Filter by tags:</Text>
+                      <Text c="dimmed" size="sm">
+                        Filter by tags:
+                      </Text>
                       <SegmentedControl
                         value={matchMode}
                         onChange={(v) => setMatchMode(v as 'any' | 'all')}
@@ -408,11 +498,18 @@ function AuthorDetailPage() {
                     )}
                   </Group>
 
-                  <Chip.Group multiple value={selectedTags} onChange={(vals) => setSelectedTags(vals as string[])}>
+                  <Chip.Group
+                    multiple
+                    value={selectedTags}
+                    onChange={(vals) => setSelectedTags(vals as string[])}
+                  >
                     <Group gap="xs">
                       {tagStats.map(({ tag, count }) => (
                         <Chip key={tag} value={tag} radius="md">
-                          {tag} <Text span size="xs" c="dimmed">({count})</Text>
+                          {tag}{' '}
+                          <Text span size="xs" c="dimmed">
+                            ({count})
+                          </Text>
                         </Chip>
                       ))}
                     </Group>
@@ -440,26 +537,33 @@ function AuthorDetailPage() {
                 withBorder
                 shadow="xs"
                 style={{
-                  transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease',
+                  transition:
+                    'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease',
                   borderColor: 'var(--mantine-color-default-border)',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget.style.transform = 'translateY(-2px)');
-                  (e.currentTarget.style.boxShadow = 'var(--mantine-shadow-sm)');
-                  (e.currentTarget.style.borderColor = 'var(--mantine-color-blue-5)');
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--mantine-shadow-sm)';
+                  e.currentTarget.style.borderColor = 'var(--mantine-color-blue-5)';
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget.style.transform = '');
-                  (e.currentTarget.style.boxShadow = 'var(--mantine-shadow-xs)');
-                  (e.currentTarget.style.borderColor = 'var(--mantine-color-default-border)');
+                  e.currentTarget.style.transform = '';
+                  e.currentTarget.style.boxShadow = 'var(--mantine-shadow-xs)';
+                  e.currentTarget.style.borderColor =
+                    'var(--mantine-color-default-border)';
                 }}
               >
-                <Card.Section p="md" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Card.Section
+                  p="md"
+                  style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+                >
                   <Group justify="space-between" align="baseline">
                     <Title order={3} size="h4" style={{ marginBottom: 0 }}>
                       {story.title}
                     </Title>
-                    <Text size="xs" c="dimmed">Views: {story.viewCount}</Text>
+                    <Text size="xs" c="dimmed">
+                      Views: {story.viewCount}
+                    </Text>
                   </Group>
                   <Text size="sm" c="dimmed" lineClamp={3}>
                     {story.description}
