@@ -14,6 +14,30 @@ setGlobalOptions({
   // memory/timeout/etc can go here too
 })
 
+async function assertEmailNotBanned(rawEmail: string | null | undefined) {
+  if (!rawEmail) return;
+
+  const email_lc = rawEmail.trim().toLowerCase();
+  if (!email_lc) return;
+
+  const bannedRef = admin.firestore().doc(`banned_emails/${email_lc}`);
+  const bannedSnap = await bannedRef.get();
+
+  if (bannedSnap.exists) {
+    const reason = (bannedSnap.data() as { reason?: string } | undefined)?.reason;
+    logger.warn(
+      `Blocked registration for banned email: ${email_lc}` +
+        (reason ? ` | reason: ${reason}` : '')
+    );
+
+    throw new HttpsError(
+      'permission-denied',
+      'This email address has been banned from registering. If you believe this is a mistake, please contact support.'
+    );
+  }
+}
+
+
 // Use onCall as an HTTP callable function, designed for client-side calls
 export const registerUser = onCall(async (req) => {
   const { email, password, username } = req.data as {
@@ -37,6 +61,8 @@ export const registerUser = onCall(async (req) => {
   }
 
   try {
+    await assertEmailNotBanned(email);
+
     return await admin.firestore().runTransaction(async (tx) => {
       const nameRef = admin.firestore().doc(`usernames/${username_lc}`)
       const nameSnap = await tx.get(nameRef)
@@ -136,6 +162,8 @@ export const completeGoogleRegistration = onCall(async (req: CallableRequest) =>
   }
 
   try {
+    await assertEmailNotBanned(email);
+    
     return await admin.firestore().runTransaction(async (tx) => {
       const nameRef = admin.firestore().doc(`usernames/${username_lc}`)
       const nameSnap = await tx.get(nameRef)
@@ -365,6 +393,10 @@ export { likeDeleted } from './likeStory';
 export { syncUserRolesToCustomClaims } from './updateAdmin';
 
 /* ------------------------------------------------------------------ */
-/*  Ban Users                                                 */
+/*  Ban/Delete Users                                                 */
 /* ------------------------------------------------------------------ */
 export { adminBanUser } from './adminBanUser.v1';
+
+export { adminDeleteUser } from './adminDeleteUser.v1';
+
+export { adminDeleteAndBanUser } from './adminDeleteAndBanUser.v1';

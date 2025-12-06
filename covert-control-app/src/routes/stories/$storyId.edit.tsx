@@ -113,7 +113,7 @@ function EditStoryPage() {
       title: (v) => (!v.trim() ? 'Title is required' : v.length > 30 ? 'Max 30 characters' : null),
       description: (v) => {
         if (!v.trim()) return 'Description is required';
-        if (v.length < 10 || v.length > 100) return 'Description must be 10–100 chars';
+        if (v.length < 10 || v.length > 500) return 'Description must be 10–500 chars';
         return null;
       },
       // Tags validation (mirror create flow)

@@ -4,14 +4,26 @@ import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useState } from 'react';
-import { Button, TextInput, Textarea, Modal, Text } from '@mantine/core';
+import { useState, type FormEvent } from 'react';
+import { Button, TextInput, Textarea, Modal, Text, Group } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { db as appDb } from '../../config/firebase';
-import { addDoc, increment, collection, serverTimestamp, setDoc, doc } from 'firebase/firestore';
+import {
+  addDoc,
+  increment,
+  collection,
+  serverTimestamp,
+  setDoc,
+  doc,
+  getDocs,
+  query,
+  where,
+  limit as fsLimit,
+} from 'firebase/firestore';
 import { auth } from '../../config/firebase'
 import { useAuthStore } from '../../stores/authStore';
 import { TagPicker } from '../../components/TagPicker';
+import { TermsModal } from '../../components/TermsModal';
 import { useNavigate } from '@tanstack/react-router';
 
 const content = '';
@@ -24,15 +36,30 @@ export function TipTap2() {
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // ✅ Duplicate title warning modal state
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+
+  // ✅ Terms modal state
+  const [termsModalOpened, setTermsModalOpened] = useState(false);
+  const [pendingSubmitAfterTerms, setPendingSubmitAfterTerms] = useState(false);
 
   const storyCollectionRef = collection(appDb, 'stories');
   const { username } = useAuthStore();
   const navigate = useNavigate();
 
   const form = useForm({
-    initialValues: { title: '', description: '', content: '', tags: [] as string[] },
+    initialValues: {
+      title: '',
+      description: '',
+      content: '',
+      tags: [] as string[],
+      terms: false,
+    },
     validate: {
       title: (value) => {
         if (!value.trim()) return 'Title is required';
@@ -41,14 +68,16 @@ export function TipTap2() {
       },
       description: (value) => {
         if (!value.trim()) return 'Description is required';
-        if (value.length > 400 || value.length < 10) return 'Description must be between 10 and 100 characters';
+        if (value.length > 500 || value.length < 10) return 'Description must be between 10 and 500 characters';
         return null;
       },
       content: () => {
         if (wordCount === 0) return 'A story is required';
         if (wordCount < 20) return 'A chapter must have at least 20 words';
         if (wordCount > 1000) return 'Maximum of 1000 words allowed. Please split longer stories into multiple chapters';
-        if (charCount > limit) return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;
+        if (charCount > limit) {
+          return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;
+        }
         return null;
       },
       tags: (tags) => {
@@ -61,11 +90,17 @@ export function TipTap2() {
         }
         return null;
       },
+      terms: (value) => (value ? null : 'You must accept the Terms & Conditions'),
     },
   });
 
   const editor = useEditor({
-    extensions: [StarterKit, Underline, Link, Placeholder.configure({ placeholder: 'Write your story here!' })],
+    extensions: [
+      StarterKit,
+      Underline,
+      Link,
+      Placeholder.configure({ placeholder: 'Write your story here!' }),
+    ],
     content,
     onUpdate: ({ editor }) => {
       const text = editor.getText();
@@ -76,10 +111,11 @@ export function TipTap2() {
     },
   });
 
-  const onSubmitStory = async () => {
+  const busy = submitting || checkingDuplicate;
+
+  // ✅ Final submit logic (only called AFTER terms accepted)
+  const actuallySubmitStory = async () => {
     if (!editor) return;
-    const { hasErrors } = form.validate();
-    if (hasErrors) return;
 
     if (!auth.currentUser) {
       setErrorMessage('You must be logged in to submit a story.');
@@ -90,14 +126,17 @@ export function TipTap2() {
     setSubmitting(true);
     try {
       const ownerId = auth.currentUser.uid;
-      const newStoryTitle = form.values.title;
+
+      const normalizedTitle = form.values.title.trim().replace(/\s+/g, ' ');
+      const title_lc = normalizedTitle.toLowerCase();
 
       const tagsLower = (form.values.tags ?? [])
         .map((t) => t.trim().toLowerCase().replace(/\s+/g, ' '))
         .filter((t) => t.length >= TAG_MIN_LEN);
 
       const docRef = await addDoc(storyCollectionRef, {
-        title: form.values.title,
+        title: normalizedTitle,
+        title_lc,
         description: form.values.description,
         content: JSON.stringify(editor.getJSON()),
         ownerId,
@@ -115,13 +154,12 @@ export function TipTap2() {
         {
           username,
           storyCount: increment(1),
-          lastStoryTitle: newStoryTitle,
+          lastStoryTitle: normalizedTitle,
           lastStoryDate: serverTimestamp(),
         },
         { merge: true }
       );
 
-      // ✅ Redirect to your route
       navigate({ to: '/stories/$storyId', params: { storyId: docRef.id } });
     } catch (err: any) {
       setErrorMessage(err?.message ?? 'Something went wrong while submitting your story. Please try again.');
@@ -131,12 +169,93 @@ export function TipTap2() {
     }
   };
 
+  // ✅ Terms gate
+  const ensureTermsThenSubmit = async () => {
+    const result = form.validate();
+    const errorKeys = Object.keys(result.errors ?? {});
+    const nonTermsErrors = errorKeys.filter((k) => k !== 'terms');
+
+    if (nonTermsErrors.length > 0) return;
+
+    if (!form.values.terms) {
+      setPendingSubmitAfterTerms(true);
+      setTermsModalOpened(true);
+      return;
+    }
+
+    await actuallySubmitStory();
+  };
+
+  // ✅ Duplicate check first
+  const checkDuplicateAndSubmit = async () => {
+    if (!editor) return;
+
+    const result = form.validate();
+    const errorKeys = Object.keys(result.errors ?? {});
+    const nonTermsErrors = errorKeys.filter((k) => k !== 'terms');
+    if (nonTermsErrors.length > 0) return;
+
+    if (!auth.currentUser) {
+      setErrorMessage('You must be logged in to submit a story.');
+      setErrorOpen(true);
+      return;
+    }
+
+    const normalizedTitle = form.values.title.trim().replace(/\s+/g, ' ');
+    const title_lc = normalizedTitle.toLowerCase();
+
+    setCheckingDuplicate(true);
+    try {
+      const qLc = query(storyCollectionRef, where('title_lc', '==', title_lc), fsLimit(1));
+      const qExact = query(storyCollectionRef, where('title', '==', normalizedTitle), fsLimit(1));
+
+      const [snapLc, snapExact] = await Promise.all([getDocs(qLc), getDocs(qExact)]);
+      const duplicateFound = !snapLc.empty || !snapExact.empty;
+
+      if (duplicateFound) {
+        setDuplicateOpen(true);
+        return;
+      }
+
+      await ensureTermsThenSubmit();
+    } catch (err: any) {
+      setErrorMessage(err?.message ?? 'Could not verify title uniqueness. Please try again.');
+      setErrorOpen(true);
+    } finally {
+      setCheckingDuplicate(false);
+    }
+  };
+
+  const handleAcceptTerms = async () => {
+    form.setFieldValue('terms', true);
+    form.clearFieldError('terms');
+    setTermsModalOpened(false);
+
+    const shouldSubmit = pendingSubmitAfterTerms;
+    setPendingSubmitAfterTerms(false);
+
+    if (shouldSubmit) {
+      await actuallySubmitStory();
+    }
+  };
+
+  // ✅ Manual submit handler (more reliable)
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    void checkDuplicateAndSubmit();
+  };
+
   if (!editor) return null;
 
   return (
     <>
-      <form onSubmit={form.onSubmit(onSubmitStory)}>
-        <TextInput label="Title" {...form.getInputProps('title')} withAsterisk placeholder="Story title" />
+      <form onSubmit={handleFormSubmit}>
+        <TextInput
+          label="Title"
+          {...form.getInputProps('title')}
+          withAsterisk
+          placeholder="Story title"
+        />
 
         <Textarea
           label="Description"
@@ -152,7 +271,11 @@ export function TipTap2() {
             maxTags={TAGS_MAX}
             placeholder="Add tags (e.g., science fiction, military)"
           />
-          {form.errors.tags && <div style={{ color: 'red', fontSize: '0.875rem' }}>{form.errors.tags}</div>}
+          {form.errors.tags && (
+            <div style={{ color: 'red', fontSize: '0.875rem' }}>
+              {form.errors.tags}
+            </div>
+          )}
         </div>
 
         <br />
@@ -203,18 +326,73 @@ export function TipTap2() {
           <RichTextEditor.Content />
         </RichTextEditor>
 
-        {form.errors.content && <div style={{ color: 'red', fontSize: '0.875rem' }}>{form.errors.content}</div>}
+        {form.errors.content && (
+          <div style={{ color: 'red', fontSize: '0.875rem' }}>
+            {form.errors.content}
+          </div>
+        )}
+
+        {/* Optional inline terms error (helps confirm the flow is working) */}
+        {form.errors.terms && (
+          <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 8 }}>
+            {form.errors.terms}
+          </div>
+        )}
 
         <div className={`character-count ${charCount >= limit ? 'character-count--warning' : ''}`}>
           {wordCount} words
         </div>
 
-        <Button type="submit" loading={submitting} disabled={submitting}>
+        <Button type="submit" loading={busy} disabled={busy}>
           Submit
         </Button>
       </form>
 
-      {/* Error Modal: greyed-out screen; click anywhere to close */}
+      {/* ✅ Duplicate Title Warning Modal */}
+      <Modal
+        opened={duplicateOpen}
+        onClose={() => setDuplicateOpen(false)}
+        centered
+        title="Duplicate title"
+      >
+        <Text>
+          This story title is already in use. Are you sure you wish to proceed?
+        </Text>
+
+        <Group mt="md" justify="space-between">
+          <Button
+            variant="default"
+            onClick={() => setDuplicateOpen(false)}
+            disabled={busy}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            onClick={async () => {
+              setDuplicateOpen(false);
+              await ensureTermsThenSubmit();
+            }}
+            disabled={busy}
+          >
+            Proceed
+          </Button>
+        </Group>
+      </Modal>
+
+      {/* ✅ Reusable Terms Modal */}
+      <TermsModal
+        opened={termsModalOpened}
+        onClose={() => {
+          setTermsModalOpened(false);
+          setPendingSubmitAfterTerms(false);
+        }}
+        onAccept={handleAcceptTerms}
+        busy={busy}
+        title="Terms & Conditions"
+      />
+
+      {/* Error Modal */}
       <Modal
         opened={errorOpen}
         onClose={() => setErrorOpen(false)}

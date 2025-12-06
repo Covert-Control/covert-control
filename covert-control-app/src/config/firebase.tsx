@@ -39,3 +39,18 @@ export const completeGoogleRegistrationCallable = httpsCallable(functions, 'comp
 
 export const deleteMyAccountCallable: HttpsCallable<DeleteMyAccountInput, DeleteMyAccountOutput> =
   httpsCallable(functions, 'deleteMyAccount');
+
+type AdminDeleteAndBanUserInput = {
+  targetUid: string;
+  reason?: string;
+};
+
+type AdminDeleteAndBanUserOutput = {
+  ok: true;
+  emailBanned: string;
+};
+
+export const adminDeleteAndBanUserCallable: HttpsCallable<
+  AdminDeleteAndBanUserInput,
+  AdminDeleteAndBanUserOutput
+> = httpsCallable(functions, 'adminDeleteAndBanUser');

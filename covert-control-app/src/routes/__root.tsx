@@ -28,16 +28,66 @@ function RootComponent() {
   const [bannerDismissed, setBannerDismissed] = React.useState(false);
   const { user, isProfileComplete, loading, isEmailVerified, email } = useAuthStore();
 
+  const VERIFICATION_COOLDOWN_MS = 60_000;
+
+  const cooldownKey = React.useMemo(() => {
+    // user can be null during initial boot
+    return user?.uid
+      ? `cc:verify-cooldown:${user.uid}`
+      : `cc:verify-cooldown:anonymous`;
+  }, [user?.uid]);
+
+  const [cooldownUntil, setCooldownUntil] = React.useState<number>(0);
+  const [resendLoading, setResendLoading] = React.useState(false);
+  const [now, setNow] = React.useState(() => Date.now());
+
+  // Load cooldown when key changes (user logs in/out)
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(cooldownKey);
+      const parsed = raw ? Number(raw) : 0;
+      setCooldownUntil(Number.isFinite(parsed) ? parsed : 0);
+    } catch {
+      setCooldownUntil(0);
+    }
+  }, [cooldownKey]);
+
+  // Tick once per second only while cooling down
+  React.useEffect(() => {
+    if (!cooldownUntil || cooldownUntil <= Date.now()) return;
+
+    const id = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(id);
+  }, [cooldownUntil]);
+
+  const secondsLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+  const isCoolingDown = secondsLeft > 0;
+
   const handleResendVerification = async () => {
-    if (auth.currentUser) {
+    if (resendLoading || isCoolingDown) return;
+    if (!auth.currentUser) return;
+
+    setResendLoading(true);
+    try {
+      await sendEmailVerification(auth.currentUser);
+
+      const until = Date.now() + VERIFICATION_COOLDOWN_MS;
+      setCooldownUntil(until);
+
       try {
-        await sendEmailVerification(auth.currentUser);
-        // we could show a tiny in-app feedback; simplest is alert() or console for now
-        // You could also use notifications.show(...) if you want consistency
-        console.log('Verification email re-sent');
-      } catch (err) {
-        console.error('Error resending verification email:', err);
+        localStorage.setItem(cooldownKey, String(until));
+      } catch {
+        // ignore storage failures
       }
+
+      console.log('Verification email re-sent');
+    } catch (err) {
+      console.error('Error resending verification email:', err);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -108,14 +158,13 @@ function RootComponent() {
         </Group>
       </AppShell.Header>
 
-      {/* IMPORTANT: Only AppShell slot children go here */}
       <SiteNavbar desktopOpened={desktopOpened} onToggleDesktop={toggleDesktop} />
 
       <AppShell.Main>
       <AdminStatusDebug />
         {/* ⬇⬇ UNVERIFIED EMAIL BANNER ⬇⬇ */}
       {user &&
-        !isEmailVerified &&           // <-- CHANGED
+        !isEmailVerified &&  
         !bannerDismissed && (
           <Alert
             color="yellow"
@@ -142,8 +191,12 @@ function RootComponent() {
                   radius="sm"
                   onClick={handleResendVerification}
                   variant="default"
+                  loading={resendLoading}
+                  disabled={resendLoading || isCoolingDown}
                 >
-                  Resend verification email
+                  {isCoolingDown
+                    ? `Resend available in ${secondsLeft}s`
+                    : 'Resend verification email'}
                 </Button>
 
                 <Button

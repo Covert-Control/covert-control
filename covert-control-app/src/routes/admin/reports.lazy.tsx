@@ -1,464 +1,341 @@
-// src/routes/admin/reports.lazy.tsx
-import { useEffect, useMemo, useState } from 'react';
-import { createLazyFileRoute, Link as RouterLink } from '@tanstack/react-router';
-import {
-  Badge,
-  Box,
-  Button,
-  Container,
-  Group,
-  Loader,
-  Paper,
-  Stack,
-  Text,
-  Title,
-  Spoiler,
-  Tooltip,
-  rem,
-} from '@mantine/core';
-import { AlertTriangle, Trash2 } from 'lucide-react';
-
+// src/routes/stories/$storyId.edit.tsx
+import './tiptap.css';
+import { createLazyFileRoute } from '@tanstack/react-router';
+import { Route as StoryLayout } from './$storyId';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
 
-import {
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useForm } from '@mantine/form';
+import { Button, Group, Stack, TextInput, Textarea } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+
+import { RichTextEditor } from '@mantine/tiptap';
+import { useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Placeholder from '@tiptap/extension-placeholder';
+import TipTapLink from '@tiptap/extension-link';
+
+// NEW: import your TagPicker
+import { TagPicker } from '../../components/TagPicker';
+
+// NEW: reusable Terms modal
+import { TermsModal } from '../../components/TermsModal';
 
 export const Route = createLazyFileRoute('/admin/reports')({
-  component: AdminReportsPage,
+  component: EditStoryPage,
 });
 
-type ReportStatus = 'open' | 'dismissed' | 'action_taken' | string;
+const WORD_MIN = 20;
+const WORD_MAX = 1000;
+const CHAR_MAX = 10000;
 
-interface Report {
-  id: string;
-  storyId: string;
-  storyTitle: string;
-  storyOwnerId: string;
-  storyOwnerUsername?: string | null;
+// tag constraints (match your creation page)
+const TAGS_MAX = 16;
+const TAG_MIN_LEN = 3;
+const TAG_MAX_LEN = 30;
 
-  reportedBy: string;
-  reporterEmail?: string | null;
-  reporterDisplayName?: string | null;
+// same normalization you used before (strip " (number)", lowercase, collapse spaces)
+const normalizeTag = (s: string) =>
+  s.trim().toLowerCase().replace(/\s*\(\d+\)\s*$/, '').replace(/\s+/g, ' ');
 
-  reason: string;
-  comment: string | null;
+const sanitizeTags = (tags: string[]) => {
+  const cleaned = tags
+    .map(normalizeTag)
+    .filter((t) => t.length >= TAG_MIN_LEN && t.length <= TAG_MAX_LEN);
+  return Array.from(new Set(cleaned)).slice(0, TAGS_MAX);
+};
 
-  status: ReportStatus;
-  resolution: string | null;
-  createdAt: Date | null;
-  handledAt: Date | null;
-  handledBy: string | null;
-}
+type EditFormValues = {
+  title: string;
+  description: string;
+  tags: string[];
+  terms: boolean; // local gate only
+};
 
-function AdminReportsPage() {
-  const isAdmin = useAuthStore((s) => s.isAdmin);
-  const authLoading = useAuthStore((s) => s.loading);
-  const currentUser = useAuthStore((s) => s.user);
+function EditStoryPage() {
+  const { story } = StoryLayout.useLoaderData();
+  const { storyId } = StoryLayout.useParams();
+  const navigate = Route.useNavigate();
 
-  const [filter, setFilter] = useState<'open' | 'all'>('open');
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = (user as any)?.isAdmin === true;
 
-  // Subscribe to reports when admin + filter changes
+  console.log('edit initial tags', story.tags);
+
+  const redirected = useRef(false);
   useEffect(() => {
-    if (!isAdmin || !currentUser) {
-      setReports([]);
-      setLoading(false);
-      setError(null);
+    if (redirected.current) return;
+    if (user && user.uid !== story.ownerId && !isAdmin) {
+      redirected.current = true;
+      navigate({ to: '/stories/$storyId', params: { storyId }, replace: true });
+    }
+  }, [user, isAdmin, story.ownerId, storyId, navigate]);
+
+  const initialContent = useMemo(() => {
+    try {
+      return typeof story.content === 'string' && story.content.trim()
+        ? JSON.parse(story.content)
+        : '';
+    } catch {
+      return '';
+    }
+  }, [story.content]);
+
+  const extensions = useMemo(
+    () => [StarterKit, Underline, TipTapLink, Placeholder.configure({ placeholder: 'Edit your story here…' })],
+    []
+  );
+
+  const [wordCount, setWordCount] = useState(0);
+  const [charCount, setCharCount] = useState(0);
+
+  // NEW: saving + terms modal state
+  const [saving, setSaving] = useState(false);
+  const [termsModalOpened, setTermsModalOpened] = useState(false);
+  const [pendingSaveAfterTerms, setPendingSaveAfterTerms] = useState(false);
+  const [pendingValues, setPendingValues] = useState<EditFormValues | null>(null);
+
+  const editor = useEditor({
+    extensions,
+    content: initialContent,
+    autofocus: true,
+    onUpdate: ({ editor }) => {
+      const text = editor.getText();
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      setWordCount(words);
+      setCharCount(text.length);
+    },
+  });
+
+  useEffect(() => {
+    if (editor) {
+      const text = editor.getText();
+      setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
+      setCharCount(text.length);
+    }
+  }, [editor]);
+
+  const form = useForm<EditFormValues>({
+    initialValues: {
+      title: story.title ?? '',
+      description: story.description ?? '',
+      tags: Array.isArray((story as any).tags) ? ((story as any).tags as string[]) : [],
+      terms: false, // local session gate
+    },
+    validate: {
+      title: (v) => (!v.trim() ? 'Title is required' : v.length > 30 ? 'Max 30 characters' : null),
+      description: (v) => {
+        if (!v.trim()) return 'Description is required';
+        if (v.length < 10 || v.length > 500) return 'Description must be 10–500 chars';
+        return null;
+      },
+      tags: (tags) => {
+        if (!Array.isArray(tags)) return 'Tags must be an array';
+        if (tags.length > TAGS_MAX) return `Please use at most ${TAGS_MAX} tags`;
+        for (const t of tags) {
+          const s = normalizeTag(t);
+          if (s.length < TAG_MIN_LEN) return `Tag `${t}` is too short`;
+          if (s.length > TAG_MAX_LEN) return `Tag `${t}` is too long`;
+        }
+        return null;
+      },
+    },
+  });
+
+  const validateEditorCounts = () => {
+    if (!editor) return false;
+
+    if (wordCount === 0) {
+      notifications.show({ color: 'red', message: 'A story is required' });
+      return false;
+    }
+    if (wordCount < WORD_MIN) {
+      notifications.show({ color: 'red', message: 'Minimum ${WORD_MIN} words.' });
+      return false;
+    }
+    if (wordCount > WORD_MAX) {
+      notifications.show({
+        color: 'red',
+        message: `Maximum ${WORD_MAX} words. Split longer stories into chapters.`,
+      });
+      return false;
+    }
+    if (charCount > CHAR_MAX) {
+      notifications.show({ color: 'red', message: 'Character limit ${CHAR_MAX} exceeded.' });
+      return false;
+    }
+
+    return true;
+  };
+
+  const saveStory = async (values: EditFormValues) => {
+    if (!editor) return;
+
+    // Sanitize tags before saving (defense in depth)
+    const tags = sanitizeTags(values.tags ?? []);
+
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'stories', story.id), {
+        title: values.title.trim(),
+        description: values.description.trim(),
+        content: JSON.stringify(editor.getJSON()),
+        tags,
+        updatedAt: serverTimestamp(),
+      });
+
+      notifications.show({ message: 'Story updated' });
+      navigate({ to: '/stories/$storyId', params: { storyId } });
+    } catch (e: any) {
+      notifications.show({
+        color: 'red',
+        title: 'Save failed',
+        message: e?.message ?? 'Unknown error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSubmit = form.onSubmit(async (values) => {
+    if (!editor) return;
+
+    // First validate editor counts
+    if (!validateEditorCounts()) return;
+
+    // Terms gate for edit
+    if (!form.values.terms) {
+      setPendingValues(values);
+      setPendingSaveAfterTerms(true);
+      setTermsModalOpened(true);
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    await saveStory(values);
+  });
 
-    const baseRef = collection(db, 'reports');
-    const q =
-      filter === 'open'
-        ? query(baseRef, where('status', '==', 'open'), orderBy('createdAt', 'desc'))
-        : query(baseRef, orderBy('createdAt', 'desc'));
+  const handleAcceptTerms = async () => {
+    form.setFieldValue('terms', true);
+    setTermsModalOpened(false);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items: Report[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as any;
-          return {
-            id: docSnap.id,
-            storyId: data.storyId,
-            storyTitle: data.storyTitle ?? '(untitled story)',
-            storyOwnerId: data.storyOwnerId,
-            storyOwnerUsername: data.storyOwnerUsername ?? null,
-            reportedBy: data.reportedBy,
-            reporterEmail: data.reporterEmail ?? null,
-            reporterDisplayName: data.reporterDisplayName ?? null,
-            reason: data.reason ?? 'other',
-            comment: data.comment ?? null,
-            status: data.status ?? 'open',
-            resolution: data.resolution ?? null,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
-            handledAt: data.handledAt?.toDate ? data.handledAt.toDate() : null,
-            handledBy: data.handledBy ?? null,
-          };
-        });
-        setReports(items);
-        setLoading(false);
-        setError(null); // clear any previous error once we have data
-      },
-      (err) => {
-        console.error('Failed to load reports', err);
-        setError('Failed to load reports.');
-        setLoading(false);
-      }
-    );
+    const valuesToUse = pendingValues ?? form.values;
+    const shouldSave = pendingSaveAfterTerms;
 
-    return () => unsubscribe();
-  }, [isAdmin, currentUser, filter]);
+    setPendingValues(null);
+    setPendingSaveAfterTerms(false);
 
-  const openCount = useMemo(
-    () => reports.filter((r) => r.status === 'open').length,
-    [reports]
-  );
-
-  const hasReports = reports.length > 0;
-
-  // Guard non-admins
-  if (authLoading) {
-    return (
-      <Container size="lg" py="xl">
-        <Group justify="center">
-          <Loader />
-        </Group>
-      </Container>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <Container size="md" py="xl">
-        <Paper p="lg" radius="lg" withBorder>
-          <Group align="flex-start" gap="md">
-            <AlertTriangle size={24} />
-            <div>
-              <Title order={3}>Access denied</Title>
-              <Text size="sm" c="dimmed">
-                You must be an administrator to view moderation reports.
-              </Text>
-            </div>
-          </Group>
-        </Paper>
-      </Container>
-    );
-  }
-
-  async function handleDismiss(report: Report) {
-    if (!currentUser) return;
-    try {
-      const ref = doc(db, 'reports', report.id);
-      await updateDoc(ref, {
-        status: 'dismissed',
-        handledAt: serverTimestamp(),
-        handledBy: currentUser.uid,
-      });
-    } catch (err) {
-      console.error('Failed to dismiss report', err);
-      alert('Failed to dismiss report. Check console for details.');
+    if (shouldSave) {
+      // Recheck counts quickly in case they changed while modal was open
+      if (!validateEditorCounts()) return;
+      await saveStory(valuesToUse);
     }
-  }
+  };
 
-  async function handleDeleteStory(report: Report) {
-    if (!currentUser) return;
-    const confirmDelete = window.confirm(
-      `Delete this story?\n\nTitle: ${report.storyTitle}\nThis will remove the story for all readers.`
-    );
-    if (!confirmDelete) return;
-
-    try {
-      const storyRef = doc(db, 'stories', report.storyId);
-      await deleteDoc(storyRef);
-
-      // Mark this report as resolved by deleting the story
-      const reportRef = doc(db, 'reports', report.id);
-      await updateDoc(reportRef, {
-        status: 'action_taken',
-        resolution: 'story_deleted',
-        handledAt: serverTimestamp(),
-        handledBy: currentUser.uid,
-      });
-    } catch (err) {
-      console.error('Failed to delete story / update report', err);
-      alert('Failed to delete story. Check console for details.');
-    }
-  }
-
-  async function handleDeleteReport(report: Report) {
-    if (!currentUser) return;
-    const confirmRemove = window.confirm(
-      'Remove this report from the moderation list? This action cannot be undone.'
-    );
-    if (!confirmRemove) return;
-
-    try {
-      const reportRef = doc(db, 'reports', report.id);
-      await deleteDoc(reportRef);
-    } catch (err) {
-      console.error('Failed to delete report', err);
-      alert('Failed to delete report. Check console for details.');
-    }
-  }
+  if (!editor) return null;
 
   return (
-    <Container size="lg" py="xl">
-      <Stack gap="md">
-        <Group justify="space-between" align="flex-end">
-          <div>
-            <Title order={2}>Moderation Reports</Title>
-            <Text size="sm" c="dimmed">
-              Review and act on stories reported by readers.
-            </Text>
+    <>
+      <form onSubmit={onSubmit}>
+        <Stack gap="md" style={{ maxWidth: 800, margin: "20px auto" }}>
+          <TextInput label="Title" withAsterisk {...form.getInputProps("title")} />
+          <Textarea
+            label="Description"
+            withAsterisk
+            autosize
+            minRows={2}
+            {...form.getInputProps('description')}
+          />
+
+          <TagPicker
+            value={form.values.tags}
+            onChange={(tags) => form.setFieldValue('tags', tags)}
+            maxTags={TAGS_MAX}
+            placeholder="Edit tags (e.g., science fiction, military)"
+          />
+          {form.errors.tags && (
+            <div style={{ color: 'red', fontSize: '0.875rem' }}>{form.errors.tags}</div>
+          )}
+
+          <RichTextEditor editor={editor}>
+            <RichTextEditor.Toolbar sticky stickyOffset={60}>
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.Bold />
+                <RichTextEditor.Italic />
+                <RichTextEditor.Underline />
+                <RichTextEditor.Code />
+              </RichTextEditor.ControlsGroup>
+
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.H1 />
+                <RichTextEditor.H2 />
+                <RichTextEditor.H3 />
+                <RichTextEditor.H4 />
+              </RichTextEditor.ControlsGroup>
+
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.Blockquote />
+                <RichTextEditor.Hr />
+                <RichTextEditor.BulletList />
+                <RichTextEditor.OrderedList />
+                <RichTextEditor.Subscript />
+                <RichTextEditor.Superscript />
+              </RichTextEditor.ControlsGroup>
+
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.Link />
+                <RichTextEditor.Unlink />
+              </RichTextEditor.ControlsGroup>
+
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.AlignLeft />
+                <RichTextEditor.AlignCenter />
+                <RichTextEditor.AlignJustify />
+                <RichTextEditor.AlignRight />
+              </RichTextEditor.ControlsGroup>
+
+              <RichTextEditor.ControlsGroup>
+                <RichTextEditor.Undo />
+                <RichTextEditor.Redo />
+              </RichTextEditor.ControlsGroup>
+            </RichTextEditor.Toolbar>
+
+            <RichTextEditor.Content />
+          </RichTextEditor>
+
+          <div style={{ fontSize: 12, opacity: 0.7 }}>
+            {wordCount} words • {charCount}/{CHAR_MAX} chars
           </div>
 
-          <Group gap="xs">
+          <Group justify="end">
             <Button
-              size="xs"
-              variant={filter === 'open' ? 'filled' : 'outline'}
-              onClick={() => setFilter('open')}
+              variant="default"
+              onClick={() => navigate({ to: '/stories/$storyId', params: { storyId } })}
+              disabled={saving}
             >
-              Open ({openCount})
+              Cancel
             </Button>
-            <Button
-              size="xs"
-              variant={filter === 'all' ? 'filled' : 'outline'}
-              onClick={() => setFilter('all')}
-            >
-              All ({reports.length})
+            <Button type="submit" loading={saving} disabled={saving}>
+              Save
             </Button>
           </Group>
-        </Group>
+        </Stack>
+      </form>
 
-        {error && reports.length === 0 && (
-          <Paper radius="md" p="sm" withBorder>
-            <Text size="sm" c="red">
-              {error}
-            </Text>
-          </Paper>
-        )}
-
-        {loading ? (
-          <Group justify="center" py="xl">
-            <Loader />
-          </Group>
-        ) : !hasReports ? (
-          <Paper radius="md" p="lg" withBorder>
-            <Text size="sm" c="dimmed">
-              No reports found for the selected filter.
-            </Text>
-          </Paper>
-        ) : (
-          <Stack gap="sm">
-            {reports.map((r) => {
-              const storyDeleted =
-                r.status === 'action_taken' && r.resolution === 'story_deleted';
-
-              return (
-                <Paper
-                  key={r.id}
-                  radius="lg"
-                  withBorder
-                  p="md"
-                  style={{
-                    backgroundColor:
-                      'var(--mantine-color-dark-7, var(--mantine-color-body))',
-                  }}
-                >
-                  <Stack gap="xs">
-                    {/* Top row: Story + Reason */}
-                    <Group justify="space-between" align="flex-start">
-                      <Box style={{ minWidth: 0 }}>
-                        <Text
-                          fw={500}
-                          size="sm"
-                          component={RouterLink}
-                          to="/stories/$storyId/"
-                          params={{ storyId: r.storyId }}
-                          style={{
-                            textDecoration: 'underline',
-                            wordBreak: 'break-word',
-                          }}
-                        >
-                          {r.storyTitle || '(untitled story)'}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Owner: {r.storyOwnerUsername || r.storyOwnerId || '(unknown)'}
-                        </Text>
-                      </Box>
-
-                      <Tooltip label={formatReason(r.reason)} withArrow>
-                        <Badge
-                          size="sm"
-                          radius="xl"
-                          variant="light"
-                          color="red"
-                          style={{ textTransform: 'none', fontWeight: 500 }}
-                        >
-                          {formatReason(r.reason)}
-                        </Badge>
-                      </Tooltip>
-                    </Group>
-
-                    {/* Reporter */}
-                    <Box>
-                      <Text size="sm">
-                        {r.reporterDisplayName || r.reporterEmail || r.reportedBy}
-                      </Text>
-                      {r.reporterEmail && (
-                        <Text size="xs" c="dimmed">
-                          {r.reporterEmail}
-                        </Text>
-                      )}
-                      {r.comment && (
-                        <Box mt={4}>
-                          <Spoiler
-                            maxHeight={40}
-                            showLabel="Show more"
-                            hideLabel="Show less"
-                          >
-                            <Text size="xs" c="dimmed">
-                              “{r.comment}”
-                            </Text>
-                          </Spoiler>
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Meta row: Created + Status */}
-                    <Group justify="space-between" align="center">
-                      <Text size="xs" c="dimmed">
-                        {r.createdAt
-                          ? r.createdAt.toLocaleString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : 'Created: —'}
-                      </Text>
-
-                      <StatusBadge status={r.status} resolution={r.resolution} />
-                    </Group>
-
-                    {/* Actions */}
-                    <Group gap="xs" mt="xs" wrap="wrap">
-                      {r.status === 'open' && (
-                        <Button
-                          size="xs"
-                          variant="light"
-                          onClick={() => handleDismiss(r)}
-                        >
-                          Dismiss
-                        </Button>
-                      )}
-
-                      {/* Only show "Delete story" if we haven't already deleted it */}
-                      {!storyDeleted && (
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          color="red"
-                          leftSection={<Trash2 size={14} />}
-                          onClick={() => handleDeleteStory(r)}
-                        >
-                          Delete story
-                        </Button>
-                      )}
-
-                      {/* Allow manual removal of resolved reports */}
-                      {r.status !== 'open' && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          color="red"
-                          onClick={() => handleDeleteReport(r)}
-                        >
-                          Remove report
-                        </Button>
-                      )}
-                    </Group>
-                  </Stack>
-                </Paper>
-              );
-            })}
-          </Stack>
-        )}
-      </Stack>
-    </Container>
-  );
-}
-
-function formatReason(reason: string): string {
-  switch (reason) {
-    case 'nsfw':
-      return 'NSFW / sexual content';
-    case 'harassment':
-      return 'Harassment / hate speech';
-    case 'violence':
-      return 'Graphic violence / gore';
-    case 'spam':
-      return 'Spam / scam';
-    case 'other':
-      return 'Other';
-    default:
-      return reason;
-  }
-}
-
-function StatusBadge({
-  status,
-  resolution,
-}: {
-  status: ReportStatus;
-  resolution: string | null;
-}) {
-  let color: string = 'gray';
-  let label = status;
-
-  if (status === 'open') {
-    color = 'yellow';
-    label = 'Open';
-  } else if (status === 'dismissed') {
-    color = 'gray';
-    label = 'Dismissed';
-  } else if (status === 'action_taken') {
-    if (resolution === 'story_deleted') {
-      color = 'red';
-      label = 'Story deleted';
-    } else {
-      color = 'green';
-      label = 'Action taken';
-    }
-  }
-
-  return (
-    <Badge
-      size="sm"
-      radius="xl"
-      variant="light"
-      color={color}
-      style={{ textTransform: 'none', fontWeight: 500 }}
-      title={label}
-    >
-      {label}
-    </Badge>
+      {/* ✅ Reusable Terms Modal for edit flow */}
+      <TermsModal
+        opened={termsModalOpened}
+        onClose={() => {
+          setTermsModalOpened(false);
+          setPendingSaveAfterTerms(false);
+          setPendingValues(null);
+        }}
+        onAccept={handleAcceptTerms}
+        busy={saving}
+        title="Terms & Conditions"
+      />
+    </>
   );
 }

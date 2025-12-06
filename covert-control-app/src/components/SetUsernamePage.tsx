@@ -1,30 +1,41 @@
-import { Button, Paper, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Paper, Stack, Text, TextInput, Group } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { notifications } from '@mantine/notifications';
-import { auth } from '../config/firebase'; // Ensure 'auth' is imported for potential logout
-import { useAuthStore } from '../stores/authStore'; // To update state on success
-import { CheckIcon, XIcon } from 'lucide-react';
-import { useNavigate } from '@tanstack/react-router'; // For navigation after successful username set
+import { auth } from '../config/firebase';
+import { useAuthStore } from '../stores/authStore';
+import { CheckIcon, XIcon, LogOut } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
+
+function isBannedEmailError(err: any) {
+  const code = String(err?.code ?? '');
+  const msg = String(err?.message ?? '');
+  // v2 callable HttpsError('permission-denied', ...) typically surfaces like:
+  // code: "functions/permission-denied"
+  if (code.includes('permission-denied')) return true;
+
+  // fallback if code is missing
+  if (msg.toLowerCase().includes('email address has been banned')) return true;
+
+  return false;
+}
 
 export function SetUsernamePage() {
-  const functions = getFunctions();
-  const completeGoogleRegistrationCallable = httpsCallable(functions, 'completeGoogleRegistration');
-  const navigate = useNavigate(); 
+  const functions = getFunctions(); // ok if your project default region is fine
+  const completeGoogleRegistrationCallable =
+    httpsCallable<{ username: string }, any>(functions, 'completeGoogleRegistration');
 
-  // Get the setAuthState action and current user from the Zustand store
-  const { setAuthState, user: currentUser } = useAuthStore(); 
+  const navigate = useNavigate();
+
+  const currentUser = useAuthStore((s) => s.user);
+  const setAuthState = useAuthStore((s) => s.setAuthState);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const usernameForm = useForm({
-    initialValues: {
-      newUsername: '',
-    },
-
+    initialValues: { newUsername: '' },
     validate: {
       newUsername: (value) => {
-        if (!value.trim()) {
-          return 'Username cannot be empty';
-        }
+        if (!value.trim()) return 'Username cannot be empty';
         if (value.length < 3 || value.length > 20) {
           return 'Username must be between 3 and 20 characters';
         }
@@ -33,23 +44,40 @@ export function SetUsernamePage() {
     },
   });
 
+  async function handleCancelRegistration() {
+    try {
+      await auth.signOut();
+    } finally {
+      // make the gate drop immediately, even before listener resolves
+      clearAuth();
+    }
+
+    notifications.show({
+      title: 'Registration cancelled',
+      message: 'You can keep browsing without an account.',
+      color: 'gray',
+      position: 'bottom-center',
+      icon: <LogOut size={18} />,
+    });
+
+    navigate({ to: '/' });
+  }
+
   const handleUsernameSubmission = async (values: { newUsername: string }) => {
-    // User must be authenticated to reach this page, but a final check is good.
-    if (!currentUser) { 
+    if (!currentUser) {
       notifications.show({
         title: 'Error',
         message: 'No authenticated user found. Please sign in again.',
         color: 'red',
         icon: <XIcon size={18} />,
+        position: 'bottom-center',
       });
 
-      // If for some reason there's no current user, log out to prevent being stuck
-      auth.signOut(); 
+      await handleCancelRegistration();
       return;
     }
 
     try {
-      // Call the Cloud Function to set the username
       await completeGoogleRegistrationCallable({ username: values.newUsername });
 
       notifications.show({
@@ -58,20 +86,42 @@ export function SetUsernamePage() {
         color: 'teal',
         icon: <CheckIcon size={18} />,
         autoClose: 9000,
+        position: 'bottom-center',
       });
 
-      // Crucial: Update the Zustand store to reflect that the profile is now complete.
-      // This will cause `__root.tsx` to re-evaluate and allow navigation to the main app.
-      // We pass `currentUser` again to ensure the user object remains fresh in the store.
-      setAuthState(currentUser, true, currentUser.uid, values.newUsername); 
-      navigate({ to: '/' });
+      // Update store so __root gate releases immediately
+      setAuthState(
+        currentUser,
+        true,
+        currentUser.uid,
+        values.newUsername,
+        currentUser.email ?? null,
+        null,
+        !!currentUser.emailVerified
+      );
 
+      navigate({ to: '/' });
     } catch (error: any) {
       console.error('Error setting username:', error);
-      let errorMessage = 'Failed to set username. Please try again.';
-      if (error.message) { 
-        errorMessage = error.message;
+
+      // If banned, let them escape the gate
+      if (isBannedEmailError(error)) {
+        notifications.show({
+          title: 'Email banned',
+          message:
+            'This email address has been banned from registering. You can continue browsing without an account.',
+          color: 'red',
+          icon: <XIcon size={18} />,
+          autoClose: 9000,
+          position: 'bottom-center',
+        });
+
+        await handleCancelRegistration();
+        return;
       }
+
+      const errorMessage =
+        error?.message || 'Failed to set username. Please try again.';
 
       notifications.show({
         title: 'Username Error',
@@ -79,40 +129,35 @@ export function SetUsernamePage() {
         color: 'red',
         icon: <XIcon size={18} />,
         autoClose: 9000,
+        position: 'bottom-center',
       });
 
-      // Set the error on the form field itself
-      usernameForm.setFieldError('newUsername', errorMessage); 
+      usernameForm.setFieldError('newUsername', errorMessage);
     }
   };
 
-
   return (
-    // This Paper component effectively serves as the visual container for your page.
-    // It's centered and has a max-width, mimicking a "card" but it will be the *only* thing rendered
-    // in the AppShell.Main area when active.
-    <Paper 
-      p="xl" 
-      shadow="md" 
-      radius="md" 
-      style={{ 
-        maxWidth: 400, 
-        margin: '50px auto', 
-        height: 'calc(100vh - 100px)', // Make it visually fill available height, adjust as needed
+    <Paper
+      p="xl"
+      shadow="md"
+      radius="md"
+      style={{
+        maxWidth: 420,
+        margin: '50px auto',
+        height: 'calc(100vh - 100px)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        alignItems: 'center'
       }}
     >
-
-      <Text size="lg" fw={500} ta="center" mb="md">
+      <Text size="lg" fw={600} ta="center" mb="xs">
         Complete Your Profile
       </Text>
-      <Text size="sm" color="dimmed" ta="center" mb="lg">
-        Please choose a unique username to get started. This cannot be changed later.
+      <Text size="sm" c="dimmed" ta="center" mb="lg">
+        Choose a unique username to finish creating your account.
       </Text>
-      <form onSubmit={usernameForm.onSubmit(handleUsernameSubmission)} style={{ width: '100%' }}>
+
+      <form onSubmit={usernameForm.onSubmit(handleUsernameSubmission)}>
         <Stack>
           <TextInput
             required
@@ -122,14 +167,20 @@ export function SetUsernamePage() {
             radius="md"
           />
 
-          <Button type="submit" fullWidth mt="md" radius="xl">
+          <Button type="submit" fullWidth radius="xl">
             Set Username
           </Button>
 
-          {/* Optional: If you *really* wanted to let them bail, you'd need a logout button */}
-          <Button variant="subtle" fullWidth onClick={() => auth.signOut()} mt="sm">
-            Logout
-          </Button>
+          <Group grow>
+            <Button
+              variant="subtle"
+              color="gray"
+              leftSection={<LogOut size={16} />}
+              onClick={handleCancelRegistration}
+            >
+              Cancel registration
+            </Button>
+          </Group>
         </Stack>
       </form>
     </Paper>

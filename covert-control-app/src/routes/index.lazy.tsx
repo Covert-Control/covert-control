@@ -1,7 +1,6 @@
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { auth } from '../config/firebase.tsx';
 import { useAuthStore } from '../stores/authStore'
-import { isEmail } from '@mantine/form';
 
 export const Route = createLazyFileRoute('/')({
   component: RouteComponent,
