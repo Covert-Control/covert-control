@@ -54,3 +54,13 @@ export const adminDeleteAndBanUserCallable: HttpsCallable<
   AdminDeleteAndBanUserInput,
   AdminDeleteAndBanUserOutput
 > = httpsCallable(functions, 'adminDeleteAndBanUser');
+
+export const deleteChapterCallable = httpsCallable<
+  { storyId: string; chapter: number },
+  { ok: boolean; storyId: string; deletedChapter: number; newChapterCount: number }
+>(functions, 'deleteChapter');
+
+export const deleteStoryCallable = httpsCallable<
+  { storyId: string },
+  { ok: boolean; storyId: string }
+>(functions, 'deleteStory');

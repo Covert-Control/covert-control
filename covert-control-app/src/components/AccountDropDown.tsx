@@ -3,7 +3,6 @@ import {
   BookCopy,
   HeartIcon,
   LogOut,
-  MessageSquareText,
   SettingsIcon,
 } from 'lucide-react';
 import { ActionIcon, Group, Menu, Stack, Text, useMantineTheme } from '@mantine/core';

@@ -1,3 +1,4 @@
+// src/routes/stories/$storyId.tsx
 import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -10,18 +11,23 @@ export const Route = createFileRoute('/stories/$storyId')({
 
     const d = snap.data() as any;
 
+    const chapterCount =
+      typeof d?.chapterCount === 'number' && d.chapterCount > 0
+        ? d.chapterCount
+        : 1;
+
     return {
       story: {
         id: snap.id,
         title: d?.title ?? '',
         description: d?.description ?? '',
-        content: d?.content ?? '',
         ownerId: d?.ownerId ?? '',
         username: d?.username ?? 'Anonymous',
         createdAt: d?.createdAt?.toDate?.() ?? new Date(0),
         viewCount: d?.viewCount ?? 0,
         likesCount: d?.likesCount ?? 0,
         tags: Array.isArray(d?.tags) ? d.tags : [],
+        chapterCount,
       },
     };
   },

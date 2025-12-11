@@ -13,7 +13,6 @@ import { useAuthListener } from '../hooks/useAuthListener';
 import SiteLogo from '../assets/logo.png';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebase.tsx';
-import { AdminStatusDebug } from '../components/AdminStatusDebug';
 import { AdminMailbox } from '../components/AdminMailbox';
 
 export const Route = createRootRoute({
@@ -161,7 +160,6 @@ function RootComponent() {
       <SiteNavbar desktopOpened={desktopOpened} onToggleDesktop={toggleDesktop} />
 
       <AppShell.Main>
-      <AdminStatusDebug />
         {/* ⬇⬇ UNVERIFIED EMAIL BANNER ⬇⬇ */}
       {user &&
         !isEmailVerified &&  

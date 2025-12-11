@@ -400,3 +400,10 @@ export { adminBanUser } from './adminBanUser.v1';
 export { adminDeleteUser } from './adminDeleteUser.v1';
 
 export { adminDeleteAndBanUser } from './adminDeleteAndBanUser.v1';
+
+/* ------------------------------------------------------------------ */
+/*  Delete Stories/Chapters                                               */
+/* ------------------------------------------------------------------ */
+export { deleteChapter } from './deleteChapter';
+
+export { deleteStory } from './deleteStory';

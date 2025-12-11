@@ -1,4 +1,4 @@
-import './tiptap.css'
+import './tiptap.css';
 import { RichTextEditor, Link } from '@mantine/tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -9,18 +9,17 @@ import { Button, TextInput, Textarea, Modal, Text, Group } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { db as appDb } from '../../config/firebase';
 import {
-  addDoc,
   increment,
   collection,
   serverTimestamp,
-  setDoc,
   doc,
   getDocs,
   query,
   where,
   limit as fsLimit,
+  writeBatch,
 } from 'firebase/firestore';
-import { auth } from '../../config/firebase'
+import { auth } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
 import { TagPicker } from '../../components/TagPicker';
 import { TermsModal } from '../../components/TermsModal';
@@ -68,13 +67,15 @@ export function TipTap2() {
       },
       description: (value) => {
         if (!value.trim()) return 'Description is required';
-        if (value.length > 500 || value.length < 10) return 'Description must be between 10 and 500 characters';
+        if (value.length > 500 || value.length < 10)
+          return 'Description must be between 10 and 500 characters';
         return null;
       },
       content: () => {
         if (wordCount === 0) return 'A story is required';
         if (wordCount < 20) return 'A chapter must have at least 20 words';
-        if (wordCount > 1000) return 'Maximum of 1000 words allowed. Please split longer stories into multiple chapters';
+        if (wordCount > 1000)
+          return 'Maximum of 1000 words allowed. Please split longer stories into multiple chapters';
         if (charCount > limit) {
           return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;
         }
@@ -134,35 +135,71 @@ export function TipTap2() {
         .map((t) => t.trim().toLowerCase().replace(/\s+/g, ' '))
         .filter((t) => t.length >= TAG_MIN_LEN);
 
-      const docRef = await addDoc(storyCollectionRef, {
-        title: normalizedTitle,
-        title_lc,
-        description: form.values.description,
-        content: JSON.stringify(editor.getJSON()),
-        ownerId,
-        username,
-        viewCount: 0,
-        likesCount: 0,
-        createdAt: serverTimestamp(),
-        createdAtNumeric: Date.now(),
-        tags: tagsLower,
-      });
-
+      // ✅ Your new 2-step creation pattern
+      const storyRef = doc(storyCollectionRef);
+      const chapter1Ref = doc(appDb, 'stories', storyRef.id, 'chapters', '1');
       const authorDocRef = doc(appDb, 'authors_with_stories', ownerId);
-      await setDoc(
-        authorDocRef,
-        {
-          username,
-          storyCount: increment(1),
-          lastStoryTitle: normalizedTitle,
-          lastStoryDate: serverTimestamp(),
-        },
-        { merge: true }
-      );
 
-      navigate({ to: '/stories/$storyId', params: { storyId: docRef.id } });
+      // 1) Create story first
+      {
+        const batch = writeBatch(appDb);
+
+        batch.set(storyRef, {
+          title: normalizedTitle,
+          title_lc,
+          description: form.values.description,
+          ownerId,
+          username,
+          viewCount: 0,
+          likesCount: 0,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdAtNumeric: Date.now(),
+          tags: tagsLower,
+          chapterCount: 1,
+        });
+
+        await batch.commit();
+      }
+
+      // 2) Now story exists, so owner-check passes
+      {
+        const batch = writeBatch(appDb);
+
+        batch.set(chapter1Ref, {
+          index: 1,
+          title: 'Chapter 1',
+          content: JSON.stringify(editor.getJSON()),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        batch.set(
+          authorDocRef,
+          {
+            username,
+            storyCount: increment(1),
+            lastStoryTitle: normalizedTitle,
+            lastStoryDate: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        await batch.commit();
+      }
+
+      navigate({
+        to: '/stories/$storyId',
+        params: { storyId: storyRef.id },
+        // If TS still complains for now:
+        // search: { chapter: 1 } as any,
+        search: { chapter: 1 },
+      });
     } catch (err: any) {
-      setErrorMessage(err?.message ?? 'Something went wrong while submitting your story. Please try again.');
+      setErrorMessage(
+        err?.message ??
+          'Something went wrong while submitting your story. Please try again.'
+      );
       setErrorOpen(true);
     } finally {
       setSubmitting(false);
@@ -206,10 +243,21 @@ export function TipTap2() {
 
     setCheckingDuplicate(true);
     try {
-      const qLc = query(storyCollectionRef, where('title_lc', '==', title_lc), fsLimit(1));
-      const qExact = query(storyCollectionRef, where('title', '==', normalizedTitle), fsLimit(1));
+      const qLc = query(
+        storyCollectionRef,
+        where('title_lc', '==', title_lc),
+        fsLimit(1)
+      );
+      const qExact = query(
+        storyCollectionRef,
+        where('title', '==', normalizedTitle),
+        fsLimit(1)
+      );
 
-      const [snapLc, snapExact] = await Promise.all([getDocs(qLc), getDocs(qExact)]);
+      const [snapLc, snapExact] = await Promise.all([
+        getDocs(qLc),
+        getDocs(qExact),
+      ]);
       const duplicateFound = !snapLc.empty || !snapExact.empty;
 
       if (duplicateFound) {
@@ -219,7 +267,9 @@ export function TipTap2() {
 
       await ensureTermsThenSubmit();
     } catch (err: any) {
-      setErrorMessage(err?.message ?? 'Could not verify title uniqueness. Please try again.');
+      setErrorMessage(
+        err?.message ?? 'Could not verify title uniqueness. Please try again.'
+      );
       setErrorOpen(true);
     } finally {
       setCheckingDuplicate(false);
@@ -332,14 +382,17 @@ export function TipTap2() {
           </div>
         )}
 
-        {/* Optional inline terms error (helps confirm the flow is working) */}
         {form.errors.terms && (
           <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 8 }}>
             {form.errors.terms}
           </div>
         )}
 
-        <div className={`character-count ${charCount >= limit ? 'character-count--warning' : ''}`}>
+        <div
+          className={`character-count ${
+            charCount >= limit ? 'character-count--warning' : ''
+          }`}
+        >
           {wordCount} words
         </div>
 
@@ -403,9 +456,15 @@ export function TipTap2() {
         overlayProps={{ backgroundOpacity: 0.55, blur: 2, color: 'gray' }}
       >
         <div onClick={() => setErrorOpen(false)} style={{ cursor: 'pointer' }}>
-          <Text fw={600} mb="xs">Submission failed</Text>
-          <Text size="sm" c="dimmed">{errorMessage ?? 'Unexpected error. Please try again.'}</Text>
-          <Button mt="md" variant="light" fullWidth>Close</Button>
+          <Text fw={600} mb="xs">
+            Submission failed
+          </Text>
+          <Text size="sm" c="dimmed">
+            {errorMessage ?? 'Unexpected error. Please try again.'}
+          </Text>
+          <Button mt="md" variant="light" fullWidth>
+            Close
+          </Button>
         </div>
       </Modal>
     </>
