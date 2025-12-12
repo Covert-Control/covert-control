@@ -720,13 +720,15 @@ function StoryDetailPage() {
                 {/** Story actions */}
                 <Menu withArrow shadow="md" position="bottom-end">
                   <Menu.Target>
-                    <ActionIcon
-                      variant="subtle"
-                      radius="md"
-                      aria-label="Reading options"
-                    >
-                      <Settings size={18} />
-                    </ActionIcon>
+                    <Tooltip label="Reading options" withArrow position="bottom">
+                      <ActionIcon
+                        variant="subtle"
+                        radius="md"
+                        aria-label="Reading options"
+                      >
+                        <Settings size={18} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Menu.Target>
 
                   <Menu.Dropdown>
@@ -802,13 +804,15 @@ function StoryDetailPage() {
                 {isOwnStory && (
                   <Menu withArrow shadow="md" position="bottom-end">
                     <Menu.Target>
-                      <ActionIcon
-                        variant="subtle"
-                        radius="md"
-                        aria-label="Story actions"
-                      >
-                        <MoreVertical size={18} />
-                      </ActionIcon>
+                      <Tooltip label="Story actions" withArrow position="bottom">
+                        <ActionIcon
+                          variant="subtle"
+                          radius="md"
+                          aria-label="Story actions"
+                        >
+                          <MoreVertical size={18} />
+                        </ActionIcon>
+                      </Tooltip>
                     </Menu.Target>
 
                     <Menu.Dropdown>
@@ -844,6 +848,7 @@ function StoryDetailPage() {
                     </Menu.Dropdown>
                   </Menu>
                 )}
+
               </div>
             </div>
           </Stack>
