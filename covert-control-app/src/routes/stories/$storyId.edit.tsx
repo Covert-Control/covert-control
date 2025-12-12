@@ -4,12 +4,7 @@ import './tiptap.css';
 import { createFileRoute } from '@tanstack/react-router';
 import { Route as StoryLayout } from './$storyId';
 
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  writeBatch,
-} from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 import { db } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
@@ -75,7 +70,11 @@ const TAG_MIN_LEN = 3;
 const TAG_MAX_LEN = 30;
 
 const normalizeTag = (s: string) =>
-  s.trim().toLowerCase().replace(/\s*\(\d+\)\s*$/, '').replace(/\s+/g, ' ');
+  s
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .replace(/\s+/g, ' ');
 
 const sanitizeTags = (tags: string[]) => {
   const cleaned = tags
@@ -157,7 +156,8 @@ function EditStoryPage() {
   });
 
   // New chapter ONLY if we're on the next slot and doc doesn't exist
-  const isNewChapter = safeChapter === currentCount + 1 && !chapterEditQuery.data;
+  const isNewChapter =
+    safeChapter === currentCount + 1 && !chapterEditQuery.data;
 
   /* ---------------------------------------------
     Editor
@@ -286,6 +286,7 @@ function EditStoryPage() {
     Save logic (no arranger)
     - Existing: update same chapter doc
     - New (next slot only): create chapter doc + bump chapterCount
+    - Always bump story.updatedAt on save
   ---------------------------------------------- */
 
   const [saving, setSaving] = useState(false);
@@ -363,13 +364,14 @@ function EditStoryPage() {
 
       const batch = writeBatch(db);
 
-      // Story meta changes (only if chapter 1)
+      // Story meta changes + updatedAt + possible chapterCount bump
       batch.update(storyRef, {
         updatedAt: serverTimestamp(),
         ...(storyMetaUpdate ?? {}),
         ...(isNewChapter ? { chapterCount: currentCount + 1 } : null),
       });
 
+      // Chapter content
       batch.set(
         chapterRef,
         {
@@ -385,7 +387,7 @@ function EditStoryPage() {
 
       await batch.commit();
 
-      // Invalidate caches so reader updates immediately
+      // Invalidate caches so reader & story meta update immediately
       queryClient.removeQueries({ queryKey: ['storyChapter', storyId] });
       queryClient.removeQueries({ queryKey: ['storyChapterEdit', storyId] });
       queryClient.invalidateQueries({ queryKey: ['story', storyId] });
@@ -540,7 +542,9 @@ function EditStoryPage() {
               navigate({
                 to: '/stories/$storyId',
                 params: { storyId } as any,
-                search: { chapter: Math.min(safeChapter, currentCount) } as any,
+                search: {
+                  chapter: Math.min(safeChapter, currentCount),
+                } as any,
               })
             }
           >
@@ -555,3 +559,5 @@ function EditStoryPage() {
     </form>
   );
 }
+
+export default EditStoryPage;

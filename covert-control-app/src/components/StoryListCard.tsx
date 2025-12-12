@@ -20,6 +20,8 @@ type StoryListCardProps = {
     | 'viewCount'
     | 'ownerId'
     | 'createdAt'
+    | 'updatedAt'
+    | 'chapterCount'
     | 'tags'
   >;
   showFavorite?: boolean;
@@ -28,7 +30,7 @@ type StoryListCardProps = {
   expandableDescription?: boolean;
 };
 
-function formatDate(d?: Date) {
+function formatDate(d?: Date | null) {
   if (!d) return '';
   return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
@@ -92,6 +94,40 @@ export default function StoryListCard({
     ? allTags
     : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
+
+  // ----- Created / Updated labels -----
+  const createdAt = story.createdAt as Date | null | undefined;
+  const updatedAt = (story as any).updatedAt as Date | null | undefined;
+
+  const createdLabel = formatDate(createdAt);
+
+  // Only treat as "updated" if it's meaningfully later than createdAt
+  let updatedLabel: string | null = null;
+  if (updatedAt) {
+    console.log(updatedAt)
+    if (!createdAt) {
+      updatedLabel = formatDate(updatedAt);
+    } else if (updatedAt.getTime() > createdAt.getTime() + 60 * 1000) {
+      updatedLabel = formatDate(updatedAt);
+    }
+  }
+
+  const combinedDateLabel =
+    updatedLabel && createdLabel
+      ? `${createdLabel} · updated ${updatedLabel}`
+      : updatedLabel && !createdLabel
+      ? `Updated ${updatedLabel}`
+      : createdLabel;
+
+  const dateTitle =
+    createdAt || updatedAt
+      ? [
+          createdAt ? `Created: ${createdAt.toString()}` : null,
+          updatedAt ? `Updated: ${updatedAt.toString()}` : null,
+        ]
+          .filter(Boolean)
+          .join(' | ')
+      : '';
 
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
@@ -191,12 +227,8 @@ export default function StoryListCard({
               •
             </Text>
 
-            <Text
-              size="sm"
-              c="dimmed"
-              title={story.createdAt ? story.createdAt.toString() : ''}
-            >
-              {formatDate(story.createdAt)}
+            <Text size="sm" c="dimmed" title={dateTitle}>
+              {combinedDateLabel}
             </Text>
           </div>
         </div>

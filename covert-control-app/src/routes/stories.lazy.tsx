@@ -19,18 +19,41 @@ function StoriesListComponent() {
     queryKey: ['storiesList'],
     queryFn: async () => {
       const querySnapshot = await getDocs(storiesCollectionRef);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        title: doc.data().title,
-        likesCount: doc.data().likesCount ?? 0, 
-        description: doc.data().description,
-        content: doc.data().content,
-        ownerId: doc.data().ownerId,
-        viewCount: doc.data().viewCount || 0,
-        username: doc.data().username || 'Unknown',
-        createdAt: doc.data().createdAt?.toDate(),
-        tags: Array.isArray(doc.data().tags) ? doc.data().tags : [],
-      } as Story));
+
+      return querySnapshot.docs.map((docSnap) => {
+        const d = docSnap.data() as any;
+
+        const createdAt =
+          d?.createdAt && typeof d.createdAt.toDate === 'function'
+            ? (d.createdAt.toDate() as Date)
+            : null;
+
+        const updatedAt =
+          d?.updatedAt && typeof d.updatedAt.toDate === 'function'
+            ? (d.updatedAt.toDate() as Date)
+            : null;
+
+        const chapterCount =
+          typeof d?.chapterCount === 'number' && d.chapterCount > 0
+            ? d.chapterCount
+            : 1;
+
+        return {
+          id: docSnap.id,
+          title: d?.title ?? '',
+          likesCount: d?.likesCount ?? 0,
+          description: d?.description ?? '',
+          // You only need this if Story includes it; StoryListCard doesn’t use it
+          content: d?.content ?? '', 
+          ownerId: d?.ownerId ?? '',
+          viewCount: d?.viewCount ?? 0,
+          username: d?.username ?? 'Unknown',
+          createdAt,          // ✅ Date | null
+          updatedAt,          // ✅ Date | null
+          chapterCount,       // ✅ sensible default
+          tags: Array.isArray(d?.tags) ? d.tags : [],
+        } as Story;
+      });
     },
     staleTime: 1000 * 60 * 5,
   });

@@ -97,6 +97,27 @@ export const Route = createFileRoute('/stories/$storyId/')({
 
 const MAX_REPORT_COMMENT_LENGTH = 500;
 
+// ---- Date helpers -------------------------------------------------
+
+type PossibleDate = Date | { toDate?: () => Date } | null | undefined;
+
+function toDate(value: PossibleDate): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof (value as any).toDate === 'function') {
+    return (value as any).toDate();
+  }
+  return undefined;
+}
+
+function formatShortDate(d: Date) {
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 /* ---------------------------------------------
    Chapter fetcher
 ---------------------------------------------- */
@@ -135,6 +156,10 @@ function StoryDetailPage() {
   const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
   const canReport = !!user && !isOwnStory;
 
+  // Safely handle Date or Firestore Timestamp
+  const createdAt = toDate((story as any).createdAt);
+  const updatedAt = toDate((story as any).updatedAt);
+
   const [deleting, setDeleting] = useState(false);
   const [deletingChapter, setDeletingChapter] = useState(false);
 
@@ -147,18 +172,38 @@ function StoryDetailPage() {
 
   const isMobile = useMediaQuery('(max-width: 480px)');
 
-  const formattedDate = useMemo(() => {
-    return story.createdAt.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  }, [story.createdAt]);
-
   const likesLabel = useMemo(() => {
     const n = story.likesCount ?? 0;
     return n === 1 ? '1 like' : `${n} likes`;
   }, [story.likesCount]);
+
+  // ---- combined created/updated label ----
+  const createdLabel = createdAt ? formatShortDate(createdAt) : '';
+  let updatedLabel: string | null = null;
+
+  if (updatedAt) {
+    // treat as updated if it's strictly later than createdAt
+    if (!createdAt || updatedAt.getTime() > createdAt.getTime()) {
+      updatedLabel = formatShortDate(updatedAt);
+    }
+  }
+
+  const combinedDateLabel =
+    updatedLabel && createdLabel
+      ? `${createdLabel} · updated ${updatedLabel}`
+      : updatedLabel && !createdLabel
+      ? `Updated ${updatedLabel}`
+      : createdLabel;
+
+  const dateTitle =
+    createdAt || updatedAt
+      ? [
+          createdAt ? `Created: ${createdAt.toString()}` : null,
+          updatedAt ? `Updated: ${updatedAt.toString()}` : null,
+        ]
+          .filter(Boolean)
+          .join(' | ')
+      : undefined;
 
   // TipTap read-only editor
   const extensions = useMemo(() => [StarterKit, Underline, TipTapLink], []);
@@ -321,7 +366,7 @@ function StoryDetailPage() {
         chapter: safeChapter,
       });
 
-      const newCount = (res.data as any)?.newChapterCount ?? (totalChapters - 1);
+      const newCount = (res.data as any)?.newChapterCount ?? totalChapters - 1;
       const nextChapter = Math.min(safeChapter, Math.max(1, newCount));
 
       // Clear cached chapters so UI doesn't show stale content
@@ -498,12 +543,20 @@ function StoryDetailPage() {
         {/* HEADER PANEL */}
         <Paper radius="lg" p="md" withBorder>
           <Stack gap="sm">
-            <Title order={1} fw={600} style={{ fontSize: rem(28), lineHeight: 1.2 }}>
+            <Title
+              order={1}
+              fw={600}
+              style={{ fontSize: rem(28), lineHeight: 1.2 }}
+            >
               {story.title}
             </Title>
 
             {story.description && (
-              <Text size="sm" c="dimmed" style={{ lineHeight: 1.4, maxWidth: '60ch' }}>
+              <Text
+                size="sm"
+                c="dimmed"
+                style={{ lineHeight: 1.4, maxWidth: '60ch' }}
+              >
                 {story.description}
               </Text>
             )}
@@ -518,16 +571,32 @@ function StoryDetailPage() {
                 rowGap: '0.5rem',
               }}
             >
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'baseline',
+                  gap: 8,
+                }}
+              >
                 <Text size="sm" c="dimmed">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
                     <UserIcon size={16} />
                     <span>by</span>
                     <Anchor
                       component={RouterLink}
                       to="/authors/$authorId"
                       params={{ authorId: story.username } as any}
-                      style={{ textDecoration: 'underline', color: 'inherit' }}
+                      style={{
+                        textDecoration: 'underline',
+                        color: 'inherit',
+                      }}
                     >
                       {story.username}
                     </Anchor>
@@ -588,16 +657,31 @@ function StoryDetailPage() {
                   size="sm"
                   c="dimmed"
                   style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                  title={dateTitle}
                 >
                   <Calendar size={16} />
-                  {formattedDate}
+                  {combinedDateLabel}
                 </Text>
               </div>
             </div>
 
             {/* TAGS ROW */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', rowGap: 6, columnGap: 6 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: '1 1 auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                rowGap: 6,
+                columnGap: 6,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 6,
+                  flex: '1 1 auto',
+                }}
+              >
                 {visibleTags.map((tag) => (
                   <Badge
                     key={tag}
@@ -633,11 +717,14 @@ function StoryDetailPage() {
                   marginLeft: 'auto',
                 }}
               >
-
-                {/* Reader settings */}
+                {/** Story actions */}
                 <Menu withArrow shadow="md" position="bottom-end">
                   <Menu.Target>
-                    <ActionIcon variant="subtle" radius="md" aria-label="Reading options">
+                    <ActionIcon
+                      variant="subtle"
+                      radius="md"
+                      aria-label="Reading options"
+                    >
                       <Settings size={18} />
                     </ActionIcon>
                   </Menu.Target>
@@ -693,7 +780,11 @@ function StoryDetailPage() {
                 </Menu>
 
                 {canReport && (
-                  <Tooltip label="Report this story" withArrow position="bottom">
+                  <Tooltip
+                    label="Report this story"
+                    withArrow
+                    position="bottom"
+                  >
                     <ActionIcon
                       variant="subtle"
                       radius="md"
@@ -711,25 +802,30 @@ function StoryDetailPage() {
                 {isOwnStory && (
                   <Menu withArrow shadow="md" position="bottom-end">
                     <Menu.Target>
-                      <ActionIcon variant="subtle" radius="md" aria-label="Story actions">
+                      <ActionIcon
+                        variant="subtle"
+                        radius="md"
+                        aria-label="Story actions"
+                      >
                         <MoreVertical size={18} />
                       </ActionIcon>
                     </Menu.Target>
 
                     <Menu.Dropdown>
-                      <Menu.Item leftSection={<PencilLine size={16} />} onClick={handleEdit}>
+                      <Menu.Item
+                        leftSection={<PencilLine size={16} />}
+                        onClick={handleEdit}
+                      >
                         Edit
                       </Menu.Item>
-                      {isOwnStory && (
-                      <Menu.Item 
-                        variant="light" 
+                      <Menu.Item
+                        variant="light"
                         leftSection={<CopyPlus size={16} />}
                         onClick={handleAddChapter}
                       >
                         Add chapter
                       </Menu.Item>
-                      )}
-                      {isOwnStory && safeChapter > 1 && (
+                      {safeChapter > 1 && (
                         <Menu.Item
                           color="red"
                           leftSection={<Trash2 size={16} />}
@@ -846,11 +942,16 @@ function StoryDetailPage() {
         >
           <Stack gap="sm">
             <Text size="sm" c="dimmed">
-              Please tell us why you are reporting this story. Reports are reviewed by the site
-              admins.
+              Please tell us why you are reporting this story. Reports are
+              reviewed by the site admins.
             </Text>
 
-            <Radio.Group value={reportReason} onChange={setReportReason} label="Reason" required>
+            <Radio.Group
+              value={reportReason}
+              onChange={setReportReason}
+              label="Reason"
+              required
+            >
               <Stack gap={4} mt="xs">
                 <Radio value="nsfw" label="NSFW / sexual content" />
                 <Radio value="harassment" label="Harassment or hate speech" />

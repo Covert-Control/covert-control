@@ -16,6 +16,17 @@ export const Route = createFileRoute('/stories/$storyId')({
         ? d.chapterCount
         : 1;
 
+    // 🔹 Safely convert Firestore Timestamps to JS Dates (or null)
+    const createdAt =
+      d?.createdAt && typeof d.createdAt.toDate === 'function'
+        ? (d.createdAt.toDate() as Date)
+        : null;
+
+    const updatedAt =
+      d?.updatedAt && typeof d.updatedAt.toDate === 'function'
+        ? (d.updatedAt.toDate() as Date)
+        : null;
+
     return {
       story: {
         id: snap.id,
@@ -23,7 +34,8 @@ export const Route = createFileRoute('/stories/$storyId')({
         description: d?.description ?? '',
         ownerId: d?.ownerId ?? '',
         username: d?.username ?? 'Anonymous',
-        createdAt: d?.createdAt?.toDate?.() ?? new Date(0),
+        createdAt,         // ✅ now a real Date | null
+        updatedAt,         // ✅ NEW FIELD
         viewCount: d?.viewCount ?? 0,
         likesCount: d?.likesCount ?? 0,
         tags: Array.isArray(d?.tags) ? d.tags : [],

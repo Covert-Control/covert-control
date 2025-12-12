@@ -7,5 +7,8 @@ export interface Story {
   viewCount?: number;
   username: string;
   likesCount?: number;
-  createdAt?: Date; // or Firebase Timestamp if you prefer
+  createdAt: Date | null;
+  updatedAt?: Date | null;
+  chapterCount?: number;
+  tags?: string[]; 
 }

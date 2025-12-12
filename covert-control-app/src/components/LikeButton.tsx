@@ -12,11 +12,17 @@ const COOLDOWN_MS = 1500;
 
 type LikeButtonProps = {
   storyId: string;
-  initialCount?: number; // from story.likesCount
+  ownerId?: string;          // story owner id
+  initialCount?: number;     // from story.likesCount
   compact?: boolean;
 };
 
-export default function LikeButton({ storyId, initialCount = 0, compact = false }: LikeButtonProps) {
+export default function LikeButton({
+  storyId,
+  ownerId,
+  initialCount = 0,
+  compact = false,
+}: LikeButtonProps) {
   const uid = useAuthStore((s) => s.user?.uid);
 
   const iconSize = 18;
@@ -26,14 +32,19 @@ export default function LikeButton({ storyId, initialCount = 0, compact = false 
   const [isLiked, setIsLiked] = useState(false);
   const cooldownUntilRef = useRef<number>(0); // no re-renders when it changes
 
+  const likeLabel = count === 1 ? 'like' : 'likes';
+
+  const isOwnStory = !!uid && !!ownerId && uid === ownerId;
+  const canToggle = !!uid && !isOwnStory;
+
   // Keep local count in sync if parent passes a new value
   useEffect(() => setCount(initialCount), [initialCount]);
 
-  // Check if current user has liked this story
+  // Check if current user has liked this story (skip if own story)
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (!uid) {
+      if (!uid || isOwnStory) {
         if (mounted) setIsLiked(false);
         return;
       }
@@ -43,14 +54,22 @@ export default function LikeButton({ storyId, initialCount = 0, compact = false 
     return () => {
       mounted = false;
     };
-  }, [uid, storyId]);
+  }, [uid, storyId, isOwnStory]);
 
-    const likedFill = 'var(--mantine-color-blue-5)';   // hand fill when liked
-    const likedStroke = 'var(--mantine-color-white)';  // outline/wrist when liked
-    const baseStroke  = 'var(--mantine-color-dimmed)'; // outline when unliked
+  const likedFill   = 'var(--mantine-color-blue-5)';   // hand fill when liked
+  const likedStroke = 'var(--mantine-color-white)';    // outline/wrist when liked
+  const baseStroke  = 'var(--mantine-color-dimmed)';   // outline when unliked
+
+  const tooltipLabel = !uid
+    ? 'Log in to like'
+    : isOwnStory
+    ? "You can’t like your own story"
+    : isLiked
+    ? 'Unlike'
+    : 'Like';
 
   const handleClick = async () => {
-    // Show login nudge, do nothing else
+    // Not logged in: show login nudge
     if (!uid) {
       notifications.show({
         title: 'Login required',
@@ -60,7 +79,12 @@ export default function LikeButton({ storyId, initialCount = 0, compact = false 
       return;
     }
 
-    if (busy || Date.now() < cooldownUntilRef.current) return;
+    // Own story: no-op (tooltip already explains)
+    if (isOwnStory) {
+      return;
+    }
+
+    if (!canToggle || busy || Date.now() < cooldownUntilRef.current) return;
 
     setBusy(true);
     cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
@@ -91,52 +115,70 @@ export default function LikeButton({ storyId, initialCount = 0, compact = false 
     }
   };
 
+  // For own stories, we show the same outline as an unliked icon:
+  const fillColor = isLiked ? likedFill : 'none';
+  const strokeColor = isLiked ? likedStroke : baseStroke;
+
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <Tooltip label={uid ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like'} withArrow>
+      <Tooltip label={tooltipLabel} withArrow>
         <ActionIcon
           component={motion.button}
-          whileTap={{ scale: uid ? 0.9 : 1 }}
+          whileTap={{ scale: canToggle ? 0.9 : 1 }}
           onClick={handleClick}
           aria-pressed={isLiked}
-          aria-disabled={!uid || busy}
+          aria-disabled={!canToggle || busy}
           aria-label={isLiked ? 'Unlike' : 'Like'}
           variant="transparent" // no circular outline
-          style={{ padding: 2, height: 26, width: 26, opacity: !uid ? 0.85 : 1 }}
-          disabled={busy}        // NOT disabled for !uid so click shows a notice
+          style={{
+            padding: 2,
+            height: 26,
+            width: 26,
+            opacity: !uid || isOwnStory ? 0.85 : 1,
+            cursor: isOwnStory ? 'not-allowed' : 'pointer',
+          }}
+          // disabled for busy or own story; NOT disabled for !uid so click shows login notice
+          disabled={busy || isOwnStory}
         >
-            <motion.span
+          <motion.span
             initial={false}
-            animate={{ scale: isLiked ? 1.12 : 1 }}
+            animate={{ scale: isLiked && !isOwnStory ? 1.12 : 1 }}
             transition={{ type: 'spring', stiffness: 320, damping: 18 }}
             style={{ display: 'inline-flex' }}
+          >
+            <span
+              style={{
+                position: 'relative',
+                width: iconSize,
+                height: iconSize,
+                display: 'inline-block',
+              }}
             >
-            {/* Layer 1: fill only (no stroke) */}
-                <span style={{ position: 'relative', width: iconSize, height: iconSize, display: 'inline-block' }}>
-                    <ThumbsUp
-                    size={iconSize}
-                    stroke="none"
-                    fill={isLiked ? likedFill : 'none'}
-                    style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-                    />
-                    {/* Layer 2: stroke only (outline + inner detail line) */}
-                    <ThumbsUp
-                    size={iconSize}
-                    fill="none"
-                    stroke={isLiked ? likedStroke : baseStroke}
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-                    />
-                </span>
-            </motion.span>
+              {/* Layer 1: fill only */}
+              <ThumbsUp
+                size={iconSize}
+                stroke="none"
+                fill={fillColor}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              />
+              {/* Layer 2: stroke only */}
+              <ThumbsUp
+                size={iconSize}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              />
+            </span>
+          </motion.span>
         </ActionIcon>
       </Tooltip>
 
       {!compact && (
         <Text size="sm" c="dimmed" style={{ lineHeight: 1 }}>
-          {count} Likes
+          {count} {likeLabel}
         </Text>
       )}
     </div>
