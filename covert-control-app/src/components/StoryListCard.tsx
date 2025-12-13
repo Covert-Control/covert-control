@@ -1,7 +1,7 @@
 // src/components/StoryListCard.tsx
 import { Card, Title, Text, Button, Badge } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Eye, BookOpen } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
 import LikeButton from './LikeButton';
 import { useAuthStore } from '../stores/authStore';
@@ -51,8 +51,8 @@ export default function StoryListCard({
   const user = useAuthStore((s) => s.user);
   const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
 
-  // mobile breakpoint
-  const isMobile = useMediaQuery('(max-width: 480px)');
+  // Slightly wider breakpoint so header stacks sooner
+  const isNarrow = useMediaQuery('(max-width: 768px)');
 
   // ----- Description expand/collapse -----
   const [expanded, setExpanded] = useState(false);
@@ -101,10 +101,8 @@ export default function StoryListCard({
 
   const createdLabel = formatDate(createdAt);
 
-  // Only treat as "updated" if it's meaningfully later than createdAt
   let updatedLabel: string | null = null;
   if (updatedAt) {
-    console.log(updatedAt)
     if (!createdAt) {
       updatedLabel = formatDate(updatedAt);
     } else if (updatedAt.getTime() > createdAt.getTime() + 60 * 1000) {
@@ -129,6 +127,16 @@ export default function StoryListCard({
           .join(' | ')
       : '';
 
+  // ----- Chapters badge (hide if only 1) -----
+  const chapters = story.chapterCount ?? 1;
+  const hasMultipleChapters = chapters > 1;
+  const chapterLabel =
+    chapters === 2 ? '2 chapters' : `${chapters} chapters`;
+
+  // ----- Views label -----
+  const views = story.viewCount ?? 0;
+  const viewsLabel = views === 1 ? '1 view' : `${views} views`;
+
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
       <Card.Section
@@ -144,10 +152,11 @@ export default function StoryListCard({
         <div
           style={{
             display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: isMobile ? 'flex-start' : 'space-between',
-            alignItems: isMobile ? 'flex-start' : 'baseline',
+            flexDirection: isNarrow ? 'column' : 'row',
+            justifyContent: isNarrow ? 'flex-start' : 'space-between',
+            alignItems: isNarrow ? 'flex-start' : 'baseline',
             marginBottom: 8,
+            rowGap: isNarrow ? 4 : 0,
           }}
         >
           {/* Left block: title / author / favorite */}
@@ -170,8 +179,8 @@ export default function StoryListCard({
                 size="h4"
                 mb="0"
                 style={{
-                  whiteSpace: 'nowrap',
-                  textOverflow: 'ellipsis',
+                  // allow wrapping so it doesn't collide with stats
+                  whiteSpace: 'normal',
                   overflow: 'hidden',
                 }}
               >
@@ -201,10 +210,10 @@ export default function StoryListCard({
               display: 'flex',
               flexWrap: 'wrap',
               rowGap: 4,
-              columnGap: isMobile ? 8 : 12,
+              columnGap: isNarrow ? 8 : 12,
               alignItems: 'center',
               flexShrink: 0,
-              marginTop: isMobile ? 6 : 0,
+              marginTop: isNarrow ? 6 : 0,
             }}
           >
             <LikeButton
@@ -218,9 +227,18 @@ export default function StoryListCard({
             </Text>
 
             {showViews && (
-              <Text size="sm" c="dimmed">
-                Views: {story.viewCount ?? 0}
-              </Text>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <Eye size={14} />
+                <Text size="sm" c="dimmed">
+                  {viewsLabel}
+                </Text>
+              </div>
             )}
 
             <Text size="sm" c="dimmed">
@@ -233,8 +251,8 @@ export default function StoryListCard({
           </div>
         </div>
 
-        {/* ====== TAGS ROW ====== */}
-        {allTags.length > 0 && (
+        {/* ====== TAGS + (optional) CHAPTERS ROW ====== */}
+        {(allTags.length > 0 || hasMultipleChapters) && (
           <div
             style={{
               display: 'flex',
@@ -245,6 +263,22 @@ export default function StoryListCard({
               alignItems: 'center',
             }}
           >
+            {hasMultipleChapters && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  marginRight: 8,
+                }}
+              >
+                <BookOpen size={14} />
+                <Text size="xs" c="dimmed">
+                  {chapterLabel}
+                </Text>
+              </div>
+            )}
+
             {visibleTags.map((tag) => (
               <Badge
                 key={tag}
@@ -277,9 +311,9 @@ export default function StoryListCard({
         <div
           style={{
             display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
+            flexDirection: isNarrow ? 'column' : 'row',
             gap: 12,
-            alignItems: isMobile ? 'flex-start' : 'flex-end',
+            alignItems: isNarrow ? 'flex-start' : 'flex-end',
             justifyContent: 'space-between',
             marginTop: 4,
           }}
@@ -323,8 +357,8 @@ export default function StoryListCard({
             params={{ storyId: story.id }}
             style={{
               textDecoration: 'none',
-              alignSelf: isMobile ? 'flex-start' : 'flex-end',
-              marginTop: isMobile ? 8 : 0,
+              alignSelf: isNarrow ? 'flex-start' : 'flex-end',
+              marginTop: isNarrow ? 8 : 0,
             }}
           >
             <Button
