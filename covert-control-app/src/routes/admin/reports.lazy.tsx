@@ -293,7 +293,7 @@ function AdminReportsPage() {
                           fw={500}
                           size="sm"
                           component={RouterLink}
-                          to="/stories/$storyId/"
+                          to="/stories/$storyId"
                           params={{ storyId: r.storyId }}
                           style={{
                             textDecoration: 'underline',

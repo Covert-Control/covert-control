@@ -529,6 +529,7 @@ function AuthorDetailPage() {
               key={story.id}
               to="/stories/$storyId"
               params={{ storyId: story.id }}
+              search={{ chapter: 1 }} 
               style={{ textDecoration: 'none' }}
             >
               <Card
