@@ -1,11 +1,22 @@
-import './tiptap.css';
+import './tiptap.css'; 
 import { RichTextEditor, Link } from '@mantine/tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useState, type FormEvent } from 'react';
-import { Button, TextInput, Textarea, Modal, Text, Group } from '@mantine/core';
+import {
+  Button,
+  TextInput,
+  Textarea,
+  Modal,
+  Text,
+  Group,
+  Paper,
+  Stack,
+  Title,
+  Divider,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { db as appDb } from '../../config/firebase';
 import {
@@ -26,7 +37,7 @@ import { TermsModal } from '../../components/TermsModal';
 import { useNavigate } from '@tanstack/react-router';
 
 const content = '';
-const limit = 10000;
+const limit = 150000;
 const TAGS_MAX = 16;
 const TAG_MIN_LEN = 3;
 const TAG_MAX_LEN = 30;
@@ -74,8 +85,6 @@ export function TipTap2() {
       content: () => {
         if (wordCount === 0) return 'A story is required';
         if (wordCount < 20) return 'A chapter must have at least 20 words';
-        if (wordCount > 1000)
-          return 'Maximum of 1000 words allowed. Please split longer stories into multiple chapters';
         if (charCount > limit) {
           return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;
         }
@@ -191,8 +200,6 @@ export function TipTap2() {
       navigate({
         to: '/stories/$storyId',
         params: { storyId: storyRef.id },
-        // If TS still complains for now:
-        // search: { chapter: 1 } as any,
         search: { chapter: 1 },
       });
     } catch (err: any) {
@@ -300,105 +307,135 @@ export function TipTap2() {
   return (
     <>
       <form onSubmit={handleFormSubmit}>
-        <TextInput
-          label="Title"
-          {...form.getInputProps('title')}
-          withAsterisk
-          placeholder="Story title"
-        />
+        <Stack gap="md" style={{ maxWidth: 820, margin: '20px auto' }}>
+          {/* Title / Description / Tags */}
+          <Paper withBorder radius="lg" p="md">
+            <Stack gap="md">
+              <TextInput
+                label="Title"
+                {...form.getInputProps('title')}
+                withAsterisk
+                placeholder="Story title"
+              />
 
-        <Textarea
-          label="Description"
-          withAsterisk
-          {...form.getInputProps('description')}
-          placeholder="Provide a short description of your story"
-        />
+              <Textarea
+                label="Description"
+                withAsterisk
+                {...form.getInputProps('description')}
+                placeholder="Provide a short description of your story"
+              />
 
-        <div style={{ marginTop: 16, marginBottom: 8 }}>
-          <TagPicker
-            value={form.values.tags}
-            onChange={(tags) => form.setFieldValue('tags', tags)}
-            maxTags={TAGS_MAX}
-            placeholder="Add tags (e.g., science fiction, military)"
-          />
-          {form.errors.tags && (
-            <div style={{ color: 'red', fontSize: '0.875rem' }}>
-              {form.errors.tags}
-            </div>
-          )}
-        </div>
+              <div>
+                <Text size="sm" fw={500} mb={4}>
+                  Tags<span style={{ color: 'red' }}>*</span>
+                </Text>
 
-        <br />
+                <TagPicker
+                  value={form.values.tags}
+                  onChange={(tags) => form.setFieldValue('tags', tags)}
+                  maxTags={TAGS_MAX}
+                  placeholder="Add tags (e.g., science fiction, military)"
+                />
 
-        <RichTextEditor editor={editor}>
-          <RichTextEditor.Toolbar sticky stickyOffset={60}>
-            <RichTextEditor.ControlsGroup>
-              <RichTextEditor.Bold />
-              <RichTextEditor.Italic />
-              <RichTextEditor.Underline />
-              <RichTextEditor.Code />
-            </RichTextEditor.ControlsGroup>
+                {form.errors.tags && (
+                  <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 4 }}>
+                    {form.errors.tags}
+                  </div>
+                )}
+              </div>
+            </Stack>
+          </Paper>
 
-            <RichTextEditor.ControlsGroup>
-              <RichTextEditor.H1 />
-              <RichTextEditor.H2 />
-              <RichTextEditor.H3 />
-              <RichTextEditor.H4 />
-            </RichTextEditor.ControlsGroup>
+          {/* Story body / editor */}
+          <Paper withBorder radius="lg" p="md">
+            <Stack gap="xs">
+              <Title order={4}>
+                Story Body<span style={{ color: 'red' }}>*</span>
+              </Title>
+              <Divider />
 
-            <RichTextEditor.ControlsGroup>
-              <RichTextEditor.Blockquote />
-              <RichTextEditor.Hr />
-              <RichTextEditor.BulletList />
-              <RichTextEditor.OrderedList />
-              <RichTextEditor.Subscript />
-              <RichTextEditor.Superscript />
-            </RichTextEditor.ControlsGroup>
+              <RichTextEditor editor={editor}>
+                <RichTextEditor.Toolbar sticky stickyOffset={60}>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.Bold />
+                    <RichTextEditor.Italic />
+                    <RichTextEditor.Underline />
+                    <RichTextEditor.Code />
+                  </RichTextEditor.ControlsGroup>
 
-            <RichTextEditor.ControlsGroup>
-              <RichTextEditor.Link />
-              <RichTextEditor.Unlink />
-            </RichTextEditor.ControlsGroup>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.H1 />
+                    <RichTextEditor.H2 />
+                    <RichTextEditor.H3 />
+                    <RichTextEditor.H4 />
+                  </RichTextEditor.ControlsGroup>
 
-            <RichTextEditor.ControlsGroup>
-              <RichTextEditor.AlignLeft />
-              <RichTextEditor.AlignCenter />
-              <RichTextEditor.AlignJustify />
-              <RichTextEditor.AlignRight />
-            </RichTextEditor.ControlsGroup>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.Blockquote />
+                    <RichTextEditor.Hr />
+                    <RichTextEditor.BulletList />
+                    <RichTextEditor.OrderedList />
+                    <RichTextEditor.Subscript />
+                    <RichTextEditor.Superscript />
+                  </RichTextEditor.ControlsGroup>
 
-            <RichTextEditor.ControlsGroup>
-              <RichTextEditor.Undo />
-              <RichTextEditor.Redo />
-            </RichTextEditor.ControlsGroup>
-          </RichTextEditor.Toolbar>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.Link />
+                    <RichTextEditor.Unlink />
+                  </RichTextEditor.ControlsGroup>
 
-          <RichTextEditor.Content />
-        </RichTextEditor>
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.AlignLeft />
+                    <RichTextEditor.AlignCenter />
+                    <RichTextEditor.AlignJustify />
+                    <RichTextEditor.AlignRight />
+                  </RichTextEditor.ControlsGroup>
 
-        {form.errors.content && (
-          <div style={{ color: 'red', fontSize: '0.875rem' }}>
-            {form.errors.content}
-          </div>
-        )}
+                  <RichTextEditor.ControlsGroup>
+                    <RichTextEditor.Undo />
+                    <RichTextEditor.Redo />
+                  </RichTextEditor.ControlsGroup>
+                </RichTextEditor.Toolbar>
 
-        {form.errors.terms && (
-          <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 8 }}>
-            {form.errors.terms}
-          </div>
-        )}
+                <RichTextEditor.Content />
+              </RichTextEditor>
 
-        <div
-          className={`character-count ${
-            charCount >= limit ? 'character-count--warning' : ''
-          }`}
-        >
-          {wordCount} words
-        </div>
+              {form.errors.content && (
+                <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 4 }}>
+                  {form.errors.content}
+                </div>
+              )}
 
-        <Button type="submit" loading={busy} disabled={busy}>
-          Submit
-        </Button>
+              {form.errors.terms && (
+                <div
+                  style={{
+                    color: 'red',
+                    fontSize: '0.875rem',
+                    marginTop: 8,
+                  }}
+                >
+                  {form.errors.terms}
+                </div>
+              )}
+
+              <div
+                style={{
+                  fontSize: 12,
+                  opacity: 0.7,
+                  marginTop: 8,
+                }}
+              >
+                {wordCount} words • {charCount}/{limit} characters
+              </div>
+            </Stack>
+          </Paper>
+
+          <Group justify="end">
+            <Button type="submit" loading={busy} disabled={busy}>
+              Submit
+            </Button>
+          </Group>
+        </Stack>
       </form>
 
       {/* ✅ Duplicate Title Warning Modal */}

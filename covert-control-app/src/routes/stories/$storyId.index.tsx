@@ -336,8 +336,10 @@ function StoryDetailPage() {
         color: 'green',
         position: 'bottom-center',
       });
-
-      navigate({ to: '/stories' });
+      navigate({
+        to: '/authors/$authorId',
+        params: { authorId: story.username }, // or user!.uid if you prefer
+      });
     } catch (e) {
       console.error(e);
       notifications.show({
@@ -380,7 +382,7 @@ function StoryDetailPage() {
       });
 
       navigate({
-        to: '/stories/$storyId/',
+        to: '/stories/$storyId',
         params: { storyId } as any,
         search: { chapter: nextChapter } as any,
       });
@@ -555,7 +557,7 @@ function StoryDetailPage() {
               <Text
                 size="sm"
                 c="dimmed"
-                style={{ lineHeight: 1.4, maxWidth: '60ch' }}
+                style={{ lineHeight: 1.4 }}
               >
                 {story.description}
               </Text>
@@ -623,18 +625,11 @@ function StoryDetailPage() {
                   </Group>
                 ) : (
                   <Group gap={4} align="center">
-                    <Tooltip label="Like this story" withArrow position="bottom">
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <LikeButton
-                          storyId={story.id}
-                          ownerId={story.ownerId}
-                          initialCount={story.likesCount ?? 0}
-                        />
-                      </div>
-                    </Tooltip>
-                    <Text size="xs" c="dimmed">
-                      {likesLabel}
-                    </Text>
+                    <LikeButton
+                      storyId={story.id}
+                      ownerId={story.ownerId}
+                      initialCount={story.likesCount ?? 0}
+                    />
                   </Group>
                 )}
 
@@ -835,7 +830,7 @@ function StoryDetailPage() {
                           leftSection={<Trash2 size={16} />}
                           onClick={handleDeleteChapter}
                         >
-                          Delete chapter
+                          {deletingChapter ? 'Deleting…' : 'Delete chapter'}
                         </Menu.Item>
                       )}
                       <Menu.Item
@@ -932,6 +927,44 @@ function StoryDetailPage() {
             />
           </Group>
         )}
+
+        {/* DELETE STORY LOADING MODAL */}
+        <Modal
+          opened={deleting}
+          onClose={() => {}}
+          withCloseButton={false}
+          closeOnClickOutside={false}
+          closeOnEscape={false}
+          centered
+        >
+          <Center py="md">
+            <Stack gap="sm" align="center">
+              <Loader />
+              <Text size="sm" c="dimmed">
+                Deleting story…
+              </Text>
+            </Stack>
+          </Center>
+        </Modal>
+
+        {/* DELETE CHAPTER LOADING MODAL */}
+        <Modal
+          opened={deletingChapter}
+          onClose={() => {}}
+          withCloseButton={false}
+          closeOnClickOutside={false}
+          closeOnEscape={false}
+          centered
+        >
+          <Center py="md">
+            <Stack gap="sm" align="center">
+              <Loader />
+              <Text size="sm" c="dimmed">
+                Deleting chapter…
+              </Text>
+            </Stack>
+          </Center>
+        </Modal>
 
         {/* REPORT MODAL */}
         <Modal

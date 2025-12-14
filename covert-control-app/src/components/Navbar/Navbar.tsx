@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router';
 import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
+import { useAuthStore } from '../../stores/authStore';
 import classes from './Navbar.module.css';
 
 interface NavItem {
@@ -37,16 +38,17 @@ export type SiteNavbarProps = {
 };
 
 export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavbarProps) {
-
+  const { clearAuth } = useAuthStore();
   const theme = useMantineTheme();
   const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
 
   const logOut = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error(err);
-    }
+      try {
+          await signOut(auth) 
+          clearAuth();
+      } catch (err) {
+          console.error(err);
+      }
   };
 
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);

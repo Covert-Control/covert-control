@@ -62,7 +62,7 @@ function dedupeCaseInsensitive(values: string[]) {
 export function TagPicker({
   value,
   onChange,
-  placeholder = 'Add tags…',
+  placeholder = 'Separate tags with commas',
   maxTags,
   minCharsToSearch = 3,
   suggestionLimit = 10,

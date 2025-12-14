@@ -12,16 +12,17 @@ import { auth } from '../config/firebase';
 import { signOut } from 'firebase/auth'
 
 export function AccountDropDown() {
-  const { user, username, email } = useAuthStore();
+  const { user, username, email, clearAuth } = useAuthStore();
   const theme = useMantineTheme();
 
   const logOut = async () => {
       try {
           await signOut(auth) 
+          clearAuth();
       } catch (err) {
           console.error(err);
       }
-  }
+  };
 
   return (
     <Group justify="center">
@@ -33,7 +34,9 @@ export function AccountDropDown() {
         withinPortal
       >
         <Menu.Target>
-          <ActionIcon variant="default">
+          <ActionIcon 
+          title="Account menu"
+          variant="default">
             <CircleUserRound size={28} strokeWidth={1.25} />
           </ActionIcon>
         </Menu.Target>

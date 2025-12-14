@@ -1,4 +1,5 @@
-import { Button, Paper, Stack, Text, TextInput, Group } from '@mantine/core';
+import { useState } from 'react';
+import { Button, Paper, Stack, Text, TextInput, Group, Loader } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { notifications } from '@mantine/notifications';
@@ -30,6 +31,8 @@ export function SetUsernamePage() {
   const currentUser = useAuthStore((s) => s.user);
   const setAuthState = useAuthStore((s) => s.setAuthState);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const [submitting, setSubmitting] = useState(false);
 
   const usernameForm = useForm({
     initialValues: { newUsername: '' },
@@ -76,6 +79,8 @@ export function SetUsernamePage() {
       await handleCancelRegistration();
       return;
     }
+
+    setSubmitting(true);
 
     try {
       await completeGoogleRegistrationCallable({ username: values.newUsername });
@@ -133,6 +138,8 @@ export function SetUsernamePage() {
       });
 
       usernameForm.setFieldError('newUsername', errorMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -165,11 +172,21 @@ export function SetUsernamePage() {
             placeholder="Your unique username"
             {...usernameForm.getInputProps('newUsername')}
             radius="md"
+            disabled={submitting}
           />
 
-          <Button type="submit" fullWidth radius="xl">
+          <Button type="submit" fullWidth radius="xl" loading={submitting}>
             Set Username
           </Button>
+
+          {submitting && (
+            <Group justify="center" gap="xs">
+              <Loader size="sm" />
+              <Text size="xs" c="dimmed">
+                Setting your username…
+              </Text>
+            </Group>
+          )}
 
           <Group grow>
             <Button
@@ -177,6 +194,7 @@ export function SetUsernamePage() {
               color="gray"
               leftSection={<LogOut size={16} />}
               onClick={handleCancelRegistration}
+              disabled={submitting}
             >
               Cancel registration
             </Button>

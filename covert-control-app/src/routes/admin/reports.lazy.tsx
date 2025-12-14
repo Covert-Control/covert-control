@@ -17,7 +17,7 @@ import {
 } from '@mantine/core';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 
-import { db } from '../../config/firebase';
+import { db, deleteStoryCallable } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
 
 import {
@@ -177,16 +177,17 @@ function AdminReportsPage() {
 
   async function handleDeleteStory(report: Report) {
     if (!currentUser) return;
+
     const confirmDelete = window.confirm(
       `Delete this story?\n\nTitle: ${report.storyTitle}\nThis will remove the story for all readers.`
     );
     if (!confirmDelete) return;
 
     try {
-      const storyRef = doc(db, 'stories', report.storyId);
-      await deleteDoc(storyRef);
+      // ❗ Use the Cloud Function so chapters + authors_with_stories are updated
+      await deleteStoryCallable({ storyId: report.storyId });
 
-      // Mark this report as resolved by deleting the story
+      // Then mark this report as resolved
       const reportRef = doc(db, 'reports', report.id);
       await updateDoc(reportRef, {
         status: 'action_taken',
@@ -194,11 +195,15 @@ function AdminReportsPage() {
         handledAt: serverTimestamp(),
         handledBy: currentUser.uid,
       });
+
+      // (Optional) You can also remove the report from local state here
+      // so the UI updates immediately.
     } catch (err) {
       console.error('Failed to delete story / update report', err);
       alert('Failed to delete story. Check console for details.');
     }
   }
+
 
   async function handleDeleteReport(report: Report) {
     if (!currentUser) return;

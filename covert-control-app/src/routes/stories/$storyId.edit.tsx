@@ -35,6 +35,7 @@ import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import TipTapLink from '@tiptap/extension-link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { TagPicker } from '../../components/TagPicker';
 
 /* ---------------------------------------------
   Route
@@ -62,8 +63,8 @@ export const Route = createFileRoute('/stories/$storyId/edit')({
 ---------------------------------------------- */
 
 const WORD_MIN = 20;
-const WORD_MAX = 1000;
-const CHAR_MAX = 10000;
+const WORD_MAX = 25000;
+const CHAR_MAX = 200000;
 
 const TAGS_MAX = 16;
 const TAG_MIN_LEN = 3;
@@ -432,6 +433,7 @@ function EditStoryPage() {
   return (
     <form onSubmit={onSubmit}>
       <Stack gap="md" style={{ maxWidth: 820, margin: '20px auto' }}>
+        {/* Header */}
         <Paper withBorder radius="lg" p="md">
           <Stack gap="xs">
             <Title order={3}>
@@ -453,6 +455,32 @@ function EditStoryPage() {
             </Text>
           </Stack>
         </Paper>
+
+        {/* Story tags – only editable in Chapter 1 */}
+        {storyFieldsEditable && (
+          <Paper withBorder radius="lg" p="md">
+            <Stack gap="xs">
+              <Title order={4}>Story tags</Title>
+              <Text size="sm" c="dimmed">
+                Update the tags associated with this story.
+              </Text>
+
+              <TagPicker
+                value={form.values.tags}
+                onChange={(next) => form.setFieldValue('tags', next)}
+                maxTags={TAGS_MAX}
+                minTagLength={TAG_MIN_LEN}
+                placeholder="Add tags (e.g., science fiction), separate with comma"
+              />
+
+              {form.errors.tags && (
+                <Text size="xs" c="red">
+                  {form.errors.tags}
+                </Text>
+              )}
+            </Stack>
+          </Paper>
+        )}
 
         {/* Chapter Fields */}
         <Paper withBorder radius="lg" p="md">
@@ -530,7 +558,7 @@ function EditStoryPage() {
             </RichTextEditor>
 
             <div style={{ fontSize: 12, opacity: 0.7 }}>
-              {wordCount} words • {charCount}/{CHAR_MAX} chars
+              {wordCount}/{WORD_MAX} words • {charCount}/{CHAR_MAX} chars
             </div>
           </Stack>
         </Paper>
