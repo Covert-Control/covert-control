@@ -13,6 +13,8 @@ import {
   useMantineTheme,
   Group,
   ThemeIcon,
+  PasswordInput,
+  List,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useAuthStore } from '../stores/authStore';
@@ -51,8 +53,10 @@ async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
 
 export function AccountSettingsForm() {
   const { user, username } = useAuthStore();
+  const expectedUsername = username ?? '';
   const navigate = useNavigate();
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState(''); 
   const { colorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
   const qc = useQueryClient();
@@ -478,22 +482,58 @@ export function AccountSettingsForm() {
 
       <Modal
         opened={deleteModalOpened}
-        onClose={() => setDeleteModalOpened(false)}
+        onClose={() => {
+          setDeleteModalOpened(false);
+          setDeleteConfirmInput('');
+        }}
         title="Confirm Account Deletion"
         centered
       >
-        <Text>
-          Are you absolutely sure you want to delete your account? This action cannot be undone.
-        </Text>
-        <Button
-          color="red"
-          fullWidth
-          mt="md"
-          onClick={handleConfirmDeleteClick} 
-          loading={deleteAccountMutation.isPending}
-        >
-          Yes, Delete My Account
-        </Button>
+        <Stack gap="sm">
+          <Text size="sm">
+            Deleting your account will permanently remove:
+          </Text>
+
+          <List size="sm" spacing="xs">
+            <List.Item>All of your stories and all of their chapters</List.Item>
+            <List.Item>All of your favorites, likes, and related activity</List.Item>
+            <List.Item>Your profile information and account data</List.Item>
+          </List>
+
+          <Text size="sm" c="red">
+            This action cannot be undone.
+          </Text>
+
+          <Text size="sm">
+            To confirm, type your username{' '}
+            <Text span fw={600}>
+              {expectedUsername}
+            </Text>{' '}
+            below.
+          </Text>
+
+          <TextInput
+            label="Confirm username"
+            placeholder={expectedUsername || 'Your username'}
+            value={deleteConfirmInput}
+            onChange={(e) => setDeleteConfirmInput(e.currentTarget.value)}
+            autoComplete="off"
+          />
+
+          <Button
+            color="red"
+            fullWidth
+            mt="sm"
+            onClick={handleConfirmDeleteClick}
+            loading={deleteAccountMutation.isPending}
+            disabled={
+              deleteConfirmInput.trim() !== expectedUsername ||
+              deleteAccountMutation.isPending
+            }
+          >
+            Yes, delete my account
+          </Button>
+        </Stack>
       </Modal>
       <ReauthModal
         opened={reauthOpen}

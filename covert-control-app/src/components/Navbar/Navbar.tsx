@@ -43,21 +43,20 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
   const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
 
   const logOut = async () => {
-      try {
-          await signOut(auth) 
-          clearAuth();
-      } catch (err) {
-          console.error(err);
-      }
+    try {
+      await signOut(auth);
+      clearAuth();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
-  // IMPORTANT: return exactly ONE AppShell.Navbar element. No fragments, no siblings.
+  // IMPORTANT: exactly one AppShell.Navbar
   return (
-    <AppShell.Navbar>
-
-       {desktopOpened && isDesktop && (
+    <AppShell.Navbar p={0} zIndex={300}>
+      {desktopOpened && isDesktop && (
         <ActionIcon
           aria-label="Collapse sidebar"
           title="Collapse sidebar"
@@ -65,18 +64,13 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
           variant="default"
           radius="xl"
           size="lg"
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: -18, // 36px button -> half outside so it “straddles” the edge
-            zIndex: 2,
-          }}
+          className={classes.collapseButton}
         >
           <ArrowLeft size={18} />
         </ActionIcon>
       )}
 
-      {/* Your actual nav content */}
+      {/* Actual nav content */}
       <nav className={classes.navbar}>
         <ScrollArea className={classes.links}>
           <div className={classes.linksInner}>{links}</div>
@@ -89,10 +83,10 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
               <span>Login</span>
             </Link>
           ) : (
-            <a href="#" className={classes.link} onClick={logOut}>
+            <button type="button" className={classes.link} onClick={logOut}>
               <LogOut className={classes.linkIcon} />
               <span>Logout</span>
-            </a>
+            </button>
           )}
         </div>
       </nav>

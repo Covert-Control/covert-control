@@ -157,7 +157,12 @@ function RootComponent() {
         </Group>
       </AppShell.Header>
 
-      <SiteNavbar desktopOpened={desktopOpened} onToggleDesktop={toggleDesktop} />
+      <SiteNavbar
+        desktopOpened={desktopOpened}
+        onToggleDesktop={toggleDesktop}
+        mobileOpened={mobileOpened}
+        onToggleMobile={toggleMobile}
+      />
 
       <AppShell.Main>
         {/* ⬇⬇ UNVERIFIED EMAIL BANNER ⬇⬇ */}

@@ -1,3 +1,4 @@
+// components/NavbarLinksGroup/NavbarLinksGroup.tsx
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
@@ -14,9 +15,10 @@ import classes from './NavbarLinksGroup.module.css';
 interface LinksGroupProps {
   icon: React.FC<any>;
   label: string;
-  link?: string;    // single‐link target
+  link?: string; // single-link target
   initiallyOpened?: boolean;
   links?: { label: string; link: string }[];
+  onLinkClick?: () => void; // <-- new: close mobile navbar after navigation
 }
 
 export function LinksGroup({
@@ -25,11 +27,11 @@ export function LinksGroup({
   link,
   initiallyOpened,
   links,
+  onLinkClick,
 }: LinksGroupProps) {
   const hasChildren = Array.isArray(links) && links.length > 0;
   const [opened, setOpened] = useState(!!initiallyOpened);
 
-  // Leaf items use Mantine Anchor + TanStack Link
   const nestedItems = hasChildren
     ? links!.map((item) => (
         <Anchor
@@ -37,21 +39,39 @@ export function LinksGroup({
           to={item.link}
           key={item.label}
           className={classes.link}
+          onClick={onLinkClick}
         >
           {item.label}
         </Anchor>
       ))
     : null;
 
-  // Decide control wrapper: if group → UnstyledButton, else Anchor
-  const Control: React.FC<any> = hasChildren
-    ? UnstyledButton
-    : (props) => <Anchor component={Link} {...props} to={link!} />;
+  // If it's just a single leaf link (no children), render one clickable row
+  if (!hasChildren && link) {
+    return (
+      <Anchor
+        component={Link}
+        to={link}
+        className={classes.control}
+        onClick={onLinkClick}
+      >
+        <Group position="apart" align="center" wrap={false}>
+          <Box style={{ display: 'flex', alignItems: 'center' }}>
+            <ThemeIcon variant="light" size={30}>
+              <Icon size={18} />
+            </ThemeIcon>
+            <Box ml="md">{label}</Box>
+          </Box>
+        </Group>
+      </Anchor>
+    );
+  }
 
+  // Group with nested links
   return (
     <>
-      <Control
-        onClick={hasChildren ? () => setOpened((o) => !o) : undefined}
+      <UnstyledButton
+        onClick={() => setOpened((o) => !o)}
         className={classes.control}
       >
         <Group position="apart" align="center" wrap={false}>
@@ -72,7 +92,7 @@ export function LinksGroup({
             />
           )}
         </Group>
-      </Control>
+      </UnstyledButton>
 
       {hasChildren && <Collapse in={opened}>{nestedItems}</Collapse>}
     </>

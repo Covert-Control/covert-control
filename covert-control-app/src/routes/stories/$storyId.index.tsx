@@ -721,7 +721,7 @@ function StoryDetailPage() {
                         radius="md"
                         aria-label="Reading options"
                       >
-                        <Settings size={18} />
+                        <MoreVertical size={18} />
                       </ActionIcon>
                     </Tooltip>
                   </Menu.Target>
@@ -805,7 +805,7 @@ function StoryDetailPage() {
                           radius="md"
                           aria-label="Story actions"
                         >
-                          <MoreVertical size={18} />
+                          <Settings size={18} />
                         </ActionIcon>
                       </Tooltip>
                     </Menu.Target>
