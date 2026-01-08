@@ -407,3 +407,10 @@ export { adminDeleteAndBanUser } from './adminDeleteAndBanUser.v1';
 export { deleteChapter } from './deleteChapter';
 
 export { deleteStory } from './deleteStory';
+
+/* ------------------------------------------------------------------ */
+/*  Submit or Edit Story/Chapter                                             */
+/* ------------------------------------------------------------------ */
+export { createStoryWithFirstChapter } from './createStoryWithFirstChapter';
+
+export { saveChapter } from './saveChapter';

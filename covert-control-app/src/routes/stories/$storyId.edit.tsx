@@ -4,9 +4,9 @@ import './tiptap.css';
 import { createFileRoute } from '@tanstack/react-router';
 import { Route as StoryLayout } from './$storyId';
 
-import { doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
-import { db } from '../../config/firebase';
+import { db, saveChapterCallable } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -64,7 +64,7 @@ export const Route = createFileRoute('/stories/$storyId/edit')({
 
 const WORD_MIN = 20;
 const WORD_MAX = 25000;
-const CHAR_MAX = 200000;
+const CHAR_MAX = 150000; // keep in sync with backend CHAR_LIMIT
 
 const TAGS_MAX = 16;
 const TAG_MIN_LEN = 3;
@@ -284,10 +284,14 @@ function EditStoryPage() {
   }, [chapterEditQuery.data, safeChapter]);
 
   /* ---------------------------------------------
-    Save logic (no arranger)
-    - Existing: update same chapter doc
-    - New (next slot only): create chapter doc + bump chapterCount
-    - Always bump story.updatedAt on save
+    Save logic
+    - Delegates to saveChapter Cloud Function
+    - Function:
+      * Validates ownership & sequence
+      * Creates/updates chapter doc
+      * Bumps chapterCount if new
+      * Maintains totalWordCount / totalCharCount
+      * Updates story meta for chapter 1
   ---------------------------------------------- */
 
   const [saving, setSaving] = useState(false);
@@ -325,75 +329,39 @@ function EditStoryPage() {
     setSaving(true);
 
     try {
-      const storyRef = doc(db, 'stories', storyId);
-
-      const storyMetaUpdate = storyFieldsEditable
-        ? {
-            title: values.title.trim(),
-            description: values.description.trim(),
-            tags: sanitizeTags(values.tags ?? []),
-          }
-        : undefined;
-
-      const chapterRef = doc(
-        db,
-        'stories',
+      const basePayload: any = {
         storyId,
-        'chapters',
-        String(safeChapter)
-      );
+        chapterNumber: safeChapter,
+        chapterTitle: values.chapterTitle.trim() || `Chapter ${safeChapter}`,
+        chapterSummary: values.chapterSummary?.trim() || '',
+        contentJSON: editor.getJSON(),
+        wordCount,
+        charCount,
+      };
 
-      // Determine if this chapter already exists
-      const existingSnap = await getDoc(chapterRef);
-      const exists = existingSnap.exists();
-
-      // Guard: do not allow creating "future gaps"
-      if (!exists && !isNewChapter) {
-        notifications.show({
-          color: 'red',
-          title: 'Invalid chapter',
-          message:
-            'You can only create the next chapter in sequence right now.',
-        });
-        setSaving(false);
-        return;
+      if (storyFieldsEditable) {
+        const cleanedTags = sanitizeTags(values.tags ?? []);
+        basePayload.storyTitle = values.title.trim();
+        basePayload.storyDescription = values.description.trim();
+        basePayload.tags = cleanedTags;
       }
 
-      const existingCreatedAt = exists
-        ? (existingSnap.data() as any)?.createdAt ?? null
-        : null;
-
-      const batch = writeBatch(db);
-
-      // Story meta changes + updatedAt + possible chapterCount bump
-      batch.update(storyRef, {
-        updatedAt: serverTimestamp(),
-        ...(storyMetaUpdate ?? {}),
-        ...(isNewChapter ? { chapterCount: currentCount + 1 } : null),
-      });
-
-      // Chapter content
-      batch.set(
-        chapterRef,
-        {
-          index: safeChapter,
-          chapterTitle: values.chapterTitle.trim() || `Chapter ${safeChapter}`,
-          chapterSummary: values.chapterSummary?.trim() || '',
-          content: JSON.stringify(editor.getJSON()),
-          createdAt: existingCreatedAt ?? serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      await batch.commit();
+      const res = await saveChapterCallable(basePayload);
+      const data = res.data as {
+        storyId: string;
+        chapterNumber: number;
+        isNewChapter: boolean;
+      };
 
       // Invalidate caches so reader & story meta update immediately
       queryClient.removeQueries({ queryKey: ['storyChapter', storyId] });
       queryClient.removeQueries({ queryKey: ['storyChapterEdit', storyId] });
       queryClient.invalidateQueries({ queryKey: ['story', storyId] });
+      queryClient.invalidateQueries({ queryKey: ['storyChapterMeta', storyId] });
 
-      notifications.show({ message: 'Chapter saved' });
+      notifications.show({
+        message: data.isNewChapter ? 'Chapter created' : 'Chapter saved',
+      });
 
       navigate({
         to: '/stories/$storyId',

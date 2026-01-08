@@ -64,3 +64,46 @@ export const deleteStoryCallable = httpsCallable<
   { storyId: string },
   { ok: boolean; storyId: string }
 >(functions, 'deleteStory');
+
+type CreateStoryWithFirstChapterInput = {
+  title: string;
+  description: string;
+  tags: string[];
+  chapterContentJSON: unknown;
+  wordCount: number;
+  charCount: number;
+  username: string | null;
+};
+
+type CreateStoryWithFirstChapterOutput = {
+  storyId: string;
+};
+
+export const createStoryWithFirstChapterCallable: HttpsCallable<
+  CreateStoryWithFirstChapterInput,
+  CreateStoryWithFirstChapterOutput
+> = httpsCallable(functions, 'createStoryWithFirstChapter');
+
+type SaveChapterInput = {
+  storyId: string;
+  chapterNumber: number;
+  chapterTitle: string;
+  chapterSummary: string;
+  contentJSON: unknown;
+  wordCount: number;
+  charCount: number;
+  storyTitle?: string;
+  storyDescription?: string;
+  tags?: string[];
+};
+
+type SaveChapterOutput = {
+  storyId: string;
+  chapterNumber: number;
+  isNewChapter: boolean;
+};
+
+export const saveChapterCallable: HttpsCallable<
+  SaveChapterInput,
+  SaveChapterOutput
+> = httpsCallable(functions, 'saveChapter');

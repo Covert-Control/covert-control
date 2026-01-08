@@ -1,4 +1,5 @@
-import './tiptap.css'; 
+// src/components/TipTap/TipTap2.tsx
+import './tiptap.css';
 import { RichTextEditor, Link } from '@mantine/tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -18,19 +19,20 @@ import {
   Divider,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { db as appDb } from '../../config/firebase';
+
 import {
-  increment,
+  db as appDb,
+  createStoryWithFirstChapterCallable,
+  auth,
+} from '../../config/firebase';
+import {
   collection,
-  serverTimestamp,
-  doc,
   getDocs,
   query,
   where,
   limit as fsLimit,
-  writeBatch,
 } from 'firebase/firestore';
-import { auth } from '../../config/firebase';
+
 import { useAuthStore } from '../../stores/authStore';
 import { TagPicker } from '../../components/TagPicker';
 import { TermsModal } from '../../components/TermsModal';
@@ -50,11 +52,11 @@ export function TipTap2() {
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // ✅ Duplicate title warning modal state
+  // Duplicate title warning modal state
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
-  // ✅ Terms modal state
+  // Terms modal state
   const [termsModalOpened, setTermsModalOpened] = useState(false);
   const [pendingSubmitAfterTerms, setPendingSubmitAfterTerms] = useState(false);
 
@@ -123,7 +125,7 @@ export function TipTap2() {
 
   const busy = submitting || checkingDuplicate;
 
-  // ✅ Final submit logic (only called AFTER terms accepted)
+  // Final submit logic (only called AFTER terms accepted)
   const actuallySubmitStory = async () => {
     if (!editor) return;
 
@@ -135,74 +137,39 @@ export function TipTap2() {
 
     setSubmitting(true);
     try {
-      const ownerId = auth.currentUser.uid;
-
       const normalizedTitle = form.values.title.trim().replace(/\s+/g, ' ');
-      const title_lc = normalizedTitle.toLowerCase();
 
       const tagsLower = (form.values.tags ?? [])
         .map((t) => t.trim().toLowerCase().replace(/\s+/g, ' '))
         .filter((t) => t.length >= TAG_MIN_LEN);
 
-      // ✅ Your new 2-step creation pattern
-      const storyRef = doc(storyCollectionRef);
-      const chapter1Ref = doc(appDb, 'stories', storyRef.id, 'chapters', '1');
-      const authorDocRef = doc(appDb, 'authors_with_stories', ownerId);
+      // Raw TipTap JSON – let the Cloud Function stringify it
+      const chapterContentJSON = editor.getJSON();
 
-      // 1) Create story first
-      {
-        const batch = writeBatch(appDb);
+      const res = await createStoryWithFirstChapterCallable({
+        title: normalizedTitle,
+        description: form.values.description,
+        tags: tagsLower,
+        chapterContentJSON,
+        wordCount,
+        charCount,
+        username: username ?? null,
+      });
 
-        batch.set(storyRef, {
-          title: normalizedTitle,
-          title_lc,
-          description: form.values.description,
-          ownerId,
-          username,
-          viewCount: 0,
-          likesCount: 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          createdAtNumeric: Date.now(),
-          tags: tagsLower,
-          chapterCount: 1,
-        });
+      const data = res.data as { storyId?: string };
+      const storyId = data?.storyId;
 
-        await batch.commit();
-      }
-
-      // 2) Now story exists, so owner-check passes
-      {
-        const batch = writeBatch(appDb);
-
-        batch.set(chapter1Ref, {
-          index: 1,
-          title: 'Chapter 1',
-          content: JSON.stringify(editor.getJSON()),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        batch.set(
-          authorDocRef,
-          {
-            username,
-            storyCount: increment(1),
-            lastStoryTitle: normalizedTitle,
-            lastStoryDate: serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        await batch.commit();
+      if (!storyId) {
+        throw new Error('Story created but no ID was returned from the server.');
       }
 
       navigate({
         to: '/stories/$storyId',
-        params: { storyId: storyRef.id },
+        params: { storyId },
         search: { chapter: 1 },
       });
     } catch (err: any) {
+      console.error('Story submission failed', err);
       setErrorMessage(
         err?.message ??
           'Something went wrong while submitting your story. Please try again.'
@@ -213,7 +180,7 @@ export function TipTap2() {
     }
   };
 
-  // ✅ Terms gate
+  // Terms gate
   const ensureTermsThenSubmit = async () => {
     const result = form.validate();
     const errorKeys = Object.keys(result.errors ?? {});
@@ -230,7 +197,7 @@ export function TipTap2() {
     await actuallySubmitStory();
   };
 
-  // ✅ Duplicate check first
+  // Duplicate check first
   const checkDuplicateAndSubmit = async () => {
     if (!editor) return;
 
@@ -274,6 +241,7 @@ export function TipTap2() {
 
       await ensureTermsThenSubmit();
     } catch (err: any) {
+      console.error('Duplicate title check failed', err);
       setErrorMessage(
         err?.message ?? 'Could not verify title uniqueness. Please try again.'
       );
@@ -296,7 +264,7 @@ export function TipTap2() {
     }
   };
 
-  // ✅ Manual submit handler (more reliable)
+  // Manual submit handler
   const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     void checkDuplicateAndSubmit();
@@ -438,7 +406,7 @@ export function TipTap2() {
         </Stack>
       </form>
 
-      {/* ✅ Duplicate Title Warning Modal */}
+      {/* Duplicate Title Warning Modal */}
       <Modal
         opened={duplicateOpen}
         onClose={() => setDuplicateOpen(false)}
@@ -470,7 +438,7 @@ export function TipTap2() {
         </Group>
       </Modal>
 
-      {/* ✅ Reusable Terms Modal */}
+      {/* Terms Modal */}
       <TermsModal
         opened={termsModalOpened}
         onClose={() => {

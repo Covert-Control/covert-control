@@ -72,11 +72,16 @@ import {
   limit,
   doc,
   getDoc,
+  orderBy,
 } from 'firebase/firestore';
 
 import { notifications } from '@mantine/notifications';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ChapterSelector,
+  type ChapterMeta,
+} from '../../components/ChapterSelector';
 
 export const Route = createFileRoute('/stories/$storyId/')({
   validateSearch: (search: Record<string, unknown>) => {
@@ -119,7 +124,7 @@ function formatShortDate(d: Date) {
 }
 
 /* ---------------------------------------------
-   Chapter fetcher
+   Chapter fetcher (single chapter content)
 ---------------------------------------------- */
 
 async function fetchChapterContent(storyId: string, chapter: number) {
@@ -135,6 +140,41 @@ async function fetchChapterContent(storyId: string, chapter: number) {
     content: d?.content ?? '',
     chapterSummary: d?.chapterSummary ?? '',
   };
+}
+
+/* ---------------------------------------------
+   Chapter metadata list (for selector)
+---------------------------------------------- */
+
+async function fetchChapterMetaList(storyId: string): Promise<ChapterMeta[]> {
+  const chaptersRef = collection(db, 'stories', storyId, 'chapters');
+  const q = query(chaptersRef, orderBy('index', 'asc'));
+  const snap = await getDocs(q);
+
+  return snap.docs.map((docSnap) => {
+    const d = docSnap.data() as any;
+    const idxFromId = Number(docSnap.id);
+    const index =
+      typeof d?.index === 'number' && Number.isFinite(d.index)
+        ? d.index
+        : Number.isFinite(idxFromId)
+        ? idxFromId
+        : 1;
+
+    const createdAt = toDate(d?.createdAt ?? null) ?? null;
+    const updatedAt = toDate(d?.updatedAt ?? null) ?? null;
+
+    return {
+      index,
+      title: d?.chapterTitle ?? d?.title ?? `Chapter ${index}`,
+      wordCount:
+        typeof d?.wordCount === 'number' && Number.isFinite(d.wordCount)
+          ? d.wordCount
+          : null,
+      createdAt,
+      updatedAt,
+    };
+  });
 }
 
 /* ---------------------------------------------
@@ -217,6 +257,34 @@ function StoryDetailPage() {
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60,
   });
+
+  // Fetch chapter metadata list for selector (word counts + dates)
+  const chapterMetaQuery = useQuery({
+    queryKey: ['storyChapterMeta', storyId],
+    queryFn: () => fetchChapterMetaList(storyId),
+    enabled: !!storyId,
+    // Always treat as stale so it refetches on mount/focus
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10, // cache can live for 10 minutes, but data is always refetched when used
+  });
+
+  const chapterList: ChapterMeta[] = useMemo(() => {
+    if (chapterMetaQuery.data && chapterMetaQuery.data.length > 0) {
+      return chapterMetaQuery.data;
+    }
+
+    // Fallback: derive a minimal list from totalChapters
+    return Array.from({ length: totalChapters }, (_, i) => {
+      const index = i + 1;
+      return {
+        index,
+        title: `Chapter ${index}`,
+        wordCount: null,
+        createdAt: null,
+        updatedAt: null,
+      };
+    });
+  }, [chapterMetaQuery.data, totalChapters]);
 
   // Prefetch next/prev chapter
   useEffect(() => {
@@ -313,7 +381,6 @@ function StoryDetailPage() {
     navigate({
       to: '/stories/$storyId/edit',
       params: { storyId },
-      // cast if your router types still lag behind
       search: { chapter: safeChapter } as any,
     });
   }
@@ -554,11 +621,7 @@ function StoryDetailPage() {
             </Title>
 
             {story.description && (
-              <Text
-                size="sm"
-                c="dimmed"
-                style={{ lineHeight: 1.4 }}
-              >
+              <Text size="sm" c="dimmed" style={{ lineHeight: 1.4 }}>
                 {story.description}
               </Text>
             )}
@@ -660,50 +723,86 @@ function StoryDetailPage() {
               </div>
             </div>
 
-            {/* TAGS ROW */}
+            {/* TAGS + CHAPTER SELECTOR + ACTIONS ROW */}
             <div
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 rowGap: 6,
                 columnGap: 6,
+                alignItems: 'flex-start',
               }}
             >
-              <div
+              {/* Left: chapter selector + tags */}
+              <Stack
+                gap={6}
                 style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 6,
                   flex: '1 1 auto',
+                  minWidth: 0,
                 }}
               >
-                {visibleTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    size="xs"
-                    radius="xl"
-                    variant="light"
-                    color="gray"
-                    style={{ textTransform: 'none' }}
-                  >
-                    {tag}
-                  </Badge>
-                ))}
+                <Group>
+                  <ChapterSelector
+                    chapters={chapterList}
+                    currentChapter={safeChapter}
+                    onChangeChapter={(next) =>
+                      navigate({
+                        to: '/stories/$storyId',
+                        params: { storyId },
+                        search: { chapter: next } as any,
+                      })
+                    }
+                  />
 
-                {hiddenCount > 0 && (
-                  <Badge
-                    size="xs"
-                    radius="xl"
-                    variant="outline"
-                    color="gray"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setTagsExpanded((v) => !v)}
-                  >
-                    {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
-                  </Badge>
-                )}
-              </div>
 
+                  {chapterList.length > 1 && (
+                    <Anchor
+                      component={RouterLink}
+                      to="/stories/$storyId/chapters"
+                      params={{ storyId } as any}
+                      size="xs"
+                    >
+                      View full chapter list
+                    </Anchor>
+                  )}
+                </Group>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 6,
+                  }}
+                >
+                  {visibleTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      size="xs"
+                      radius="xl"
+                      variant="light"
+                      color="gray"
+                      style={{ textTransform: 'none' }}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+
+                  {hiddenCount > 0 && (
+                    <Badge
+                      size="xs"
+                      radius="xl"
+                      variant="outline"
+                      color="gray"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setTagsExpanded((v) => !v)}
+                    >
+                      {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
+                    </Badge>
+                  )}
+                </div>
+              </Stack>
+
+              {/* Right: reading options + report + story actions */}
               <div
                 style={{
                   display: 'flex',
@@ -843,7 +942,6 @@ function StoryDetailPage() {
                     </Menu.Dropdown>
                   </Menu>
                 )}
-
               </div>
             </div>
           </Stack>
@@ -890,43 +988,56 @@ function StoryDetailPage() {
         </Paper>
 
         {/* CHAPTER NAV + JUMP */}
+        {/* CHAPTER NAV + JUMP */}
         {totalChapters > 1 && (
-          <Group justify="center" mt="lg" gap="md">
-            <Pagination
-              total={totalChapters}
-              value={safeChapter}
-              onChange={(next) =>
-                navigate({
-                  to: '/stories/$storyId',
-                  params: { storyId },
-                  search: { chapter: next } as any,
-                })
-              }
-              radius="xl"
-            />
-
-            <Select
+          <Stack mt="lg" gap="xs" align="center">
+            <Anchor
+              component={RouterLink}
+              to="/stories/$storyId/chapters"
+              params={{ storyId } as any}
               size="xs"
-              w={140}
-              data={Array.from({ length: totalChapters }, (_, i) => {
-                const n = i + 1;
-                return { value: String(n), label: `Chapter ${n}` };
-              })}
-              value={String(safeChapter)}
-              onChange={(value) => {
-                const next = Number(value);
-                if (!Number.isFinite(next)) return;
-                navigate({
-                  to: '/stories/$storyId',
-                  params: { storyId },
-                  search: { chapter: next } as any,
-                });
-              }}
-              searchable
-              clearable={false}
-            />
-          </Group>
+            >
+              View full chapter list
+            </Anchor>
+
+            <Group justify="center" gap="md">
+              <Pagination
+                total={totalChapters}
+                value={safeChapter}
+                onChange={(next) =>
+                  navigate({
+                    to: '/stories/$storyId',
+                    params: { storyId },
+                    search: { chapter: next } as any,
+                  })
+                }
+                radius="xl"
+              />
+
+              <Select
+                size="xs"
+                w={140}
+                data={Array.from({ length: totalChapters }, (_, i) => {
+                  const n = i + 1;
+                  return { value: String(n), label: `Chapter ${n}` };
+                })}
+                value={String(safeChapter)}
+                onChange={(value) => {
+                  const next = Number(value);
+                  if (!Number.isFinite(next)) return;
+                  navigate({
+                    to: '/stories/$storyId',
+                    params: { storyId },
+                    search: { chapter: next } as any,
+                  });
+                }}
+                searchable
+                clearable={false}
+              />
+            </Group>
+          </Stack>
         )}
+
 
         {/* DELETE STORY LOADING MODAL */}
         <Modal

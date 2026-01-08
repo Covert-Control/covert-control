@@ -1,5 +1,9 @@
 // functions/src/createStoryWithFirstChapter.ts
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import {
+  onCall,
+  HttpsError,
+  CallableRequest,
+} from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 const db = getFirestore();
@@ -18,12 +22,19 @@ export interface CreateStoryWithFirstChapterResponse {
   storyId: string;
 }
 
-export const createStoryWithFirstChapter = onCall<
-  CreateStoryWithFirstChapterRequest,
-  CreateStoryWithFirstChapterResponse
->(
-  { region: 'us-central1' }, // no explicit cors needed for callable
-  async (request): Promise<CreateStoryWithFirstChapterResponse> => {
+export const createStoryWithFirstChapter = onCall(
+  {
+    region: 'us-central1',
+    // Allow your dev + prod origins to call this function from the browser
+    cors: [
+      'http://localhost:5173',
+      'https://covert-control.web.app',
+      'https://covert-control.firebaseapp.com',
+    ],
+  },
+  async (
+    request: CallableRequest<CreateStoryWithFirstChapterRequest>
+  ) => {
     const { auth, data } = request;
 
     if (!auth?.uid) {
@@ -163,6 +174,10 @@ export const createStoryWithFirstChapter = onCall<
       );
     }
 
-    return { storyId: storyRef.id };
+    const response: CreateStoryWithFirstChapterResponse = {
+      storyId: storyRef.id,
+    };
+
+    return response;
   }
 );

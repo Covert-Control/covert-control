@@ -1,5 +1,5 @@
 // src/components/StoryListCard.tsx
-import { Card, Title, Text, Button, Badge } from '@mantine/core';
+import { Card, Title, Text, Button, Badge, Anchor } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, Eye, BookOpen } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
@@ -263,21 +263,25 @@ export default function StoryListCard({
               alignItems: 'center',
             }}
           >
-            {hasMultipleChapters && (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  marginRight: 8,
-                }}
-              >
-                <BookOpen size={14} />
-                <Text size="xs" c="dimmed">
-                  {chapterLabel}
-                </Text>
-              </div>
-            )}
+          {hasMultipleChapters && (
+            <Anchor
+              component={Link}
+              to="/stories/$storyId/chapters"
+              params={{ storyId: story.id }} // or { storyId } if you already have it
+              size="xs"
+              c="dimmed"
+              underline="always"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                marginRight: 8,
+              }}
+            >
+              <BookOpen size={14} />
+              <span>{chapterLabel}</span>
+            </Anchor>
+          )}
 
             {visibleTags.map((tag) => (
               <Badge
