@@ -13,36 +13,36 @@ import {
   Badge,
   Box,
   Button,
+  Center,
   Container,
   Group,
+  Loader,
   Menu,
   Modal,
+  Pagination,
   Paper,
   Radio,
+  Select,
   Stack,
   Text,
   Textarea,
   Title,
   Tooltip,
   rem,
-  Pagination,
-  Center,
-  Loader,
-  Select,
 } from '@mantine/core';
 
 import {
   ArrowLeft,
   Calendar,
+  CopyPlus,
   Eye,
+  Flag,
   MoreVertical,
   PencilLine,
   Settings,
-  CopyPlus,
-  Trash2,
   ThumbsUp,
+  Trash2,
   User as UserIcon,
-  Flag,
 } from 'lucide-react';
 
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -59,8 +59,12 @@ import {
   deleteChapterCallable,
   deleteStoryCallable,
 } from '../../config/firebase';
+
 import { useAuthStore } from '../../stores/authStore';
+import { useUiStore } from '../../stores/uiStore';
+
 import LikeButton from '../../components/LikeButton';
+import { ReaderModeToggle } from '../../components/ReaderModeToggle';
 
 import {
   addDoc,
@@ -193,8 +197,17 @@ function StoryDetailPage() {
 
   const queryClient = useQueryClient();
 
-  const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
+  const isOwnStory = !!(user?.uid && story.ownerId && user.uid === story.ownerId);
   const canReport = !!user && !isOwnStory;
+
+  // Reader mode (drives AppShell collapse in __root + local layout tweaks here)
+  const readerMode = useUiStore((s) => s.readerMode);
+  const setReaderMode = useUiStore((s) => s.setReaderMode);
+
+  // If you navigate away from the reader page, force reader mode off
+  useEffect(() => {
+    return () => setReaderMode(false);
+  }, [setReaderMode]);
 
   // Safely handle Date or Firestore Timestamp
   const createdAt = toDate((story as any).createdAt);
@@ -222,7 +235,6 @@ function StoryDetailPage() {
   let updatedLabel: string | null = null;
 
   if (updatedAt) {
-    // treat as updated if it's strictly later than createdAt
     if (!createdAt || updatedAt.getTime() > createdAt.getTime()) {
       updatedLabel = formatShortDate(updatedAt);
     }
@@ -263,9 +275,8 @@ function StoryDetailPage() {
     queryKey: ['storyChapterMeta', storyId],
     queryFn: () => fetchChapterMetaList(storyId),
     enabled: !!storyId,
-    // Always treat as stale so it refetches on mount/focus
     staleTime: 0,
-    gcTime: 1000 * 60 * 10, // cache can live for 10 minutes, but data is always refetched when used
+    gcTime: 1000 * 60 * 10,
   });
 
   const chapterList: ChapterMeta[] = useMemo(() => {
@@ -273,7 +284,6 @@ function StoryDetailPage() {
       return chapterMetaQuery.data;
     }
 
-    // Fallback: derive a minimal list from totalChapters
     return Array.from({ length: totalChapters }, (_, i) => {
       const index = i + 1;
       return {
@@ -325,8 +335,7 @@ function StoryDetailPage() {
 
   // Update document title with story + chapter
   useEffect(() => {
-    const chTitle =
-      chapterQuery.data?.title?.trim() || `Chapter ${safeChapter}`;
+    const chTitle = chapterQuery.data?.title?.trim() || `Chapter ${safeChapter}`;
     document.title = `${story.title} — ${chTitle}`;
   }, [story.title, chapterQuery.data?.title, safeChapter]);
 
@@ -372,9 +381,7 @@ function StoryDetailPage() {
   const MAX_VISIBLE_TAGS = 5;
   const allTags = Array.isArray(story.tags) ? story.tags : [];
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  const visibleTags = tagsExpanded
-    ? allTags
-    : allTags.slice(0, MAX_VISIBLE_TAGS);
+  const visibleTags = tagsExpanded ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
   function handleEdit() {
@@ -403,9 +410,10 @@ function StoryDetailPage() {
         color: 'green',
         position: 'bottom-center',
       });
+
       navigate({
         to: '/authors/$authorId',
-        params: { authorId: story.username }, // or user!.uid if you prefer
+        params: { authorId: story.username },
       });
     } catch (e) {
       console.error(e);
@@ -423,9 +431,7 @@ function StoryDetailPage() {
   async function handleDeleteChapter() {
     if (!storyId || !isOwnStory || safeChapter < 2) return;
 
-    const ok = window.confirm(
-      `Delete Chapter ${safeChapter}? Later chapters will shift down.`
-    );
+    const ok = window.confirm(`Delete Chapter ${safeChapter}? Later chapters will shift down.`);
     if (!ok) return;
 
     setDeletingChapter(true);
@@ -438,7 +444,6 @@ function StoryDetailPage() {
       const newCount = (res.data as any)?.newChapterCount ?? totalChapters - 1;
       const nextChapter = Math.min(safeChapter, Math.max(1, newCount));
 
-      // Clear cached chapters so UI doesn't show stale content
       queryClient.removeQueries({ queryKey: ['storyChapter', storyId] });
 
       notifications.show({
@@ -576,576 +581,588 @@ function StoryDetailPage() {
   }
 
   return (
-    <Box
-      style={{
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        paddingTop: 'var(--mantine-spacing-md)',
-        paddingBottom: 'var(--mantine-spacing-xl)',
-      }}
-    >
-      <Container
-        size="sm"
-        px="sm"
+    <>
+      <ReaderModeToggle variant="exit" />
+      <Box
         style={{
-          maxWidth: rem(820),
           width: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          paddingTop: readerMode ? 0 : 'var(--mantine-spacing-md)',
+          paddingBottom: readerMode ? 0 : 'var(--mantine-spacing-xl)',
         }}
       >
-        {/* Back to list */}
-        <Group gap="xs" mb="sm" wrap="nowrap">
-          <ActionIcon
-            variant="subtle"
-            radius="xl"
-            onClick={() => navigate({ to: '/stories' })}
-            aria-label="Back to all stories"
-          >
-            <ArrowLeft size={18} />
-          </ActionIcon>
-
-          <Anchor component={RouterLink} to="/stories" size="sm" fw={500} c="blue">
-            Back to all stories
-          </Anchor>
-        </Group>
-
-        {/* HEADER PANEL */}
-        <Paper radius="lg" p="md" withBorder>
-          <Stack gap="sm">
-            <Title
-              order={1}
-              fw={600}
-              style={{ fontSize: rem(28), lineHeight: 1.2 }}
-            >
-              {story.title}
-            </Title>
-
-            {story.description && (
-              <Text size="sm" c="dimmed" style={{ lineHeight: 1.4 }}>
-                {story.description}
-              </Text>
-            )}
-
-            {/* META ROW */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                justifyContent: isMobile ? 'flex-start' : 'space-between',
-                alignItems: isMobile ? 'flex-start' : 'flex-start',
-                rowGap: '0.5rem',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'baseline',
-                  gap: 8,
-                }}
+        <Container
+          size="sm"
+          px={readerMode ? 'sm' : 'sm'}
+          style={{
+            maxWidth: readerMode ? rem(900) : rem(820),
+            width: '100%',
+            paddingTop: readerMode ? 'var(--mantine-spacing-xl)' : undefined,
+            paddingBottom: readerMode ? 'var(--mantine-spacing-xl)' : undefined,
+          }}
+        >
+          {/* Back to list (hide in reader mode) */}
+          {!readerMode && (
+            <Group gap="xs" mb="sm" wrap="nowrap">
+              <ActionIcon
+                variant="subtle"
+                radius="xl"
+                onClick={() => navigate({ to: '/stories' })}
+                aria-label="Back to all stories"
               >
-                <Text size="sm" c="dimmed">
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <UserIcon size={16} />
-                    <span>by</span>
-                    <Anchor
-                      component={RouterLink}
-                      to="/authors/$authorId"
-                      params={{ authorId: story.username } as any}
-                      style={{
-                        textDecoration: 'underline',
-                        color: 'inherit',
-                      }}
-                    >
-                      {story.username}
-                    </Anchor>
-                  </span>
-                </Text>
-              </div>
+                <ArrowLeft size={18} />
+              </ActionIcon>
 
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  rowGap: 4,
-                  columnGap: isMobile ? 8 : 12,
-                  alignItems: 'center',
-                  flexShrink: 0,
-                }}
+              <Anchor
+                component={RouterLink}
+                to="/stories"
+                size="sm"
+                fw={500}
+                c="blue"
               >
-                {isOwnStory ? (
-                  <Group gap={4} align="center">
-                    <ThumbsUp size={16} />
-                    <Text size="xs" c="dimmed">
-                      {likesLabel}
-                    </Text>
-                  </Group>
-                ) : (
-                  <Group gap={4} align="center">
-                    <LikeButton
-                      storyId={story.id}
-                      ownerId={story.ownerId}
-                      initialCount={story.likesCount ?? 0}
-                    />
-                  </Group>
+                Back to all stories
+              </Anchor>
+            </Group>
+          )}
+
+          {/* HEADER PANEL (hide in reader mode) */}
+          {!readerMode && (
+            <Paper radius="lg" p="md" withBorder>
+              <Stack gap="sm">
+                <Title
+                  order={1}
+                  fw={600}
+                  style={{ fontSize: rem(28), lineHeight: 1.2 }}
+                >
+                  {story.title}
+                </Title>
+
+                {story.description && (
+                  <Text size="sm" c="dimmed" style={{ lineHeight: 1.4 }}>
+                    {story.description}
+                  </Text>
                 )}
 
-                <Text size="sm" c="dimmed">
-                  •
-                </Text>
-
-                <Group gap={4} align="center">
-                  <Eye size={16} />
-                  <Text size="xs" c="dimmed">
-                    {story.viewCount} views
-                  </Text>
-                </Group>
-
-                <Text size="sm" c="dimmed">
-                  •
-                </Text>
-
-                <Text
-                  size="sm"
-                  c="dimmed"
-                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-                  title={dateTitle}
+                {/* META ROW */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    justifyContent: isMobile ? 'flex-start' : 'space-between',
+                    alignItems: isMobile ? 'flex-start' : 'flex-start',
+                    rowGap: '0.5rem',
+                  }}
                 >
-                  <Calendar size={16} />
-                  {combinedDateLabel}
-                </Text>
-              </div>
-            </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'baseline',
+                      gap: 8,
+                    }}
+                  >
+                    <Text size="sm" c="dimmed">
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <UserIcon size={16} />
+                        <span>by</span>
+                        <Anchor
+                          component={RouterLink}
+                          to="/authors/$authorId"
+                          params={{ authorId: story.username } as any}
+                          style={{
+                            textDecoration: 'underline',
+                            color: 'inherit',
+                          }}
+                        >
+                          {story.username}
+                        </Anchor>
+                      </span>
+                    </Text>
+                  </div>
 
-            {/* TAGS + CHAPTER SELECTOR + ACTIONS ROW */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                rowGap: 6,
-                columnGap: 6,
-                alignItems: 'flex-start',
-              }}
-            >
-              {/* Left: chapter selector + tags */}
-              <Stack
-                gap={6}
-                style={{
-                  flex: '1 1 auto',
-                  minWidth: 0,
-                }}
-              >
-                <Group>
-                  <ChapterSelector
-                    chapters={chapterList}
-                    currentChapter={safeChapter}
-                    onChangeChapter={(next) =>
-                      navigate({
-                        to: '/stories/$storyId',
-                        params: { storyId },
-                        search: { chapter: next } as any,
-                      })
-                    }
-                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      rowGap: 4,
+                      columnGap: isMobile ? 8 : 12,
+                      alignItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {isOwnStory ? (
+                      <Group gap={4} align="center">
+                        <ThumbsUp size={16} />
+                        <Text size="xs" c="dimmed">
+                          {likesLabel}
+                        </Text>
+                      </Group>
+                    ) : (
+                      <Group gap={4} align="center">
+                        <LikeButton
+                          storyId={story.id}
+                          ownerId={story.ownerId}
+                          initialCount={story.likesCount ?? 0}
+                        />
+                      </Group>
+                    )}
 
+                    <Text size="sm" c="dimmed">
+                      •
+                    </Text>
 
-                  {chapterList.length > 1 && (
-                    <Anchor
-                      component={RouterLink}
-                      to="/stories/$storyId/chapters"
-                      params={{ storyId } as any}
-                      size="xs"
+                    <Group gap={4} align="center">
+                      <Eye size={16} />
+                      <Text size="xs" c="dimmed">
+                        {story.viewCount} views
+                      </Text>
+                    </Group>
+
+                    <Text size="sm" c="dimmed">
+                      •
+                    </Text>
+
+                    <Text
+                      size="sm"
+                      c="dimmed"
+                      style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                      title={dateTitle}
                     >
-                      View full chapter list
-                    </Anchor>
-                  )}
-                </Group>
+                      <Calendar size={16} />
+                      {combinedDateLabel}
+                    </Text>
+                  </div>
+                </div>
 
+                {/* TAGS + CHAPTER SELECTOR + ACTIONS ROW */}
                 <div
                   style={{
                     display: 'flex',
                     flexWrap: 'wrap',
-                    gap: 6,
+                    rowGap: 6,
+                    columnGap: 6,
+                    alignItems: 'flex-start',
                   }}
                 >
-                  {visibleTags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      size="xs"
-                      radius="xl"
-                      variant="light"
-                      color="gray"
-                      style={{ textTransform: 'none' }}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-
-                  {hiddenCount > 0 && (
-                    <Badge
-                      size="xs"
-                      radius="xl"
-                      variant="outline"
-                      color="gray"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setTagsExpanded((v) => !v)}
-                    >
-                      {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
-                    </Badge>
-                  )}
-                </div>
-              </Stack>
-
-              {/* Right: reading options + report + story actions */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  columnGap: 8,
-                  marginLeft: 'auto',
-                }}
-              >
-                {/** Story actions */}
-                <Menu withArrow shadow="md" position="bottom-end">
-                  <Menu.Target>
-                    <Tooltip label="Reading options" withArrow position="bottom">
-                      <ActionIcon
-                        variant="subtle"
-                        radius="md"
-                        aria-label="Reading options"
-                      >
-                        <MoreVertical size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Menu.Target>
-
-                  <Menu.Dropdown>
-                    <Menu.Label>Text size</Menu.Label>
-                    <Menu.Item
-                      onClick={() => setFontSize('sm')}
-                      rightSection={fontSize === 'sm' ? '✓' : undefined}
-                    >
-                      Small
-                    </Menu.Item>
-                    <Menu.Item
-                      onClick={() => setFontSize('md')}
-                      rightSection={fontSize === 'md' ? '✓' : undefined}
-                    >
-                      Medium
-                    </Menu.Item>
-                    <Menu.Item
-                      onClick={() => setFontSize('lg')}
-                      rightSection={fontSize === 'lg' ? '✓' : undefined}
-                    >
-                      Large
-                    </Menu.Item>
-                    <Menu.Item
-                      onClick={() => setFontSize('xl')}
-                      rightSection={fontSize === 'xl' ? '✓' : undefined}
-                    >
-                      XL
-                    </Menu.Item>
-
-                    <Menu.Divider />
-                    <Menu.Label>Font</Menu.Label>
-                    <Menu.Item
-                      onClick={() => setFontFamily('sans')}
-                      rightSection={fontFamily === 'sans' ? '✓' : undefined}
-                    >
-                      Sans-serif
-                    </Menu.Item>
-                    <Menu.Item
-                      onClick={() => setFontFamily('serif')}
-                      rightSection={fontFamily === 'serif' ? '✓' : undefined}
-                    >
-                      Serif
-                    </Menu.Item>
-                    <Menu.Item
-                      onClick={() => setFontFamily('mono')}
-                      rightSection={fontFamily === 'mono' ? '✓' : undefined}
-                    >
-                      Mono
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-
-                {canReport && (
-                  <Tooltip
-                    label="Report this story"
-                    withArrow
-                    position="bottom"
+                  {/* Left: chapter selector + tags */}
+                  <Stack
+                    gap={6}
+                    style={{
+                      flex: '1 1 auto',
+                      minWidth: 0,
+                    }}
                   >
-                    <ActionIcon
-                      variant="subtle"
-                      radius="md"
-                      aria-label="Report this story"
-                      onClick={() => {
-                        setReportError(null);
-                        setReportModalOpen(true);
+                    <Group>
+                      <ChapterSelector
+                        chapters={chapterList}
+                        currentChapter={safeChapter}
+                        onChangeChapter={(next) =>
+                          navigate({
+                            to: '/stories/$storyId',
+                            params: { storyId },
+                            search: { chapter: next } as any,
+                          })
+                        }
+                      />
+
+                      {chapterList.length > 1 && (
+                        <Anchor
+                          component={RouterLink}
+                          to="/stories/$storyId/chapters"
+                          params={{ storyId } as any}
+                          size="xs"
+                        >
+                          View full chapter list
+                        </Anchor>
+                      )}
+                    </Group>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 6,
                       }}
                     >
-                      <Flag size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
+                      {visibleTags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          size="xs"
+                          radius="xl"
+                          variant="light"
+                          color="gray"
+                          style={{ textTransform: 'none' }}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
 
-                {isOwnStory && (
-                  <Menu withArrow shadow="md" position="bottom-end">
-                    <Menu.Target>
-                      <Tooltip label="Story actions" withArrow position="bottom">
+                      {hiddenCount > 0 && (
+                        <Badge
+                          size="xs"
+                          radius="xl"
+                          variant="outline"
+                          color="gray"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setTagsExpanded((v) => !v)}
+                        >
+                          {tagsExpanded ? 'Show less' : `+${hiddenCount} more`}
+                        </Badge>
+                      )}
+                    </div>
+                  </Stack>
+
+                  {/* Right: reading options + report + story actions */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      columnGap: 8,
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    <ReaderModeToggle variant="enter" />
+
+                    <Menu withArrow shadow="md" position="bottom-end">
+                      <Menu.Target>
+                        <Tooltip
+                          label="Reading options"
+                          withArrow
+                          position="bottom"
+                        >
+                          <ActionIcon
+                            variant="subtle"
+                            radius="md"
+                            aria-label="Reading options"
+                          >
+                            <MoreVertical size={18} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Menu.Target>
+
+                      <Menu.Dropdown>
+                        <Menu.Label>Text size</Menu.Label>
+                        <Menu.Item
+                          onClick={() => setFontSize('sm')}
+                          rightSection={fontSize === 'sm' ? '✓' : undefined}
+                        >
+                          Small
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => setFontSize('md')}
+                          rightSection={fontSize === 'md' ? '✓' : undefined}
+                        >
+                          Medium
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => setFontSize('lg')}
+                          rightSection={fontSize === 'lg' ? '✓' : undefined}
+                        >
+                          Large
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => setFontSize('xl')}
+                          rightSection={fontSize === 'xl' ? '✓' : undefined}
+                        >
+                          XL
+                        </Menu.Item>
+
+                        <Menu.Divider />
+                        <Menu.Label>Font</Menu.Label>
+                        <Menu.Item
+                          onClick={() => setFontFamily('sans')}
+                          rightSection={fontFamily === 'sans' ? '✓' : undefined}
+                        >
+                          Sans-serif
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => setFontFamily('serif')}
+                          rightSection={fontFamily === 'serif' ? '✓' : undefined}
+                        >
+                          Serif
+                        </Menu.Item>
+                        <Menu.Item
+                          onClick={() => setFontFamily('mono')}
+                          rightSection={fontFamily === 'mono' ? '✓' : undefined}
+                        >
+                          Mono
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+
+                    {canReport && (
+                      <Tooltip label="Report this story" withArrow position="bottom">
                         <ActionIcon
                           variant="subtle"
                           radius="md"
-                          aria-label="Story actions"
+                          aria-label="Report this story"
+                          onClick={() => {
+                            setReportError(null);
+                            setReportModalOpen(true);
+                          }}
                         >
-                          <Settings size={18} />
+                          <Flag size={18} />
                         </ActionIcon>
                       </Tooltip>
-                    </Menu.Target>
+                    )}
 
-                    <Menu.Dropdown>
-                      <Menu.Item
-                        leftSection={<PencilLine size={16} />}
-                        onClick={handleEdit}
-                      >
-                        Edit
-                      </Menu.Item>
-                      <Menu.Item
-                        variant="light"
-                        leftSection={<CopyPlus size={16} />}
-                        onClick={handleAddChapter}
-                      >
-                        Add chapter
-                      </Menu.Item>
-                      {safeChapter > 1 && (
-                        <Menu.Item
-                          color="red"
-                          leftSection={<Trash2 size={16} />}
-                          onClick={handleDeleteChapter}
-                        >
-                          {deletingChapter ? 'Deleting…' : 'Delete chapter'}
-                        </Menu.Item>
-                      )}
-                      <Menu.Item
-                        color="red"
-                        leftSection={<Trash2 size={16} />}
-                        onClick={handleDelete}
-                      >
-                        {deleting ? 'Deleting…' : 'Delete story'}
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                )}
-              </div>
-            </div>
-          </Stack>
-        </Paper>
+                    {isOwnStory && (
+                      <Menu withArrow shadow="md" position="bottom-end">
+                        <Menu.Target>
+                          <Tooltip label="Story actions" withArrow position="bottom">
+                            <ActionIcon
+                              variant="subtle"
+                              radius="md"
+                              aria-label="Story actions"
+                            >
+                              <Settings size={18} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Menu.Target>
 
-        {/* STORY BODY */}
-        <Paper radius="lg" p="md" mt="md" withBorder>
-          {chapterQuery.isLoading ? (
-            <Center py="xl">
-              <Loader />
-            </Center>
-          ) : chapterQuery.isError ? (
-            <Text c="red" size="sm">
-              Failed to load chapter {safeChapter}.
-            </Text>
-          ) : (
-            <Box
-              style={{
-                fontFamily: fontFamilyMap[fontFamily],
-                fontSize: fontSizeMap[fontSize],
-                lineHeight: lineHeightMap[fontSize],
-                wordBreak: 'break-word',
-              }}
-            >
-              {(chapterQuery.data?.title?.trim() ||
-                chapterQuery.data?.chapterSummary?.trim()) && (
-                <Box mb="sm">
-                  {chapterQuery.data?.title?.trim() && (
-                    <Title order={3} fw={600}>
-                      {chapterQuery.data.title}
-                    </Title>
-                  )}
-                  {chapterQuery.data?.chapterSummary?.trim() && (
-                    <Text size="sm" c="dimmed">
-                      {chapterQuery.data.chapterSummary}
-                    </Text>
-                  )}
-                </Box>
-              )}
-
-              <EditorContent editor={editor!} className="story-content" />
-            </Box>
-          )}
-        </Paper>
-
-        {/* CHAPTER NAV + JUMP */}
-        {/* CHAPTER NAV + JUMP */}
-        {totalChapters > 1 && (
-          <Stack mt="lg" gap="xs" align="center">
-            <Anchor
-              component={RouterLink}
-              to="/stories/$storyId/chapters"
-              params={{ storyId } as any}
-              size="xs"
-            >
-              View full chapter list
-            </Anchor>
-
-            <Group justify="center" gap="md">
-              <Pagination
-                total={totalChapters}
-                value={safeChapter}
-                onChange={(next) =>
-                  navigate({
-                    to: '/stories/$storyId',
-                    params: { storyId },
-                    search: { chapter: next } as any,
-                  })
-                }
-                radius="xl"
-              />
-
-              <Select
-                size="xs"
-                w={140}
-                data={Array.from({ length: totalChapters }, (_, i) => {
-                  const n = i + 1;
-                  return { value: String(n), label: `Chapter ${n}` };
-                })}
-                value={String(safeChapter)}
-                onChange={(value) => {
-                  const next = Number(value);
-                  if (!Number.isFinite(next)) return;
-                  navigate({
-                    to: '/stories/$storyId',
-                    params: { storyId },
-                    search: { chapter: next } as any,
-                  });
-                }}
-                searchable
-                clearable={false}
-              />
-            </Group>
-          </Stack>
-        )}
-
-
-        {/* DELETE STORY LOADING MODAL */}
-        <Modal
-          opened={deleting}
-          onClose={() => {}}
-          withCloseButton={false}
-          closeOnClickOutside={false}
-          closeOnEscape={false}
-          centered
-        >
-          <Center py="md">
-            <Stack gap="sm" align="center">
-              <Loader />
-              <Text size="sm" c="dimmed">
-                Deleting story…
-              </Text>
-            </Stack>
-          </Center>
-        </Modal>
-
-        {/* DELETE CHAPTER LOADING MODAL */}
-        <Modal
-          opened={deletingChapter}
-          onClose={() => {}}
-          withCloseButton={false}
-          closeOnClickOutside={false}
-          closeOnEscape={false}
-          centered
-        >
-          <Center py="md">
-            <Stack gap="sm" align="center">
-              <Loader />
-              <Text size="sm" c="dimmed">
-                Deleting chapter…
-              </Text>
-            </Stack>
-          </Center>
-        </Modal>
-
-        {/* REPORT MODAL */}
-        <Modal
-          opened={reportModalOpen}
-          onClose={() => {
-            if (!reportSubmitting) {
-              setReportModalOpen(false);
-              setReportError(null);
-            }
-          }}
-          title="Report this story"
-          centered
-        >
-          <Stack gap="sm">
-            <Text size="sm" c="dimmed">
-              Please tell us why you are reporting this story. Reports are
-              reviewed by the site admins.
-            </Text>
-
-            <Radio.Group
-              value={reportReason}
-              onChange={setReportReason}
-              label="Reason"
-              required
-            >
-              <Stack gap={4} mt="xs">
-                <Radio value="nsfw" label="NSFW / sexual content" />
-                <Radio value="harassment" label="Harassment or hate speech" />
-                <Radio value="violence" label="Graphic violence or gore" />
-                <Radio value="spam" label="Spam or scam" />
-                <Radio value="other" label="Other" />
+                        <Menu.Dropdown>
+                          <Menu.Item
+                            leftSection={<PencilLine size={16} />}
+                            onClick={handleEdit}
+                          >
+                            Edit
+                          </Menu.Item>
+                          <Menu.Item
+                            variant="light"
+                            leftSection={<CopyPlus size={16} />}
+                            onClick={handleAddChapter}
+                          >
+                            Add chapter
+                          </Menu.Item>
+                          {safeChapter > 1 && (
+                            <Menu.Item
+                              color="red"
+                              leftSection={<Trash2 size={16} />}
+                              onClick={handleDeleteChapter}
+                            >
+                              {deletingChapter ? 'Deleting…' : 'Delete chapter'}
+                            </Menu.Item>
+                          )}
+                          <Menu.Item
+                            color="red"
+                            leftSection={<Trash2 size={16} />}
+                            onClick={handleDelete}
+                          >
+                            {deleting ? 'Deleting…' : 'Delete story'}
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    )}
+                  </div>
+                </div>
               </Stack>
-            </Radio.Group>
+            </Paper>
+          )}
 
-            <Textarea
-              label="Additional details (optional)"
-              placeholder="Add any details that might help the admins understand the issue"
-              minRows={3}
-              maxLength={MAX_REPORT_COMMENT_LENGTH}
-              description={`${reportComment.length}/${MAX_REPORT_COMMENT_LENGTH} characters`}
-              value={reportComment}
-              onChange={(event) => setReportComment(event.currentTarget.value)}
-            />
-
-            {reportError && (
-              <Text size="sm" c="red">
-                {reportError}
+          {/* STORY BODY */}
+          <Paper
+            radius={readerMode ? 0 : 'lg'}
+            p={readerMode ? 'xl' : 'md'}
+            mt={readerMode ? 0 : 'md'}
+            withBorder={!readerMode}
+          >
+            {chapterQuery.isLoading ? (
+              <Center py="xl">
+                <Loader />
+              </Center>
+            ) : chapterQuery.isError ? (
+              <Text c="red" size="sm">
+                Failed to load chapter {safeChapter}.
               </Text>
-            )}
-
-            <Group justify="flex-end" mt="sm">
-              <Button
-                variant="default"
-                onClick={() => {
-                  if (!reportSubmitting) {
-                    setReportModalOpen(false);
-                    setReportError(null);
-                  }
+            ) : (
+              <Box
+                style={{
+                  fontFamily: fontFamilyMap[fontFamily],
+                  fontSize: fontSizeMap[fontSize],
+                  lineHeight: lineHeightMap[fontSize],
+                  wordBreak: 'break-word',
                 }}
               >
-                Cancel
-              </Button>
-              <Button onClick={handleSubmitReport} loading={reportSubmitting}>
-                Submit report
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
-      </Container>
-    </Box>
+                {(chapterQuery.data?.title?.trim() ||
+                  chapterQuery.data?.chapterSummary?.trim()) && (
+                  <Box mb="sm">
+                    {chapterQuery.data?.title?.trim() && (
+                      <Title order={3} fw={600}>
+                        {chapterQuery.data.title}
+                      </Title>
+                    )}
+                    {chapterQuery.data?.chapterSummary?.trim() && (
+                      <Text size="sm" c="dimmed">
+                        {chapterQuery.data.chapterSummary}
+                      </Text>
+                    )}
+                  </Box>
+                )}
+
+                <EditorContent editor={editor} className="story-content" />
+              </Box>
+            )}
+          </Paper>
+
+          {/* CHAPTER NAV + JUMP (kept visible even in reader mode for usability) */}
+          {totalChapters > 1 && (
+            <Stack mt="lg" gap="xs" align="center">
+              {!readerMode && (
+                <Anchor
+                  component={RouterLink}
+                  to="/stories/$storyId/chapters"
+                  params={{ storyId } as any}
+                  size="xs"
+                >
+                  View full chapter list
+                </Anchor>
+              )}
+
+              <Group justify="center" gap="md">
+                <Pagination
+                  total={totalChapters}
+                  value={safeChapter}
+                  onChange={(next) =>
+                    navigate({
+                      to: '/stories/$storyId',
+                      params: { storyId },
+                      search: { chapter: next } as any,
+                    })
+                  }
+                  radius="xl"
+                />
+
+                <ChapterSelector
+                  chapters={chapterList}
+                  currentChapter={safeChapter}
+                  onChangeChapter={(next) =>
+                    navigate({
+                      to: '/stories/$storyId',
+                      params: { storyId },
+                      search: { chapter: next } as any,
+                    })
+                  }
+                />
+
+              </Group>
+            </Stack>
+          )}
+
+          {/* DELETE STORY LOADING MODAL */}
+          <Modal
+            opened={deleting}
+            onClose={() => {}}
+            withCloseButton={false}
+            closeOnClickOutside={false}
+            closeOnEscape={false}
+            centered
+          >
+            <Center py="md">
+              <Stack gap="sm" align="center">
+                <Loader />
+                <Text size="sm" c="dimmed">
+                  Deleting story…
+                </Text>
+              </Stack>
+            </Center>
+          </Modal>
+
+          {/* DELETE CHAPTER LOADING MODAL */}
+          <Modal
+            opened={deletingChapter}
+            onClose={() => {}}
+            withCloseButton={false}
+            closeOnClickOutside={false}
+            closeOnEscape={false}
+            centered
+          >
+            <Center py="md">
+              <Stack gap="sm" align="center">
+                <Loader />
+                <Text size="sm" c="dimmed">
+                  Deleting chapter…
+                </Text>
+              </Stack>
+            </Center>
+          </Modal>
+
+          {/* REPORT MODAL */}
+          <Modal
+            opened={reportModalOpen}
+            onClose={() => {
+              if (!reportSubmitting) {
+                setReportModalOpen(false);
+                setReportError(null);
+              }
+            }}
+            title="Report this story"
+            centered
+          >
+            <Stack gap="sm">
+              <Text size="sm" c="dimmed">
+                Please tell us why you are reporting this story. Reports are
+                reviewed by the site admins.
+              </Text>
+
+              <Radio.Group
+                value={reportReason}
+                onChange={setReportReason}
+                label="Reason"
+                required
+              >
+                <Stack gap={4} mt="xs">
+                  <Radio value="nsfw" label="NSFW / sexual content" />
+                  <Radio value="harassment" label="Harassment or hate speech" />
+                  <Radio value="violence" label="Graphic violence or gore" />
+                  <Radio value="spam" label="Spam or scam" />
+                  <Radio value="other" label="Other" />
+                </Stack>
+              </Radio.Group>
+
+              <Textarea
+                label="Additional details (optional)"
+                placeholder="Add any details that might help the admins understand the issue"
+                minRows={3}
+                maxLength={MAX_REPORT_COMMENT_LENGTH}
+                description={`${reportComment.length}/${MAX_REPORT_COMMENT_LENGTH} characters`}
+                value={reportComment}
+                onChange={(event) => setReportComment(event.currentTarget.value)}
+              />
+
+              {reportError && (
+                <Text size="sm" c="red">
+                  {reportError}
+                </Text>
+              )}
+
+              <Group justify="flex-end" mt="sm">
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    if (!reportSubmitting) {
+                      setReportModalOpen(false);
+                      setReportError(null);
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitReport} loading={reportSubmitting}>
+                  Submit report
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
+        </Container>
+      </Box>
+    </>
   );
 }
 

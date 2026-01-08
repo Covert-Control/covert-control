@@ -1,4 +1,4 @@
-// components/Navbar/Navbar.tsx
+import * as React from 'react';
 import { AppShell, ActionIcon, ScrollArea, useMantineTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { LinksGroup } from '../NavbarLinksGroup/NavbarLinksGroup';
@@ -7,6 +7,7 @@ import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-rea
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
+import { useUiStore } from '../../stores/uiStore'; // ✅ add
 import classes from './Navbar.module.css';
 
 interface NavItem {
@@ -39,6 +40,7 @@ export type SiteNavbarProps = {
 
 export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavbarProps) {
   const { clearAuth } = useAuthStore();
+  const readerMode = useUiStore((s) => s.readerMode); // ✅ add
   const theme = useMantineTheme();
   const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
 
@@ -53,10 +55,10 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
 
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
-  // IMPORTANT: exactly one AppShell.Navbar
   return (
     <AppShell.Navbar p={0} zIndex={300}>
-      {desktopOpened && isDesktop && (
+      {/* Hide the collapse arrow in reader mode */}
+      {!readerMode && desktopOpened && isDesktop && (
         <ActionIcon
           aria-label="Collapse sidebar"
           title="Collapse sidebar"
@@ -70,7 +72,6 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
         </ActionIcon>
       )}
 
-      {/* Actual nav content */}
       <nav className={classes.navbar}>
         <ScrollArea className={classes.links}>
           <div className={classes.linksInner}>{links}</div>

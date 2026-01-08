@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { AppShell, Burger, Group, Skeleton, Title, Alert, Button, Text, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { Outlet, createRootRoute } from '@tanstack/react-router';
+import { Outlet, createRootRoute, useMatchRoute } from '@tanstack/react-router';
 import SchemeToggleButton from '../components/SchemeToggleButton.tsx';
 import DiscordButton from '../components/DiscordButton.tsx';
 import SiteNavbar from '../components/Navbar/Navbar.tsx'; // ⬅️ renamed import
@@ -14,6 +14,7 @@ import SiteLogo from '../assets/logo.png';
 import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebase.tsx';
 import { AdminMailbox } from '../components/AdminMailbox';
+import { useUiStore } from '../stores/uiStore';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -39,6 +40,13 @@ function RootComponent() {
   const [cooldownUntil, setCooldownUntil] = React.useState<number>(0);
   const [resendLoading, setResendLoading] = React.useState(false);
   const [now, setNow] = React.useState(() => Date.now());
+
+  const matchRoute = useMatchRoute();
+  const isStoryReaderRoute = !!matchRoute({ to: '/stories/$storyId', fuzzy: true });
+
+  const readerMode = useUiStore((s) => s.readerMode);
+  const effectiveReaderMode = isStoryReaderRoute && readerMode;
+
 
   // Load cooldown when key changes (user logs in/out)
   React.useEffect(() => {
@@ -92,14 +100,21 @@ function RootComponent() {
 
   if (loading) {
     return (
-      <AppShell header={{ height: 60 }} padding="md">
+      <AppShell 
+        header={{ height: 60, collapsed: effectiveReaderMode }} 
+        navbar={{
+        width: 280,
+        breakpoint: 'sm',
+        collapsed: { desktop: effectiveReaderMode, mobile: effectiveReaderMode },
+        }}
+        padding="md">
         <AppShell.Header>
           <Group h="100%" px="md">
             <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="sm" size="sm" />
             <Title order={1}>Loading App...</Title>
           </Group>
         </AppShell.Header>
-        <AppShell.Main>
+        <AppShell.Main style={effectiveReaderMode ? { padding: 0 } : undefined}>
           <Skeleton height={200} mb="xl" />
           <Skeleton height={100} mb="xl" />
           <Skeleton height={300} />
@@ -111,43 +126,46 @@ function RootComponent() {
   if (user && isProfileComplete === false) {
     return <SetUsernamePage />;
   }
-
+  
   return (
     <AppShell
-      header={{ height: 60 }}
+      header={{ height: 60, collapsed: effectiveReaderMode }}
       navbar={{
         width: 190,
         breakpoint: 'sm',
-        collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
+        collapsed: {
+          mobile: effectiveReaderMode ? true : !mobileOpened,
+          desktop: effectiveReaderMode ? true : !desktopOpened,
+        },
       }}
-      padding="md"
+      footer={{ height: 40, collapsed: effectiveReaderMode }}
+      padding={effectiveReaderMode ? 0 : 'md'}
     >
+      {/* Only render header when not in reader mode (optional; collapsed already hides it) */}
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group>
-            {/* Mobile burger (only shows < sm) */}
+            <Burger
+              opened={mobileOpened}
+              onClick={toggleMobile}
+              hiddenFrom="sm"
+              size="sm"
+              aria-label={mobileOpened ? 'Close sidebar' : 'Open sidebar'}
+              title={mobileOpened ? 'Close sidebar' : 'Open sidebar'}
+            />
 
-              <Burger
-                opened={mobileOpened}
-                onClick={toggleMobile}
-                hiddenFrom="sm"
-                size="sm"
-                aria-label={mobileOpened ? 'Close sidebar' : 'Open sidebar'}
-                title={mobileOpened ? 'Close sidebar' : 'Open sidebar'}
-              />
-
-
-              <Burger
-                opened={desktopOpened}
-                onClick={toggleDesktop}
-                visibleFrom="sm"
-                size="sm"
-                aria-label={desktopOpened ? 'Collapse sidebar' : 'Expand sidebar'}
-                title={desktopOpened ? 'Collapse sidebar' : 'Expand sidebar'}
-              />
+            <Burger
+              opened={desktopOpened}
+              onClick={toggleDesktop}
+              visibleFrom="sm"
+              size="sm"
+              aria-label={desktopOpened ? 'Collapse sidebar' : 'Expand sidebar'}
+              title={desktopOpened ? 'Collapse sidebar' : 'Expand sidebar'}
+            />
 
             <img src={SiteLogo} width="50" height="50" />
           </Group>
+
           <Group>
             <AdminMailbox />
             <DiscordButton />
@@ -157,6 +175,8 @@ function RootComponent() {
         </Group>
       </AppShell.Header>
 
+      {/* Your navbar component should be hidden by AppShell collapse.
+          Keep rendering it; AppShell will not lay it out when collapsed. */}
       <SiteNavbar
         desktopOpened={desktopOpened}
         onToggleDesktop={toggleDesktop}
@@ -164,66 +184,64 @@ function RootComponent() {
         onToggleMobile={toggleMobile}
       />
 
-      <AppShell.Main>
+      <AppShell.Main style={effectiveReaderMode ? { padding: 0 } : undefined}>
         {/* ⬇⬇ UNVERIFIED EMAIL BANNER ⬇⬇ */}
-      {user &&
-        !isEmailVerified &&  
-        !bannerDismissed && (
-          <Alert
-            color="yellow"
-            variant="light"
-            radius="md"
-            mb="md"
-            style={{
-              border: '1px solid rgba(255, 255, 0, 0.3)',
-            }}
-          >
-            <Stack gap="xs">
-              <Text fw={500}>
-                Please verify your email to unlock full features.
-              </Text>
+        {!effectiveReaderMode &&
+          user &&
+          !isEmailVerified &&
+          !bannerDismissed && (
+            <Alert
+              color="yellow"
+              variant="light"
+              radius="md"
+              mb="md"
+              style={{
+                border: '1px solid rgba(255, 255, 0, 0.3)',
+              }}
+            >
+              <Stack gap="xs">
+                <Text fw={500}>Please verify your email to unlock full features.</Text>
 
-              <Text size="sm" c="dimmed">
-                You must verify your email to submit and like stories.
-                We sent a link to <b>{email ?? 'your email address'}</b>. Didn’t see it?
-              </Text>
+                <Text size="sm" c="dimmed">
+                  You must verify your email to submit and like stories. We sent a link to{' '}
+                  <b>{email ?? 'your email address'}</b>. Didn’t see it?
+                </Text>
 
-              <Group justify="space-between" wrap="wrap">
-                <Button
-                  size="xs"
-                  radius="sm"
-                  onClick={handleResendVerification}
-                  variant="default"
-                  loading={resendLoading}
-                  disabled={resendLoading || isCoolingDown}
-                >
-                  {isCoolingDown
-                    ? `Resend available in ${secondsLeft}s`
-                    : 'Resend verification email'}
-                </Button>
+                <Group justify="space-between" wrap="wrap">
+                  <Button
+                    size="xs"
+                    radius="sm"
+                    onClick={handleResendVerification}
+                    variant="default"
+                    loading={resendLoading}
+                    disabled={resendLoading || isCoolingDown}
+                  >
+                    {isCoolingDown
+                      ? `Resend available in ${secondsLeft}s`
+                      : 'Resend verification email'}
+                  </Button>
 
-                <Button
-                  size="xs"
-                  radius="sm"
-                  color="gray"
-                  variant="subtle"
-                  onClick={() => setBannerDismissed(true)}
-                >
-                  Dismiss
-                </Button>
-              </Group>
-            </Stack>
-          </Alert>
-        )}
+                  <Button
+                    size="xs"
+                    radius="sm"
+                    color="gray"
+                    variant="subtle"
+                    onClick={() => setBannerDismissed(true)}
+                  >
+                    Dismiss
+                  </Button>
+                </Group>
+              </Stack>
+            </Alert>
+          )}
 
-
-        {/* Main page content */}
         <Outlet />
       </AppShell.Main>
 
       <AppShell.Footer zIndex={mobileOpened ? 'auto' : 201}>
-        This is the footer
+        {!effectiveReaderMode && <>This is the footer</>}
       </AppShell.Footer>
     </AppShell>
   );
+
 }
