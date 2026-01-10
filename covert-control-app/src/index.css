@@ -66,3 +66,23 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+
+.story-content p:first-of-type::first-letter {
+  float: left;
+  font-weight: 700;
+  font-size: 3.4em;
+  line-height: 0.9;
+  padding-right: 0.12em;
+  padding-top: 0.06em;
+}
+
+/* Improve readability for book-like layout */
+.story-content {
+  max-width: 70ch;
+  margin: 0 auto;
+}
+
+.story-content p {
+  margin: 0 0 0.9em;
+}

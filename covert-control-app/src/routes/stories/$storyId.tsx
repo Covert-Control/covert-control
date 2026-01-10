@@ -3,7 +3,26 @@ import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
+type StorySearch = {
+  chapter?: number; // optional so <Link> doesn't require `search`
+};
+
 export const Route = createFileRoute('/stories/$storyId')({
+  validateSearch: (search: Record<string, unknown>): StorySearch => {
+    const raw = (search as any).chapter;
+
+    // No chapter provided => fine (defaults handled in UI)
+    if (raw == null || raw === '') return {};
+
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(n)) return {};
+
+    const chapter = Math.trunc(n);
+    if (chapter < 1) return {};
+
+    return { chapter };
+  },
+
   loader: async ({ params }) => {
     const ref = doc(db, 'stories', params.storyId);
     const snap = await getDoc(ref);
@@ -16,7 +35,6 @@ export const Route = createFileRoute('/stories/$storyId')({
         ? d.chapterCount
         : 1;
 
-    // 🔹 Safely convert Firestore Timestamps to JS Dates (or null)
     const createdAt =
       d?.createdAt && typeof d.createdAt.toDate === 'function'
         ? (d.createdAt.toDate() as Date)
@@ -34,8 +52,8 @@ export const Route = createFileRoute('/stories/$storyId')({
         description: d?.description ?? '',
         ownerId: d?.ownerId ?? '',
         username: d?.username ?? 'Anonymous',
-        createdAt,         // ✅ now a real Date | null
-        updatedAt,         // ✅ NEW FIELD
+        createdAt,
+        updatedAt,
         viewCount: d?.viewCount ?? 0,
         likesCount: d?.likesCount ?? 0,
         tags: Array.isArray(d?.tags) ? d.tags : [],
@@ -43,5 +61,6 @@ export const Route = createFileRoute('/stories/$storyId')({
       },
     };
   },
+
   component: () => <Outlet />,
 });

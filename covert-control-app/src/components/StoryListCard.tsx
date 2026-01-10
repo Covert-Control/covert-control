@@ -57,42 +57,57 @@ export default function StoryListCard({
   // ----- Description expand/collapse -----
   const [expanded, setExpanded] = useState(false);
   const [isClamped, setIsClamped] = useState(false);
-  const descRef = useRef<HTMLDivElement | null>(null);
+  const descRef = useRef<HTMLParagraphElement | null>(null);
 
   const description = story.description ?? '';
-  const hasDescription = description.length > 0;
+  const hasDescription = description.trim().length > 0;
+
+  // Reset per-story so state never "bleeds" if a parent list uses unstable keys.
+  useEffect(() => {
+    setExpanded(false);
+    setIsClamped(false);
+  }, [story.id]);
 
   const measureClamp = useCallback(() => {
     const el = descRef.current;
     if (!el) return;
+
+    // When expanded we are not clamping by definition.
     if (expanded) {
       setIsClamped(false);
       return;
     }
-    const clamped = el.scrollHeight > el.clientHeight + 1;
-    setIsClamped(clamped);
+
+    // Robust overflow detection (avoids subpixel/font rounding false positives).
+    const computed = window.getComputedStyle(el);
+    const lineHeight = parseFloat(computed.lineHeight || '');
+    const threshold = Number.isFinite(lineHeight) ? lineHeight * 0.25 : 3;
+
+    const delta = el.scrollHeight - el.clientHeight;
+    setIsClamped(delta > threshold);
   }, [expanded]);
 
   useEffect(() => {
     const id = requestAnimationFrame(measureClamp);
+
+    // Re-measure once fonts load (if supported) to avoid transient mis-measures.
     (document as any)?.fonts?.ready?.then?.(() => measureClamp());
+
     const onResize = () => measureClamp();
     window.addEventListener('resize', onResize);
+
     return () => {
       cancelAnimationFrame(id);
       window.removeEventListener('resize', onResize);
     };
-  }, [measureClamp, description, lineClamp]);
+  }, [measureClamp, description, lineClamp, isNarrow]);
 
-  const canExpand =
-    expandableDescription && hasDescription && (isClamped || expanded);
+  const canToggleDescription = expandableDescription && hasDescription && (isClamped || expanded);
 
   // ----- Tags w/ expand/collapse -----
   const allTags = Array.isArray(story.tags) ? story.tags : [];
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  const visibleTags = tagsExpanded
-    ? allTags
-    : allTags.slice(0, MAX_VISIBLE_TAGS);
+  const visibleTags = tagsExpanded ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
   // ----- Created / Updated labels -----
@@ -130,8 +145,7 @@ export default function StoryListCard({
   // ----- Chapters badge (hide if only 1) -----
   const chapters = story.chapterCount ?? 1;
   const hasMultipleChapters = chapters > 1;
-  const chapterLabel =
-    chapters === 2 ? '2 chapters' : `${chapters} chapters`;
+  const chapterLabel = chapters === 2 ? '2 chapters' : `${chapters} chapters`;
 
   // ----- Views label -----
   const views = story.viewCount ?? 0;
@@ -179,7 +193,6 @@ export default function StoryListCard({
                 size="h4"
                 mb="0"
                 style={{
-                  // allow wrapping so it doesn't collide with stats
                   whiteSpace: 'normal',
                   overflow: 'hidden',
                 }}
@@ -199,9 +212,7 @@ export default function StoryListCard({
               </Link>
             </Text>
 
-            {showFavorite && !isOwnStory && (
-              <FavoriteButton storyId={story.id} />
-            )}
+            {showFavorite && !isOwnStory && <FavoriteButton storyId={story.id} />}
           </div>
 
           {/* Right block: Likes • Views • Date */}
@@ -216,24 +227,14 @@ export default function StoryListCard({
               marginTop: isNarrow ? 6 : 0,
             }}
           >
-            <LikeButton
-              storyId={story.id}
-              ownerId={story.ownerId}
-              initialCount={story.likesCount ?? 0}
-            />
+            <LikeButton storyId={story.id} ownerId={story.ownerId} initialCount={story.likesCount ?? 0} />
 
             <Text size="sm" c="dimmed">
               •
             </Text>
 
             {showViews && (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-              >
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <Eye size={14} />
                 <Text size="sm" c="dimmed">
                   {viewsLabel}
@@ -264,24 +265,25 @@ export default function StoryListCard({
             }}
           >
           {hasMultipleChapters && (
-            <Anchor
-              component={Link}
+            <Link
               to="/stories/$storyId/chapters"
-              params={{ storyId: story.id }} // or { storyId } if you already have it
-              size="xs"
-              c="dimmed"
-              underline="always"
+              params={{ storyId: story.id }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 4,
                 marginRight: 8,
+                color: 'var(--mantine-color-dimmed)',
+                fontSize: 'var(--mantine-font-size-xs)',
+                textDecoration: 'underline',
+                textUnderlineOffset: 2,
               }}
             >
               <BookOpen size={14} />
               <span>{chapterLabel}</span>
-            </Anchor>
+            </Link>
           )}
+
 
             {visibleTags.map((tag) => (
               <Badge
@@ -323,37 +325,60 @@ export default function StoryListCard({
           }}
         >
           {hasDescription && (
-            <Text
-              ref={descRef}
-              size="sm"
-              c="dimmed"
-              {...(!expanded ? { lineClamp } : {})}
+            <div
               style={{
-                marginBottom: 0,
                 flex: 1,
                 minWidth: 0,
-                cursor: canExpand ? 'pointer' : 'default',
-                userSelect: 'text',
-              }}
-              role={canExpand ? 'button' : undefined}
-              aria-expanded={expanded}
-              title={!expanded && isClamped ? 'Click to expand' : undefined}
-              onClick={() => {
-                if (canExpand) setExpanded((v) => !v);
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              {description}
-              {canExpand && (
-                <Text
-                  component="span"
+              <Text
+                ref={descRef}
+                size="sm"
+                c="dimmed"
+                {...(!expanded ? { lineClamp } : {})}
+                style={{
+                  marginBottom: 0,
+                  minWidth: 0,
+                  cursor: canToggleDescription ? 'pointer' : 'default',
+                  userSelect: 'text',
+                }}
+                role={canToggleDescription ? 'button' : undefined}
+                aria-expanded={expanded}
+                title={!expanded && isClamped ? 'Click to expand' : undefined}
+                onClick={() => {
+                  if (canToggleDescription) setExpanded((v) => !v);
+                }}
+              >
+                {description}
+              </Text>
+
+              {/* Toggle is OUTSIDE the clamped text so it never gets hidden by the ellipsis */}
+              {canToggleDescription && (
+                <Anchor
+                  component="button"
+                  type="button"
                   size="sm"
-                  c="blue"
-                  style={{ marginLeft: 6, whiteSpace: 'nowrap' }}
+                  underline="never"
+                  style={{
+                    alignSelf: 'flex-start',
+                    marginTop: 4,
+                    padding: 0,
+                    border: 0,
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setExpanded((v) => !v);
+                  }}
                 >
-                  {expanded ? ' (show less)' : ' (show more)'}
-                </Text>
+                  {expanded ? '(show less)' : '(show more)'}
+                </Anchor>
               )}
-            </Text>
+            </div>
           )}
 
           <Link
@@ -365,11 +390,7 @@ export default function StoryListCard({
               marginTop: isNarrow ? 8 : 0,
             }}
           >
-            <Button
-              variant="light"
-              size="xs"
-              rightSection={<ArrowRight size={14} />}
-            >
+            <Button variant="light" size="xs" rightSection={<ArrowRight size={14} />}>
               Read Story
             </Button>
           </Link>

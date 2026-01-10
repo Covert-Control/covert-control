@@ -22,7 +22,6 @@ import {
   Pagination,
   Paper,
   Radio,
-  Select,
   Stack,
   Text,
   Textarea,
@@ -88,19 +87,17 @@ import {
 } from '../../components/ChapterSelector';
 
 export const Route = createFileRoute('/stories/$storyId/')({
-  validateSearch: (search: Record<string, unknown>) => {
-    const raw = search?.chapter;
-    const n =
-      typeof raw === 'string'
-        ? Number(raw)
-        : typeof raw === 'number'
-        ? raw
-        : 1;
+  validateSearch: (search: Record<string, unknown>): { chapter?: number } => {
+    const raw = (search as any)?.chapter;
 
-    return {
-      chapter: Number.isFinite(n) && n > 0 ? Math.floor(n) : 1,
-    };
+    if (raw == null || raw === '') return {};
+
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return {};
+
+    return { chapter: Math.floor(n) };
   },
+
   component: StoryDetailPage,
 });
 
@@ -197,7 +194,11 @@ function StoryDetailPage() {
 
   const queryClient = useQueryClient();
 
-  const isOwnStory = !!(user?.uid && story.ownerId && user.uid === story.ownerId);
+  const isOwnStory = !!(
+    user?.uid &&
+    story.ownerId &&
+    user.uid === story.ownerId
+  );
   const canReport = !!user && !isOwnStory;
 
   // Reader mode (drives AppShell collapse in __root + local layout tweaks here)
@@ -335,7 +336,8 @@ function StoryDetailPage() {
 
   // Update document title with story + chapter
   useEffect(() => {
-    const chTitle = chapterQuery.data?.title?.trim() || `Chapter ${safeChapter}`;
+    const chTitle =
+      chapterQuery.data?.title?.trim() || `Chapter ${safeChapter}`;
     document.title = `${story.title} — ${chTitle}`;
   }, [story.title, chapterQuery.data?.title, safeChapter]);
 
@@ -381,7 +383,9 @@ function StoryDetailPage() {
   const MAX_VISIBLE_TAGS = 5;
   const allTags = Array.isArray(story.tags) ? story.tags : [];
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  const visibleTags = tagsExpanded ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS);
+  const visibleTags = tagsExpanded
+    ? allTags
+    : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
   function handleEdit() {
@@ -431,7 +435,9 @@ function StoryDetailPage() {
   async function handleDeleteChapter() {
     if (!storyId || !isOwnStory || safeChapter < 2) return;
 
-    const ok = window.confirm(`Delete Chapter ${safeChapter}? Later chapters will shift down.`);
+    const ok = window.confirm(
+      `Delete Chapter ${safeChapter}? Later chapters will shift down.`
+    );
     if (!ok) return;
 
     setDeletingChapter(true);
@@ -441,7 +447,8 @@ function StoryDetailPage() {
         chapter: safeChapter,
       });
 
-      const newCount = (res.data as any)?.newChapterCount ?? totalChapters - 1;
+      const newCount =
+        (res.data as any)?.newChapterCount ?? totalChapters - 1;
       const nextChapter = Math.min(safeChapter, Math.max(1, newCount));
 
       queryClient.removeQueries({ queryKey: ['storyChapter', storyId] });
@@ -580,9 +587,51 @@ function StoryDetailPage() {
     }
   }
 
+  // --- Chapter header display (dynamic, avoids "1. Chapter 1") ---
+  const rawChapterTitle = (chapterQuery.data?.title ?? '').trim();
+  const defaultTitle = `Chapter ${safeChapter}`;
+  const isDefaultTitle =
+    !!rawChapterTitle &&
+    rawChapterTitle.toLowerCase() === defaultTitle.toLowerCase();
+
+  const hasCustomTitle = !!rawChapterTitle && !isDefaultTitle;
+
+  // If custom title exists: 1. “Title”
+  // If missing/default title: Chapter N
+  const chapterHeaderText = hasCustomTitle
+    ? `${safeChapter}. “${rawChapterTitle}”`
+    : defaultTitle;
+
+  const chapterSummaryText = (chapterQuery.data?.chapterSummary ?? '').trim();
+
   return (
     <>
+      {/* Kindle-ish typography + drop cap (self-contained for this page) */}
+      <style>{`
+        .story-content {
+          max-width: 70ch;
+          margin: 0 auto;
+          text-align: justify;
+          hyphens: auto;
+        }
+        .story-content p {
+          margin: 0 0 0.95em;
+        }
+        .story-content p:first-of-type {
+          margin-top: 0;
+        }
+        .story-content p:first-of-type::first-letter {
+          float: left;
+          font-weight: 700;
+          font-size: 3.4em;
+          line-height: 0.9;
+          padding-right: 0.12em;
+          padding-top: 0.06em;
+        }
+      `}</style>
+
       <ReaderModeToggle variant="exit" />
+
       <Box
         style={{
           width: '100%',
@@ -594,7 +643,7 @@ function StoryDetailPage() {
       >
         <Container
           size="sm"
-          px={readerMode ? 'sm' : 'sm'}
+          px="sm"
           style={{
             maxWidth: readerMode ? rem(900) : rem(820),
             width: '100%',
@@ -898,7 +947,11 @@ function StoryDetailPage() {
                     </Menu>
 
                     {canReport && (
-                      <Tooltip label="Report this story" withArrow position="bottom">
+                      <Tooltip
+                        label="Report this story"
+                        withArrow
+                        position="bottom"
+                      >
                         <ActionIcon
                           variant="subtle"
                           radius="md"
@@ -916,7 +969,11 @@ function StoryDetailPage() {
                     {isOwnStory && (
                       <Menu withArrow shadow="md" position="bottom-end">
                         <Menu.Target>
-                          <Tooltip label="Story actions" withArrow position="bottom">
+                          <Tooltip
+                            label="Story actions"
+                            withArrow
+                            position="bottom"
+                          >
                             <ActionIcon
                               variant="subtle"
                               radius="md"
@@ -947,7 +1004,9 @@ function StoryDetailPage() {
                               leftSection={<Trash2 size={16} />}
                               onClick={handleDeleteChapter}
                             >
-                              {deletingChapter ? 'Deleting…' : 'Delete chapter'}
+                              {deletingChapter
+                                ? 'Deleting…'
+                                : 'Delete chapter'}
                             </Menu.Item>
                           )}
                           <Menu.Item
@@ -990,21 +1049,41 @@ function StoryDetailPage() {
                   wordBreak: 'break-word',
                 }}
               >
-                {(chapterQuery.data?.title?.trim() ||
-                  chapterQuery.data?.chapterSummary?.trim()) && (
-                  <Box mb="sm">
-                    {chapterQuery.data?.title?.trim() && (
-                      <Title order={3} fw={600}>
-                        {chapterQuery.data.title}
-                      </Title>
-                    )}
-                    {chapterQuery.data?.chapterSummary?.trim() && (
-                      <Text size="sm" c="dimmed">
-                        {chapterQuery.data.chapterSummary}
-                      </Text>
-                    )}
-                  </Box>
-                )}
+                {/* Kindle-ish chapter header (title/summary optional) */}
+                <Box mb="lg">
+                  <Title
+                    order={3}
+                    fw={600}
+                    ta="center"
+                    style={{ letterSpacing: '0.01em' }}
+                  >
+                    {chapterHeaderText}
+                  </Title>
+
+                  <Box
+                    mt="sm"
+                    mx="auto"
+                    style={{
+                      width: 'min(420px, 70%)',
+                      borderBottom: '1px solid var(--mantine-color-gray-3)',
+                    }}
+                  />
+
+                  {chapterSummaryText && (
+                    <Text
+                      mt="sm"
+                      size="sm"
+                      c="dimmed"
+                      ta="center"
+                      style={{
+                        fontStyle: 'italic',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {chapterSummaryText}
+                    </Text>
+                  )}
+                </Box>
 
                 <EditorContent editor={editor} className="story-content" />
               </Box>
@@ -1050,7 +1129,6 @@ function StoryDetailPage() {
                     })
                   }
                 />
-
               </Group>
             </Stack>
           )}
@@ -1133,7 +1211,9 @@ function StoryDetailPage() {
                 maxLength={MAX_REPORT_COMMENT_LENGTH}
                 description={`${reportComment.length}/${MAX_REPORT_COMMENT_LENGTH} characters`}
                 value={reportComment}
-                onChange={(event) => setReportComment(event.currentTarget.value)}
+                onChange={(event) =>
+                  setReportComment(event.currentTarget.value)
+                }
               />
 
               {reportError && (

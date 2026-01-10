@@ -17,6 +17,7 @@ import {
   Stack,
   Title,
   Divider,
+  Checkbox,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 
@@ -39,10 +40,66 @@ import { TermsModal } from '../../components/TermsModal';
 import { useNavigate } from '@tanstack/react-router';
 
 const content = '';
-const limit = 150000;
-const TAGS_MAX = 16;
-const TAG_MIN_LEN = 3;
+
+// Body constraints
+const BODY_CHAR_LIMIT = 150000;
+const BODY_MIN_WORDS = 50;
+
+// Tag constraints
+const TAGS_MAX = 30;
+const TAGS_MIN = 3;
+const TAG_MIN_LEN = 2; // per-tag min length
 const TAG_MAX_LEN = 30;
+
+// Required field constraints
+const TITLE_MIN = 1;
+const TITLE_MAX = 100;
+
+const STORY_DESC_MIN = 30;
+const STORY_DESC_MAX = 500;
+
+// Optional chapter 1 field constraints
+const CHAPTER_TITLE_MAX = 80;
+const CHAPTER_SUMMARY_MAX = 500;
+
+function normalizeSpaces(s: string) {
+  return String(s ?? '').trim().replace(/\s+/g, ' ');
+}
+
+// Matches backend-ish behavior: normalize spaces, lowercase, strip trailing " (123)"
+function normalizeTag(s: string) {
+  return normalizeSpaces(s)
+    .toLowerCase()
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Clean + validate tags in the same order the backend should:
+ * - normalizeTag
+ * - enforce per-tag lengths
+ * - dedupe
+ * - cap to TAGS_MAX
+ */
+function cleanTags(tags: string[]) {
+  const cleaned: string[] = [];
+
+  for (const t of tags ?? []) {
+    const tag = normalizeTag(t);
+    if (!tag) continue;
+
+    if (tag.length < TAG_MIN_LEN) {
+      throw new Error(`Tag "${tag}" is too short`);
+    }
+    if (tag.length > TAG_MAX_LEN) {
+      throw new Error(`Tag "${tag}" is too long`);
+    }
+
+    cleaned.push(tag);
+  }
+
+  return Array.from(new Set(cleaned)).slice(0, TAGS_MAX);
+}
 
 export function TipTap2() {
   const [wordCount, setWordCount] = useState(0);
@@ -64,45 +121,95 @@ export function TipTap2() {
   const { username } = useAuthStore();
   const navigate = useNavigate();
 
+  const openTermsReadOnly = () => {
+    // Allow read-only open without implying submit intent
+    setPendingSubmitAfterTerms(false);
+    setTermsModalOpened(true);
+  };
+
   const form = useForm({
     initialValues: {
       title: '',
-      description: '',
+      description: '', // required
+      chapterTitle: '', // optional
+      chapterSummary: '', // optional
       content: '',
       tags: [] as string[],
       terms: false,
     },
     validate: {
       title: (value) => {
-        if (!value.trim()) return 'Title is required';
-        if (value.length > 30) return 'Title must be less than 30 characters';
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return 'Title is required';
+        if (v.length < TITLE_MIN)
+          return `Title must be at least ${TITLE_MIN} character${
+            TITLE_MIN === 1 ? '' : 's'
+          }`;
+        if (v.length > TITLE_MAX)
+          return `Title must be at most ${TITLE_MAX} characters`;
         return null;
       },
+
       description: (value) => {
-        if (!value.trim()) return 'Description is required';
-        if (value.length > 500 || value.length < 10)
-          return 'Description must be between 10 and 500 characters';
+        // Must match backend normalization (collapse whitespace)
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return 'Description is required';
+        if (v.length < STORY_DESC_MIN || v.length > STORY_DESC_MAX) {
+          return `Description must be between ${STORY_DESC_MIN} and ${STORY_DESC_MAX} characters`;
+        }
         return null;
       },
+
+      // Optional: only max length
+      chapterTitle: (value) => {
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return null;
+        if (v.length > CHAPTER_TITLE_MAX) {
+          return `Chapter title must be at most ${CHAPTER_TITLE_MAX} characters (or leave blank).`;
+        }
+        return null;
+      },
+
+      // Optional: only max length
+      chapterSummary: (value) => {
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return null;
+        if (v.length > CHAPTER_SUMMARY_MAX) {
+          return `Chapter summary must be at most ${CHAPTER_SUMMARY_MAX} characters (or leave blank).`;
+        }
+        return null;
+      },
+
+      // Body: enforce min words + max chars
       content: () => {
         if (wordCount === 0) return 'A story is required';
-        if (wordCount < 20) return 'A chapter must have at least 20 words';
-        if (charCount > limit) {
-          return `Character limit exceeded! You have ${charCount} characters, but the limit is ${limit}. Please split longer stories into multiple chapters`;
+        if (wordCount < BODY_MIN_WORDS)
+          return `A chapter must have at least ${BODY_MIN_WORDS} words`;
+        if (charCount > BODY_CHAR_LIMIT) {
+          return `Character limit exceeded! You have ${charCount} characters, but the limit is ${BODY_CHAR_LIMIT}. Please split longer stories into multiple chapters.`;
         }
         return null;
       },
+
       tags: (tags) => {
         if (!Array.isArray(tags)) return 'Tags must be an array';
-        if (tags.length > TAGS_MAX) return `Please use at most ${TAGS_MAX} tags`;
-        for (const t of tags) {
-          const s = t.trim();
-          if (s.length < TAG_MIN_LEN) return `Tag "${t}" is too short`;
-          if (s.length > TAG_MAX_LEN) return `Tag "${t}" is too long`;
+
+        try {
+          const cleaned = cleanTags(tags);
+
+          if (cleaned.length < TAGS_MIN)
+            return `Please add at least ${TAGS_MIN} tags`;
+          if (cleaned.length > TAGS_MAX)
+            return `Please use at most ${TAGS_MAX} tags`;
+
+          return null;
+        } catch (e: any) {
+          return e?.message ?? 'Invalid tags';
         }
-        return null;
       },
-      terms: (value) => (value ? null : 'You must accept the Terms & Conditions'),
+
+      terms: (value) =>
+        value ? null : 'You must accept the Terms & Conditions',
     },
   });
 
@@ -117,9 +224,8 @@ export function TipTap2() {
     onUpdate: ({ editor }) => {
       const text = editor.getText();
       const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
-      const chars = text.length;
       setWordCount(words);
-      setCharCount(chars);
+      setCharCount(text.length);
     },
   });
 
@@ -137,24 +243,58 @@ export function TipTap2() {
 
     setSubmitting(true);
     try {
-      const normalizedTitle = form.values.title.trim().replace(/\s+/g, ' ');
+      const normalizedTitle = normalizeSpaces(form.values.title);
+      const normalizedDescription = normalizeSpaces(form.values.description ?? '');
 
-      const tagsLower = (form.values.tags ?? [])
-        .map((t) => t.trim().toLowerCase().replace(/\s+/g, ' '))
-        .filter((t) => t.length >= TAG_MIN_LEN);
+      const normalizedChapterTitleRaw = normalizeSpaces(
+        form.values.chapterTitle || ''
+      );
+      const normalizedChapterTitle =
+        normalizedChapterTitleRaw.length > 0 ? normalizedChapterTitleRaw : null;
 
-      // Raw TipTap JSON – let the Cloud Function stringify it
+      const normalizedChapterSummaryRaw = normalizeSpaces(
+        form.values.chapterSummary || ''
+      );
+      const normalizedChapterSummary =
+        normalizedChapterSummaryRaw.length > 0
+          ? normalizedChapterSummaryRaw
+          : null;
+
+      // Tags: normalize, validate, dedupe, cap
+      let tagsLower: string[] = [];
+      try {
+        tagsLower = cleanTags(form.values.tags ?? []);
+      } catch (e: any) {
+        form.setFieldError('tags', e?.message ?? 'Invalid tags');
+        setSubmitting(false);
+        return;
+      }
+
+      // Enforce TAGS_MIN after cleaning/dedupe (matches backend)
+      if (tagsLower.length < TAGS_MIN) {
+        form.setFieldError('tags', `Please add at least ${TAGS_MIN} tags`);
+        setSubmitting(false);
+        return;
+      }
+
       const chapterContentJSON = editor.getJSON();
 
-      const res = await createStoryWithFirstChapterCallable({
+      // Keep this as `any` to avoid excess-property issues if callable typings lag.
+      const payload: any = {
         title: normalizedTitle,
-        description: form.values.description,
+        description: normalizedDescription,
         tags: tagsLower,
         chapterContentJSON,
         wordCount,
         charCount,
         username: username ?? null,
-      });
+
+        // optional chapter 1 meta
+        chapterTitle: normalizedChapterTitle,
+        chapterSummary: normalizedChapterSummary,
+      };
+
+      const res = await createStoryWithFirstChapterCallable(payload);
 
       const data = res.data as { storyId?: string };
       const storyId = data?.storyId;
@@ -212,7 +352,7 @@ export function TipTap2() {
       return;
     }
 
-    const normalizedTitle = form.values.title.trim().replace(/\s+/g, ' ');
+    const normalizedTitle = normalizeSpaces(form.values.title);
     const title_lc = normalizedTitle.toLowerCase();
 
     setCheckingDuplicate(true);
@@ -264,7 +404,6 @@ export function TipTap2() {
     }
   };
 
-  // Manual submit handler
   const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     void checkDuplicateAndSubmit();
@@ -276,26 +415,34 @@ export function TipTap2() {
     <>
       <form onSubmit={handleFormSubmit}>
         <Stack gap="md" style={{ maxWidth: 820, margin: '20px auto' }}>
-          {/* Title / Description / Tags */}
+          {/* Title / Description / Tags / Chapter 1 metadata */}
           <Paper withBorder radius="lg" p="md">
             <Stack gap="md">
               <TextInput
                 label="Title"
-                {...form.getInputProps('title')}
                 withAsterisk
+                maxLength={TITLE_MAX}
+                description={`${(form.values.title ?? '').length}/${TITLE_MAX} characters`}
                 placeholder="Story title"
+                {...form.getInputProps('title')}
               />
 
               <Textarea
                 label="Description"
                 withAsterisk
-                {...form.getInputProps('description')}
+                minRows={3}
+                maxLength={STORY_DESC_MAX}
+                description={`${(form.values.description ?? '').length}/${STORY_DESC_MAX} characters`}
                 placeholder="Provide a short description of your story"
+                {...form.getInputProps('description')}
               />
 
               <div>
                 <Text size="sm" fw={500} mb={4}>
-                  Tags<span style={{ color: 'red' }}>*</span>
+                  Tags<span style={{ color: 'red' }}>*</span>{' '}
+                  <Text span size="xs" c="dimmed">
+                    (min {TAGS_MIN}, max {TAGS_MAX})
+                  </Text>
                 </Text>
 
                 <TagPicker
@@ -306,11 +453,38 @@ export function TipTap2() {
                 />
 
                 {form.errors.tags && (
-                  <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 4 }}>
+                  <div
+                    style={{
+                      color: 'red',
+                      fontSize: '0.875rem',
+                      marginTop: 4,
+                    }}
+                  >
                     {form.errors.tags}
                   </div>
                 )}
               </div>
+
+              <Divider />
+
+              <Title order={5}>Chapter 1 details (optional)</Title>
+
+              <TextInput
+                label="Chapter title"
+                maxLength={CHAPTER_TITLE_MAX}
+                description={`${(form.values.chapterTitle ?? '').length}/${CHAPTER_TITLE_MAX} characters`}
+                placeholder="Optional: leave blank to use a default chapter label"
+                {...form.getInputProps('chapterTitle')}
+              />
+
+              <Textarea
+                label="Chapter summary"
+                minRows={3}
+                maxLength={CHAPTER_SUMMARY_MAX}
+                description={`${(form.values.chapterSummary ?? '').length}/${CHAPTER_SUMMARY_MAX} characters`}
+                placeholder="Optional: shown beneath the chapter heading in the reader"
+                {...form.getInputProps('chapterSummary')}
+              />
             </Stack>
           </Paper>
 
@@ -375,30 +549,43 @@ export function TipTap2() {
               )}
 
               {form.errors.terms && (
-                <div
-                  style={{
-                    color: 'red',
-                    fontSize: '0.875rem',
-                    marginTop: 8,
-                  }}
-                >
+                <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 8 }}>
                   {form.errors.terms}
                 </div>
               )}
 
-              <div
-                style={{
-                  fontSize: 12,
-                  opacity: 0.7,
-                  marginTop: 8,
-                }}
-              >
-                {wordCount} words • {charCount}/{limit} characters
+              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
+                {wordCount} words • {charCount}/{BODY_CHAR_LIMIT} characters
               </div>
             </Stack>
           </Paper>
 
-          <Group justify="end">
+          {/* Actions */}
+          <Group justify="space-between" wrap="wrap" align="center">
+            {/* Checkbox + link acting as one clickable unit */}
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={openTermsReadOnly}
+            >
+              <Checkbox
+                checked={!!form.values.terms}
+                onChange={() => {
+                  // Clicking checkbox opens modal (same as link).
+                  // Do not toggle locally; user must accept in modal.
+                  openTermsReadOnly();
+                }}
+                onClick={(e) => {
+                  // Prevent double-trigger (checkbox click bubbles to parent)
+                  e.stopPropagation();
+                  openTermsReadOnly();
+                }}
+              />
+              <Text size="sm" fw={500}>
+                View Terms &amp; Conditions
+              </Text>
+            </Group>
+
             <Button type="submit" loading={busy} disabled={busy}>
               Submit
             </Button>

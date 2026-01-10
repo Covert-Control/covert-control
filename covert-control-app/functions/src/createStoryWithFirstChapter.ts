@@ -10,22 +10,165 @@ const db = getFirestore();
 
 export interface CreateStoryWithFirstChapterRequest {
   title: string;
-  description: string;
+  description: string; // ✅ required
   tags: string[];
   chapterContentJSON: unknown;
   wordCount: number;
   charCount: number;
   username: string | null;
+
+  // optional chapter 1 metadata
+  chapterTitle?: string | null;
+  chapterSummary?: string | null;
 }
 
 export interface CreateStoryWithFirstChapterResponse {
   storyId: string;
 }
 
+// ------------------------
+// Constraints (your choices)
+// ------------------------
+const BODY_CHAR_LIMIT = 150000;
+
+// Tag constraints
+const TAGS_MAX = 30;
+const TAGS_MIN = 3;
+const TAG_MIN_LEN = 2; // per-tag min length
+const TAG_MAX_LEN = 30;
+
+// Required field constraints
+const TITLE_MIN = 1;
+const TITLE_MAX = 100;
+
+const STORY_DESC_MIN = 30;
+const STORY_DESC_MAX = 500;
+
+// Optional chapter 1 field constraints
+const CHAPTER_TITLE_MAX = 80;
+const CHAPTER_SUMMARY_MAX = 500;
+
+// Chapter body constraints
+const BODY_MIN_WORDS = 50;
+
+// ------------------------
+// Helpers
+// ------------------------
+function normalizeSpaces(s: string) {
+  return s.trim().replace(/\s+/g, ' ');
+}
+
+function ensureString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') {
+    throw new HttpsError('invalid-argument', `${fieldName} must be a string.`);
+  }
+  return value;
+}
+
+function enforceLen(
+  value: string,
+  fieldName: string,
+  min: number,
+  max: number
+) {
+  // value is assumed already normalized (trimmed/collapsed)
+  if (value.length < min) {
+    throw new HttpsError(
+      'invalid-argument',
+      `${fieldName} must be at least ${min} character${min === 1 ? '' : 's'}.`
+    );
+  }
+  if (value.length > max) {
+    throw new HttpsError(
+      'invalid-argument',
+      `${fieldName} must be at most ${max} characters.`
+    );
+  }
+}
+
+function normalizeTag(raw: unknown): string {
+  // Be defensive: tags are user-controlled input
+  const s = normalizeSpaces(String(raw ?? ''))
+    .toLowerCase()
+    // strip trailing "(123)" counts from Algolia-style tag suggestions if present
+    .replace(/\s+\(\d+\)\s*$/, '')
+    .trim();
+
+  return s;
+}
+
+function cleanTags(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    throw new HttpsError('invalid-argument', 'Tags must be an array.');
+  }
+
+  const cleaned: string[] = [];
+
+  for (const t of input) {
+    const tag = normalizeTag(t);
+    if (!tag) continue;
+
+    if (tag.length < TAG_MIN_LEN) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Tag "${tag}" is too short (min ${TAG_MIN_LEN}).`
+      );
+    }
+    if (tag.length > TAG_MAX_LEN) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Tag "${tag}" is too long (max ${TAG_MAX_LEN}).`
+      );
+    }
+
+    cleaned.push(tag);
+  }
+
+  // dedupe while preserving order
+  const deduped = Array.from(new Set(cleaned));
+
+  if (deduped.length < TAGS_MIN) {
+    throw new HttpsError(
+      'invalid-argument',
+      `Please choose at least ${TAGS_MIN} tags.`
+    );
+  }
+
+  if (deduped.length > TAGS_MAX) {
+    throw new HttpsError(
+      'invalid-argument',
+      `Please use at most ${TAGS_MAX} tags.`
+    );
+  }
+
+  return deduped;
+}
+
+function normalizeOptionalField(
+  value: unknown,
+  fieldName: string,
+  maxLen: number
+): string | null {
+  if (value === undefined || value === null) return null;
+  const s = ensureString(value, fieldName);
+  const normalized = normalizeSpaces(s);
+  if (!normalized) return null;
+
+  if (normalized.length > maxLen) {
+    throw new HttpsError(
+      'invalid-argument',
+      `${fieldName} must be at most ${maxLen} characters.`
+    );
+  }
+  return normalized;
+}
+
+// ------------------------
+// Function
+// ------------------------
 export const createStoryWithFirstChapter = onCall(
   {
     region: 'us-central1',
-    // Allow your dev + prod origins to call this function from the browser
     cors: [
       'http://localhost:5173',
       'https://covert-control.web.app',
@@ -34,7 +177,7 @@ export const createStoryWithFirstChapter = onCall(
   },
   async (
     request: CallableRequest<CreateStoryWithFirstChapterRequest>
-  ) => {
+  ): Promise<CreateStoryWithFirstChapterResponse> => {
     const { auth, data } = request;
 
     if (!auth?.uid) {
@@ -44,28 +187,27 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
-    const {
-      title,
-      description,
-      tags,
-      chapterContentJSON,
-      wordCount,
-      charCount,
-      username,
-    } = data;
+    // ---- Required fields ----
+    const rawTitle = ensureString(data?.title, 'Title');
+    const rawDesc = ensureString(data?.description, 'Description');
 
-    // ---- Basic validation ----
-    if (!title || typeof title !== 'string') {
-      throw new HttpsError('invalid-argument', 'Title is required.');
-    }
+    const normalizedTitle = normalizeSpaces(rawTitle);
+    const normalizedDescription = normalizeSpaces(rawDesc);
 
-    if (!description || typeof description !== 'string') {
-      throw new HttpsError('invalid-argument', 'Description is required.');
-    }
+    enforceLen(normalizedTitle, 'Title', TITLE_MIN, TITLE_MAX);
+    enforceLen(
+      normalizedDescription,
+      'Description',
+      STORY_DESC_MIN,
+      STORY_DESC_MAX
+    );
 
-    if (!Array.isArray(tags)) {
-      throw new HttpsError('invalid-argument', 'Tags must be an array.');
-    }
+    // ---- Tags (required) ----
+    const tagsClean = cleanTags(data?.tags);
+
+    // ---- Body constraints ----
+    const wordCount = data?.wordCount;
+    const charCount = data?.charCount;
 
     if (typeof wordCount !== 'number' || typeof charCount !== 'number') {
       throw new HttpsError(
@@ -74,46 +216,38 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
-    const TAGS_MAX = 16;
-    const TAG_MIN_LEN = 3;
-    const TAG_MAX_LEN = 30;
-    const CHAR_LIMIT = 150000;
-    const MIN_WORDS = 20;
-
-    if (wordCount < MIN_WORDS) {
+    if (wordCount < BODY_MIN_WORDS) {
       throw new HttpsError(
         'invalid-argument',
-        `A chapter must have at least ${MIN_WORDS} words.`
+        `A chapter must have at least ${BODY_MIN_WORDS} words.`
       );
     }
 
-    if (charCount > CHAR_LIMIT) {
+    if (charCount > BODY_CHAR_LIMIT) {
       throw new HttpsError(
         'invalid-argument',
-        `Character limit exceeded. Limit is ${CHAR_LIMIT}.`
+        `Character limit exceeded. Limit is ${BODY_CHAR_LIMIT}.`
       );
     }
 
-    if (tags.length > TAGS_MAX) {
-      throw new HttpsError(
-        'invalid-argument',
-        `Please use at most ${TAGS_MAX} tags.`
-      );
-    }
+    // ---- Optional chapter metadata ----
+    const chapterTitle = normalizeOptionalField(
+      data?.chapterTitle,
+      'Chapter title',
+      CHAPTER_TITLE_MAX
+    );
 
-    const normalizedTitle = title.trim().replace(/\s+/g, ' ');
-    const title_lc = normalizedTitle.toLowerCase();
+    const chapterSummary = normalizeOptionalField(
+      data?.chapterSummary,
+      'Chapter summary',
+      CHAPTER_SUMMARY_MAX
+    );
 
-    const tagsLower = tags
-      .map((t) => t.trim().toLowerCase().replace(/\s+/g, ' '))
-      .filter(
-        (t) => t.length >= TAG_MIN_LEN && t.length <= TAG_MAX_LEN
-      );
-
+    // ---- Other fields ----
     const ownerId = auth.uid;
     const safeUsername =
-      typeof username === 'string' && username.trim()
-        ? username.trim()
+      typeof data?.username === 'string' && data.username.trim()
+        ? data.username.trim()
         : 'anonymous';
 
     const storyRef = db.collection('stories').doc();
@@ -121,32 +255,39 @@ export const createStoryWithFirstChapter = onCall(
     const authorDocRef = db.collection('authors_with_stories').doc(ownerId);
 
     const now = Timestamp.now();
-    const contentString = JSON.stringify(chapterContentJSON);
+    const contentString = JSON.stringify(data?.chapterContentJSON ?? null);
+
+    const title_lc = normalizedTitle.toLowerCase();
+    const createdAtNumeric = Date.now();
 
     try {
       await db.runTransaction(async (tx) => {
-        // Story doc
         tx.set(storyRef, {
           title: normalizedTitle,
           title_lc,
-          description,
+          description: normalizedDescription, // ✅ required now
+
           ownerId,
           username: safeUsername,
           viewCount: 0,
           likesCount: 0,
+
           createdAt: now,
           updatedAt: now,
-          createdAtNumeric: Date.now(),
-          tags: tagsLower,
+          createdAtNumeric,
+
+          tags: tagsClean,
           chapterCount: 1,
           totalWordCount: wordCount,
           totalCharCount: charCount,
         });
 
-        // Chapter 1 doc
+        // ✅ Do not force "Chapter 1" into chapterTitle.
+        // Keep optional fields null when blank so the reader can render defaults.
         tx.set(chapter1Ref, {
           index: 1,
-          title: 'Chapter 1',
+          chapterTitle: chapterTitle, // string | null
+          chapterSummary: chapterSummary, // string | null
           content: contentString,
           wordCount,
           charCount,
@@ -154,7 +295,6 @@ export const createStoryWithFirstChapter = onCall(
           updatedAt: now,
         });
 
-        // Author aggregate
         tx.set(
           authorDocRef,
           {
@@ -174,10 +314,6 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
-    const response: CreateStoryWithFirstChapterResponse = {
-      storyId: storyRef.id,
-    };
-
-    return response;
+    return { storyId: storyRef.id };
   }
 );
