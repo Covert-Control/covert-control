@@ -212,7 +212,7 @@ export default function StoryListCard({
               </Link>
             </Text>
 
-            {showFavorite && !isOwnStory && <FavoriteButton storyId={story.id} />}
+            {showFavorite && <FavoriteButton storyId={story.id} />}
           </div>
 
           {/* Right block: Likes • Views • Date */}

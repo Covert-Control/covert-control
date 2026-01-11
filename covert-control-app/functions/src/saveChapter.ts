@@ -31,6 +31,8 @@ interface SaveChapterResponse {
 interface StoryDoc {
   ownerId: string;
   chapterCount?: number;
+  totalWordCount?: number;
+  totalCharCount?: number;
 }
 
 interface ChapterDoc {
@@ -49,6 +51,9 @@ interface ChapterDoc {
 ---------------------------------------------- */
 
 const BODY_CHAR_LIMIT = 150000;
+
+// Chapter count constraints (abuse protection)
+const CHAPTERS_MAX = 500;
 
 // Tag constraints
 const TAGS_MAX = 30;
@@ -149,6 +154,14 @@ export const saveChapter = onCall<SaveChapterRequest>(
       );
     }
 
+    // Hard upper bound (cheap reject)
+    if (chapterNumber > CHAPTERS_MAX) {
+      throw new HttpsError(
+        'failed-precondition',
+        `This story has reached the maximum of ${CHAPTERS_MAX} chapters.`
+      );
+    }
+
     if (typeof wordCount !== 'number' || typeof charCount !== 'number') {
       throw new HttpsError(
         'invalid-argument',
@@ -195,7 +208,10 @@ export const saveChapter = onCall<SaveChapterRequest>(
     }
 
     const normalizedChapterTitle = normalizeOptionalString(chapterTitle);
-    if (normalizedChapterTitle && normalizedChapterTitle.length > CHAPTER_TITLE_MAX) {
+    if (
+      normalizedChapterTitle &&
+      normalizedChapterTitle.length > CHAPTER_TITLE_MAX
+    ) {
       throw new HttpsError(
         'invalid-argument',
         `Chapter title must be at most ${CHAPTER_TITLE_MAX} characters.`
@@ -222,7 +238,9 @@ export const saveChapter = onCall<SaveChapterRequest>(
     }
 
     const storyRef = db.collection('stories').doc(storyId);
-    const chapterRef = storyRef.collection('chapters').doc(String(chapterNumber));
+    const chapterRef = storyRef
+      .collection('chapters')
+      .doc(String(chapterNumber));
 
     const now = Timestamp.now();
     let isNewChapter = false;
@@ -245,15 +263,40 @@ export const saveChapter = onCall<SaveChapterRequest>(
 
       const currentCount = Math.max(1, storyData.chapterCount ?? 1);
 
+      // Hard cap (authoritative / race-safe)
+      if (currentCount > CHAPTERS_MAX) {
+        // In case data ever got into a bad state
+        throw new HttpsError(
+          'failed-precondition',
+          `This story has exceeded the maximum of ${CHAPTERS_MAX} chapters.`
+        );
+      }
+
       const chapterSnap = await tx.get(chapterRef);
       const exists = chapterSnap.exists;
       isNewChapter = !exists;
+
+      // Prevent creating any new chapter if already at max
+      if (!exists && currentCount >= CHAPTERS_MAX) {
+        throw new HttpsError(
+          'failed-precondition',
+          `This story has reached the maximum of ${CHAPTERS_MAX} chapters.`
+        );
+      }
 
       // Only allow creating the next chapter in sequence
       if (!exists && chapterNumber !== currentCount + 1) {
         throw new HttpsError(
           'failed-precondition',
           'You can only create the next chapter in sequence.'
+        );
+      }
+
+      // Optional safety: disallow "editing" a chapter beyond known count
+      if (exists && chapterNumber > currentCount) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Cannot edit a chapter beyond the current chapter count.'
         );
       }
 
@@ -301,9 +344,15 @@ export const saveChapter = onCall<SaveChapterRequest>(
           }
           const normalizedTitle = normalizeSpaces(storyTitle);
           if (!normalizedTitle) {
-            throw new HttpsError('invalid-argument', 'storyTitle cannot be empty.');
+            throw new HttpsError(
+              'invalid-argument',
+              'storyTitle cannot be empty.'
+            );
           }
-          if (normalizedTitle.length < TITLE_MIN || normalizedTitle.length > TITLE_MAX) {
+          if (
+            normalizedTitle.length < TITLE_MIN ||
+            normalizedTitle.length > TITLE_MAX
+          ) {
             throw new HttpsError(
               'invalid-argument',
               `Title must be between ${TITLE_MIN} and ${TITLE_MAX} characters.`

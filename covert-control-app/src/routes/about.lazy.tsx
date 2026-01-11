@@ -8,7 +8,7 @@ export const Route = createLazyFileRoute('/about')({
 })
 
 function RouteComponent() {
-  const { username, isProfileComplete, loading, profileCheckedForUid, setAuthState, setLoading } = useAuthStore();
+  const { username } = useAuthStore();
   const checkUser = () => {
     console.log("Auth user from Firebase config: " + auth.currentUser)
     console.log("User from Zustand: " + username)

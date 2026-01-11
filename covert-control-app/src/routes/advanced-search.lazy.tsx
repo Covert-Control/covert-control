@@ -209,7 +209,7 @@ function SearchPage() {
         ownerId: h.ownerId ?? '',
         createdAt: h.createdAtNumeric
           ? new Date(h.createdAtNumeric)
-          : undefined,
+          : null,
         tags: Array.isArray(h.tags) ? h.tags : [],
       })),
     [hits]
@@ -271,6 +271,7 @@ function SearchPage() {
           onChange={setRange}
           label="Date range (optional)"
           placeholder="Pick range"
+          weekendDays={[]}
         />
 
         {/* Sort + buttons row */}

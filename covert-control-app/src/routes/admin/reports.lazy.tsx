@@ -289,19 +289,19 @@ function AdminReportsPage() {
                     {/* Top row: Story + Reason */}
                     <Group justify="space-between" align="flex-start">
                       <Box style={{ minWidth: 0 }}>
-                        <Text
-                          fw={500}
-                          size="sm"
-                          component={RouterLink}
+                        <RouterLink
                           to="/stories/$storyId"
                           params={{ storyId: r.storyId }}
                           style={{
                             textDecoration: 'underline',
                             wordBreak: 'break-word',
+                            fontWeight: 500,
+                            fontSize: 'var(--mantine-font-size-sm)',
+                            color: 'inherit',
                           }}
                         >
-                          {r.storyTitle || '(untitled story)'}
-                        </Text>
+                          {r.storyTitle ?? r.storyId}
+                        </RouterLink>
                         <Text size="xs" c="dimmed">
                           Owner: {r.storyOwnerUsername || r.storyOwnerId || '(unknown)'}
                         </Text>
