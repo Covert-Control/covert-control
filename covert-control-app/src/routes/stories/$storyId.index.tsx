@@ -51,6 +51,7 @@ import { Link as TipTapLink } from '@tiptap/extension-link';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
+import FavoriteButton from '../../components/FavoriteButton';
 
 import {
   incrementStoryViewCallable,
@@ -877,6 +878,8 @@ function StoryDetailPage() {
                       marginLeft: 'auto',
                     }}
                   >
+                    <FavoriteButton storyId={story.id}/>
+
                     <ReaderModeToggle variant="enter" />
 
                     <Menu withArrow shadow="md" position="bottom-end">

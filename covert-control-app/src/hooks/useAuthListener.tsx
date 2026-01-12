@@ -5,6 +5,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.tsx';
 import { useAuthStore } from '../stores/authStore';
 import type { UserProfile } from '../stores/authStore';
+import { startFavoritesListener, stopFavoritesListener } from './favoritesSync';
+
 
 export function useAuthListener() {
   const setAuthState = useAuthStore((s) => s.setAuthState);
@@ -15,12 +17,14 @@ export function useAuthListener() {
   // Listen for login/logout and hydrate profile + admin flag
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      // ✅ Start/stop favorites listener immediately on auth change
+      if (fbUser) startFavoritesListener(fbUser.uid);
+      else stopFavoritesListener();
+
       try {
         if (fbUser) {
-          // Refresh the in-memory user so emailVerified is up-to-date
           await fbUser.reload();
 
-          // 🔑 Pull token claims so we can get isAdmin
           let isAdmin = false;
           try {
             const tokenResult = await getIdTokenResult(fbUser, true);
@@ -29,7 +33,6 @@ export function useAuthListener() {
             console.warn('Failed to load ID token claims:', e);
           }
 
-          // Load profile from Firestore
           let username: string | null = null;
           let profileData: UserProfile | null = null;
           let isProfileComplete: boolean | null = null;
@@ -39,9 +42,7 @@ export function useAuthListener() {
             if (snap.exists()) {
               const data = snap.data() as any;
 
-              username = (data?.username ?? data?.displayName ?? null) as
-                | string
-                | null;
+              username = (data?.username ?? data?.displayName ?? null) as string | null;
 
               profileData = {
                 aboutMe: data?.aboutMe ?? null,
@@ -51,10 +52,7 @@ export function useAuthListener() {
                 other: data?.other ?? null,
               };
 
-              // Define "complete" for your app (here: has a username)
-              isProfileComplete = Boolean(
-                username && String(username).trim().length >= 3
-              );
+              isProfileComplete = Boolean(username && String(username).trim().length >= 3);
             } else {
               isProfileComplete = false;
             }
@@ -63,7 +61,6 @@ export function useAuthListener() {
             isProfileComplete = isProfileComplete ?? false;
           }
 
-          // Store derives/uses fbUser.emailVerified (no problem)
           setAuthState(
             fbUser,
             isProfileComplete,
@@ -74,15 +71,15 @@ export function useAuthListener() {
             fbUser.emailVerified
           );
 
-          setIsAdmin(isAdmin);     // 👈 keep store in sync with claims
+          setIsAdmin(isAdmin);
         } else {
           clearAuth();
-          setIsAdmin(false);       // 👈 logged out -> not admin
+          setIsAdmin(false);
         }
       } catch (e) {
         console.error('Auth state refresh failed:', e);
+
         if (fbUser) {
-          // Fallback to at least unblock "loading"
           setAuthState(
             fbUser,
             false,
@@ -92,7 +89,6 @@ export function useAuthListener() {
             null,
             fbUser.emailVerified
           );
-          // In an error case, safest is to assume not admin
           setIsAdmin(false);
         } else {
           clearAuth();
@@ -101,8 +97,12 @@ export function useAuthListener() {
       }
     });
 
-    return () => unsub();
+    return () => {
+      unsub();
+      stopFavoritesListener(); // ✅ ensure Firestore listener is cleaned up if hook unmounts
+    };
   }, [setAuthState, clearAuth, setIsAdmin]);
+
 
   // On mount and when returning focus to the app, re-check (reload only)
   useEffect(() => {

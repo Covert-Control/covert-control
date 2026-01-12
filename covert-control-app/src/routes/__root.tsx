@@ -15,6 +15,7 @@ import { sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebase.tsx';
 import { AdminMailbox } from '../components/AdminMailbox';
 import { useUiStore } from '../stores/uiStore';
+import { AuthBootListener } from '../components/useAuthBootListener.tsx';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -22,6 +23,7 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   useAuthListener();
+  <AuthBootListener />;
 
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
