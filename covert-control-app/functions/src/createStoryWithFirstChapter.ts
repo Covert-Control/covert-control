@@ -1,16 +1,16 @@
-// functions/src/createStoryWithFirstChapter.ts
 import {
   onCall,
   HttpsError,
   CallableRequest,
 } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { randomInt } from 'crypto'; 
 
 const db = getFirestore();
 
 export interface CreateStoryWithFirstChapterRequest {
   title: string;
-  description: string; // ✅ required
+  description: string; 
   tags: string[];
   chapterContentJSON: unknown;
   wordCount: number;
@@ -27,7 +27,7 @@ export interface CreateStoryWithFirstChapterResponse {
 }
 
 // ------------------------
-// Constraints (your choices)
+// Constraints 
 // ------------------------
 const BODY_CHAR_LIMIT = 150000;
 
@@ -71,7 +71,6 @@ function enforceLen(
   min: number,
   max: number
 ) {
-  // value is assumed already normalized (trimmed/collapsed)
   if (value.length < min) {
     throw new HttpsError(
       'invalid-argument',
@@ -87,10 +86,8 @@ function enforceLen(
 }
 
 function normalizeTag(raw: unknown): string {
-  // Be defensive: tags are user-controlled input
   const s = normalizeSpaces(String(raw ?? ''))
     .toLowerCase()
-    // strip trailing "(123)" counts from Algolia-style tag suggestions if present
     .replace(/\s+\(\d+\)\s*$/, '')
     .trim();
 
@@ -124,7 +121,6 @@ function cleanTags(input: unknown): string[] {
     cleaned.push(tag);
   }
 
-  // dedupe while preserving order
   const deduped = Array.from(new Set(cleaned));
 
   if (deduped.length < TAGS_MIN) {
@@ -230,7 +226,6 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
-    // ---- Optional chapter metadata ----
     const chapterTitle = normalizeOptionalField(
       data?.chapterTitle,
       'Chapter title',
@@ -260,12 +255,14 @@ export const createStoryWithFirstChapter = onCall(
     const title_lc = normalizedTitle.toLowerCase();
     const createdAtNumeric = Date.now();
 
+    const rand = randomInt(0, 1_000_000_000_000);
+
     try {
       await db.runTransaction(async (tx) => {
         tx.set(storyRef, {
           title: normalizedTitle,
           title_lc,
-          description: normalizedDescription, // ✅ required now
+          description: normalizedDescription,
 
           ownerId,
           username: safeUsername,
@@ -276,18 +273,18 @@ export const createStoryWithFirstChapter = onCall(
           updatedAt: now,
           createdAtNumeric,
 
+          rand,
+
           tags: tagsClean,
           chapterCount: 1,
           totalWordCount: wordCount,
           totalCharCount: charCount,
         });
 
-        // ✅ Do not force "Chapter 1" into chapterTitle.
-        // Keep optional fields null when blank so the reader can render defaults.
         tx.set(chapter1Ref, {
           index: 1,
-          chapterTitle: chapterTitle, // string | null
-          chapterSummary: chapterSummary, // string | null
+          chapterTitle: chapterTitle,
+          chapterSummary: chapterSummary,
           content: contentString,
           wordCount,
           charCount,

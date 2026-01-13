@@ -27,6 +27,8 @@ const AdvancedSearchLazyRouteImport = createFileRoute('/advanced-search')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const IndexLazyRouteImport = createFileRoute('/')()
+const StoriesWeeklynewLazyRouteImport = createFileRoute('/stories/weeklynew')()
+const StoriesRandomLazyRouteImport = createFileRoute('/stories/random')()
 const AuthorsAuthorIdLazyRouteImport = createFileRoute('/authors/$authorId')()
 const AdminReportsLazyRouteImport = createFileRoute('/admin/reports')()
 
@@ -93,6 +95,20 @@ const IndexLazyRoute = IndexLazyRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+const StoriesWeeklynewLazyRoute = StoriesWeeklynewLazyRouteImport.update({
+  id: '/weeklynew',
+  path: '/weeklynew',
+  getParentRoute: () => StoriesLazyRoute,
+} as any).lazy(() =>
+  import('./routes/stories/weeklynew.lazy').then((d) => d.Route),
+)
+const StoriesRandomLazyRoute = StoriesRandomLazyRouteImport.update({
+  id: '/random',
+  path: '/random',
+  getParentRoute: () => StoriesLazyRoute,
+} as any).lazy(() =>
+  import('./routes/stories/random.lazy').then((d) => d.Route),
+)
 const AuthorsAuthorIdLazyRoute = AuthorsAuthorIdLazyRouteImport.update({
   id: '/$authorId',
   path: '/$authorId',
@@ -141,6 +157,8 @@ export interface FileRoutesByFullPath {
   '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
   '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
+  '/stories/random': typeof StoriesRandomLazyRoute
+  '/stories/weeklynew': typeof StoriesWeeklynewLazyRoute
   '/stories/$storyId/chapters': typeof StoriesStoryIdChaptersRoute
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
@@ -159,6 +177,8 @@ export interface FileRoutesByTo {
   '/your-submissions': typeof YourSubmissionsLazyRoute
   '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
+  '/stories/random': typeof StoriesRandomLazyRoute
+  '/stories/weeklynew': typeof StoriesWeeklynewLazyRoute
   '/stories/$storyId/chapters': typeof StoriesStoryIdChaptersRoute
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId': typeof StoriesStoryIdIndexRoute
@@ -179,6 +199,8 @@ export interface FileRoutesById {
   '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
   '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
+  '/stories/random': typeof StoriesRandomLazyRoute
+  '/stories/weeklynew': typeof StoriesWeeklynewLazyRoute
   '/stories/$storyId/chapters': typeof StoriesStoryIdChaptersRoute
   '/stories/$storyId/edit': typeof StoriesStoryIdEditRoute
   '/stories/$storyId/': typeof StoriesStoryIdIndexRoute
@@ -200,6 +222,8 @@ export interface FileRouteTypes {
     | '/stories/$storyId'
     | '/admin/reports'
     | '/authors/$authorId'
+    | '/stories/random'
+    | '/stories/weeklynew'
     | '/stories/$storyId/chapters'
     | '/stories/$storyId/edit'
     | '/stories/$storyId/'
@@ -218,6 +242,8 @@ export interface FileRouteTypes {
     | '/your-submissions'
     | '/admin/reports'
     | '/authors/$authorId'
+    | '/stories/random'
+    | '/stories/weeklynew'
     | '/stories/$storyId/chapters'
     | '/stories/$storyId/edit'
     | '/stories/$storyId'
@@ -237,6 +263,8 @@ export interface FileRouteTypes {
     | '/stories/$storyId'
     | '/admin/reports'
     | '/authors/$authorId'
+    | '/stories/random'
+    | '/stories/weeklynew'
     | '/stories/$storyId/chapters'
     | '/stories/$storyId/edit'
     | '/stories/$storyId/'
@@ -336,6 +364,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stories/weeklynew': {
+      id: '/stories/weeklynew'
+      path: '/weeklynew'
+      fullPath: '/stories/weeklynew'
+      preLoaderRoute: typeof StoriesWeeklynewLazyRouteImport
+      parentRoute: typeof StoriesLazyRoute
+    }
+    '/stories/random': {
+      id: '/stories/random'
+      path: '/random'
+      fullPath: '/stories/random'
+      preLoaderRoute: typeof StoriesRandomLazyRouteImport
+      parentRoute: typeof StoriesLazyRoute
+    }
     '/authors/$authorId': {
       id: '/authors/$authorId'
       path: '/$authorId'
@@ -411,10 +453,14 @@ const StoriesStoryIdRouteWithChildren = StoriesStoryIdRoute._addFileChildren(
 
 interface StoriesLazyRouteChildren {
   StoriesStoryIdRoute: typeof StoriesStoryIdRouteWithChildren
+  StoriesRandomLazyRoute: typeof StoriesRandomLazyRoute
+  StoriesWeeklynewLazyRoute: typeof StoriesWeeklynewLazyRoute
 }
 
 const StoriesLazyRouteChildren: StoriesLazyRouteChildren = {
   StoriesStoryIdRoute: StoriesStoryIdRouteWithChildren,
+  StoriesRandomLazyRoute: StoriesRandomLazyRoute,
+  StoriesWeeklynewLazyRoute: StoriesWeeklynewLazyRoute,
 }
 
 const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
