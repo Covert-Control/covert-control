@@ -28,6 +28,9 @@ export function SetUsernamePage() {
 
   const navigate = useNavigate();
 
+  const deleteMyAccountCallable = httpsCallable<void, any>(functions, 'deleteMyAccount');
+
+
   const currentUser = useAuthStore((s) => s.user);
   const setAuthState = useAuthStore((s) => s.setAuthState);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -48,16 +51,47 @@ export function SetUsernamePage() {
   });
 
   async function handleCancelRegistration() {
+    // If they never completed Google sign-in, just exit
+    const user = auth.currentUser;
+
     try {
-      await auth.signOut();
-    } finally {
-      // make the gate drop immediately, even before listener resolves
+      if (user) {
+        // IMPORTANT: delete first while still authenticated
+        // Use your existing callable (preferred)
+        await deleteMyAccountCallable();
+
+        // If your callable does NOT sign them out server-side, do it client-side:
+        await auth.signOut();
+      }
+    } catch (err: any) {
+      console.error('Cancel registration deletion failed:', err);
+
+      // Fallback: still sign out so they can browse
+      try {
+        await auth.signOut();
+      } catch {}
+
+      // Optional: show a more specific message, but do not block escape
+      notifications.show({
+        title: 'Registration cancelled',
+        message:
+          'We signed you out. If your account could not be deleted automatically, please try again or contact support.',
+        color: 'gray',
+        position: 'bottom-center',
+        icon: <LogOut size={18} />,
+      });
+
       clearAuth();
+      navigate({ to: '/' });
+      return;
     }
+
+    // Ensure gate drops immediately even before listener resolves
+    clearAuth();
 
     notifications.show({
       title: 'Registration cancelled',
-      message: 'You can keep browsing without an account.',
+      message: 'Your account was removed and you can keep browsing without an account.',
       color: 'gray',
       position: 'bottom-center',
       icon: <LogOut size={18} />,

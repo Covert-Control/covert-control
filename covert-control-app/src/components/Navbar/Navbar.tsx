@@ -28,7 +28,6 @@ const linkdata: NavItem[] = [
       { label: 'All Stories', link: '/stories' },
       { label: 'Search Stories', link: '/advanced-search' },
       { label: 'Last Week\'s Stories', link: '/stories/weeklynew' },
-      { label: 'Trending', link: '/stories/trending' },
       { label: 'Random', link: '/stories/random' },
       { label: 'Authors', link: '/authors' },
     ],
