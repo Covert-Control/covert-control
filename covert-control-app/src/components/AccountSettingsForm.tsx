@@ -24,21 +24,22 @@ import { useNavigate } from '@tanstack/react-router';
 import { db } from '../config/firebase';
 import { XIcon, CheckIcon, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '../stores/authStore';
-import { 
-  getAuth, 
-  getIdTokenResult, 
+import {
+  getAuth,
+  getIdTokenResult,
   signOut,
   verifyBeforeUpdateEmail,
   reauthenticateWithCredential,
   reauthenticateWithPopup,
   EmailAuthProvider,
-  GoogleAuthProvider 
+  GoogleAuthProvider,
 } from 'firebase/auth';
 import { deleteMyAccountCallable } from '../config/firebase';
 import { ReauthModal } from '../components/ReauthModal';
 import { auth, googleProvider } from '../config/firebase.tsx';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
   const auth = getAuth();
@@ -48,24 +49,174 @@ async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
   const res = await getIdTokenResult(user, /* forceRefresh */ true);
   const authTimeSec = Math.floor(new Date(res.authTime).getTime() / 1000);
   const nowSec = Math.floor(Date.now() / 1000);
-  return (nowSec - authTimeSec) <= thresholdSeconds;
+  return nowSec - authTimeSec <= thresholdSeconds;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Public profile constraints (frontend)                              */
+/* ------------------------------------------------------------------ */
+
+const ABOUT_MAX = 1000;
+const CONTACT_EMAIL_MAX = 320;
+const DISCORD_MAX = 64;
+const PATREON_MAX = 128;
+const OTHER_MAX = 200;
+
+function hasBadControlChars(s: string) {
+  // allow \n and \r; disallow other control chars
+  return /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(s);
+}
+
+function isValidEmail(s: string) {
+  return /^\S+@\S+\.\S+$/.test(s);
+}
+
+function isHttpUrl(s: string) {
+  try {
+    const u = new URL(s);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function validateAboutMe(vRaw: string) {
+  const v = vRaw ?? '';
+  if (v.length > ABOUT_MAX) return `About Me must be ${ABOUT_MAX} characters or fewer.`;
+  if (hasBadControlChars(v)) return 'About Me contains invalid characters.';
+  return null;
+}
+
+function validateContactEmail(vRaw: string) {
+  const v = (vRaw ?? '').trim();
+  if (!v) return null;
+  if (v.length > CONTACT_EMAIL_MAX) return `Contact email must be ${CONTACT_EMAIL_MAX} characters or fewer.`;
+  if (hasBadControlChars(v)) return 'Contact email contains invalid characters.';
+  if (!isValidEmail(v)) return 'Please enter a valid email address, or leave this blank.';
+  return null;
+}
+
+function validateDiscord(vRaw: string) {
+  const v = (vRaw ?? '').trim();
+  if (!v) return null;
+  if (v.length > DISCORD_MAX) return `Discord must be ${DISCORD_MAX} characters or fewer.`;
+  if (hasBadControlChars(v)) return 'Discord contains invalid characters.';
+  if (/\s/.test(v)) return 'Discord cannot contain spaces.';
+
+  // Accept handle-like (with optional @), or a Discord URL
+  const handleOk = /^@?[A-Za-z0-9._]{2,32}(?:#[0-9]{4})?$/.test(v); // supports legacy tag too
+  let urlOk = false;
+  if (isHttpUrl(v)) {
+    try {
+      const u = new URL(v);
+      const host = u.hostname.toLowerCase();
+      urlOk =
+        host === 'discord.gg' ||
+        host.endsWith('.discord.gg') ||
+        host === 'discord.com' ||
+        host === 'www.discord.com';
+    } catch {
+      urlOk = false;
+    }
+  }
+
+  if (!handleOk && !urlOk) {
+    return 'Enter a Discord handle (e.g., @name) or a Discord link (https://discord.gg/...).';
+  }
+
+  return null;
+}
+
+function validatePatreon(vRaw: string) {
+  const v = (vRaw ?? '').trim();
+  if (!v) return null;
+  if (v.length > PATREON_MAX) return `Patreon must be ${PATREON_MAX} characters or fewer.`;
+  if (hasBadControlChars(v)) return 'Patreon contains invalid characters.';
+
+  // URL or slug
+  const slugOk = /^[A-Za-z0-9_-]{1,64}$/.test(v);
+  let urlOk = false;
+  if (isHttpUrl(v)) {
+    try {
+      const u = new URL(v);
+      const host = u.hostname.toLowerCase();
+      urlOk = host === 'patreon.com' || host === 'www.patreon.com';
+    } catch {
+      urlOk = false;
+    }
+  }
+
+  if (!slugOk && !urlOk) {
+    return 'Enter a Patreon link (https://patreon.com/...) or a creator handle (letters/numbers/_/-).';
+  }
+
+  return null;
+}
+
+function validateOther(vRaw: string) {
+  const v = (vRaw ?? '').trim();
+  if (!v) return null;
+  if (v.length > OTHER_MAX) return `Other must be ${OTHER_MAX} characters or fewer.`;
+  if (hasBadControlChars(v)) return 'Other contains invalid characters.';
+
+  // If it looks like a URL, require http/https
+  if (v.includes('://') && !isHttpUrl(v)) {
+    return 'Links must start with http:// or https://';
+  }
+
+  return null;
+}
+
+function normalizeProfileValues(values: {
+  aboutMe: string;
+  contactEmail: string;
+  discord: string;
+  patreon: string;
+  other: string;
+}) {
+  return {
+    aboutMe: (values.aboutMe ?? '').trim(),
+    contactEmail: (values.contactEmail ?? '').trim().toLowerCase(),
+    discord: (values.discord ?? '').trim(),
+    patreon: (values.patreon ?? '').trim(),
+    other: (values.other ?? '').trim(),
+  };
+}
+
+type UpdatePublicProfileRequest = {
+  aboutMe: string;
+  contactEmail: string;
+  discord: string;
+  patreon: string;
+  other: string;
+};
+
+type UpdatePublicProfileResponse = {
+  profile: Partial<Pick<UserProfile, 'aboutMe' | 'contactEmail' | 'discord' | 'patreon' | 'other'>>;
+};
 
 export function AccountSettingsForm() {
   const { user, username } = useAuthStore();
   const expectedUsername = username ?? '';
   const navigate = useNavigate();
   const [deleteModalOpened, setDeleteModalOpened] = useState(false);
-  const [deleteConfirmInput, setDeleteConfirmInput] = useState(''); 
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   const { colorScheme } = useMantineColorScheme();
   const theme = useMantineTheme();
   const qc = useQueryClient();
 
   const accent = colorScheme === 'dark' ? theme.colors.red[7] : theme.colors.red[6];
-  const subBg  = colorScheme === 'dark' ? 'rgba(220, 38, 38, 0.08)' : theme.colors.red[0]; // subtle tint
+  const subBg = colorScheme === 'dark' ? 'rgba(220, 38, 38, 0.08)' : theme.colors.red[0];
   const border = colorScheme === 'dark' ? theme.colors.red[8] : theme.colors.red[2];
 
   const [reauthOpen, setReauthOpen] = useState(false);
+
+  // Callable for updating public profile (server-validated)
+  const functions = getFunctions();
+  const updatePublicProfileCallable = httpsCallable<UpdatePublicProfileRequest, UpdatePublicProfileResponse>(
+    functions,
+    'updatePublicProfile'
+  );
 
   const profileForm = useForm({
     initialValues: {
@@ -75,25 +226,33 @@ export function AccountSettingsForm() {
       patreon: '',
       other: '',
     },
+    validateInputOnChange: true,
+    validateInputOnBlur: true,
+    validate: {
+      aboutMe: validateAboutMe,
+      contactEmail: validateContactEmail,
+      discord: validateDiscord,
+      patreon: validatePatreon,
+      other: validateOther,
+    },
   });
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [changeLoading, setChangeLoading] = useState(false);
   const [reauthNeeded, setReauthNeeded] = useState(false);
-  const [reauthPassword, setReauthPassword] = useState(''); // for password accounts
+  const [reauthPassword, setReauthPassword] = useState('');
   const [providerIds, setProviderIds] = useState<string[]>([]);
 
   async function handleConfirmDeleteClick() {
     const recent = await isRecentLogin();
     if (!recent) {
-      setReauthOpen(true); // show reauth first
+      setReauthOpen(true);
       return;
     }
-    deleteAccountMutation.mutate(); // session is fresh enough
+    deleteAccountMutation.mutate();
   }
 
-  // Load the profile on mount (only when logged in) and hydrate store + form
   const { data: loadedProfile } = useQuery<Partial<UserProfile>>({
     queryKey: ['userProfile', user?.uid],
     enabled: !!user,
@@ -107,11 +266,9 @@ export function AccountSettingsForm() {
   useEffect(() => {
     if (!loadedProfile) return;
 
-    // merge into store (so the rest of the app can use it)
     const next = { ...(useAuthStore.getState().profileData ?? {}), ...loadedProfile };
     useAuthStore.getState().setProfileData(next);
 
-    // hydrate form fields
     profileForm.setValues({
       aboutMe: next.aboutMe ?? '',
       contactEmail: next.contactEmail ?? '',
@@ -120,7 +277,7 @@ export function AccountSettingsForm() {
       other: next.other ?? '',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedProfile]); // runs once when query returns
+  }, [loadedProfile]);
 
   const mapEmailChangeError = (code?: string) => {
     switch (code) {
@@ -138,10 +295,10 @@ export function AccountSettingsForm() {
 
   const openChangeEmailModal = () => {
     const u = auth.currentUser;
-    setNewEmail(''); // leave blank; you can also prefill with u?.email ?? ''
+    setNewEmail('');
     setReauthNeeded(false);
     setReauthPassword('');
-    setProviderIds(u?.providerData?.map(p => p.providerId) ?? []);
+    setProviderIds(u?.providerData?.map((p) => p.providerId) ?? []);
     setEmailModalOpen(true);
   };
 
@@ -150,9 +307,7 @@ export function AccountSettingsForm() {
     if (!u) return;
     setChangeLoading(true);
     try {
-      // Optionally include continue URL so they land back in your app:
-      // const actionCodeSettings = { url: `${window.location.origin}/authentication` };
-      await verifyBeforeUpdateEmail(u, newEmail /*, actionCodeSettings */);
+      await verifyBeforeUpdateEmail(u, newEmail);
 
       notifications.show({
         title: 'Check your inbox',
@@ -164,7 +319,7 @@ export function AccountSettingsForm() {
     } catch (e: any) {
       const code = e?.code as string | undefined;
       if (code === 'auth/requires-recent-login') {
-        setReauthNeeded(true); // show reauth UI in the modal
+        setReauthNeeded(true);
       } else {
         notifications.show({
           title: 'Couldn’t send verification',
@@ -183,20 +338,16 @@ export function AccountSettingsForm() {
     setChangeLoading(true);
     try {
       if (providerIds.includes('password')) {
-        // Reauthenticate with current email + password
         const email = u.email ?? '';
         const cred = EmailAuthProvider.credential(email, reauthPassword);
         await reauthenticateWithCredential(u, cred);
       } else if (providerIds.includes('google.com')) {
-        // Reauthenticate with Google popup
         await reauthenticateWithPopup(u, googleProvider ?? new GoogleAuthProvider());
       } else {
-        // Fallback: try popup with the first provider
         await reauthenticateWithPopup(u, new GoogleAuthProvider());
       }
 
-      // Now retry the secure operation
-      await verifyBeforeUpdateEmail(u, newEmail /*, actionCodeSettings */);
+      await verifyBeforeUpdateEmail(u, newEmail);
 
       notifications.show({
         title: 'Verification sent',
@@ -217,17 +368,17 @@ export function AccountSettingsForm() {
   };
 
   const profileMutation = useMutation({
-    mutationFn: async (values: Partial<UserProfile>): Promise<Partial<UserProfile>> => {
+    mutationFn: async (values: UpdatePublicProfileRequest): Promise<Partial<UserProfile>> => {
       if (!user) throw new Error('User not authenticated.');
-      await updateDoc(doc(db, 'users', user.uid), values);
-      return values; // return partial to merge
+
+      // Server validates + writes. We still validate client-side for UX.
+      const res = await updatePublicProfileCallable(values);
+      return (res.data?.profile ?? {}) as Partial<UserProfile>;
     },
     onSuccess: (partial) => {
-      // merge into store
       const merged = { ...(useAuthStore.getState().profileData ?? {}), ...partial };
       useAuthStore.getState().setProfileData(merged);
 
-      // merge into query cache
       if (user) {
         qc.setQueryData<Partial<UserProfile>>(
           ['userProfile', user.uid],
@@ -235,7 +386,6 @@ export function AccountSettingsForm() {
         );
       }
 
-      // reflect immediately in the form
       profileForm.setValues({
         aboutMe: merged.aboutMe ?? '',
         contactEmail: merged.contactEmail ?? '',
@@ -252,9 +402,11 @@ export function AccountSettingsForm() {
       });
     },
     onError: (error: any) => {
+      // Callable errors often surface as: error.code = "functions/invalid-argument"
+      const msg = error?.message ?? 'Update failed. Please try again.';
       notifications.show({
         title: 'Update Failed',
-        message: error.message,
+        message: msg,
         color: 'red',
         icon: <XIcon size={18} />,
       });
@@ -264,7 +416,7 @@ export function AccountSettingsForm() {
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
       const res = await deleteMyAccountCallable({ reason: 'user requested' });
-      return res.data; // { ok: true }
+      return res.data;
     },
     onSuccess: async () => {
       await signOut(getAuth());
@@ -300,11 +452,7 @@ export function AccountSettingsForm() {
       <Text mt="xs">This is your account settings page.</Text>
       <Divider my="md" />
 
-      <Button
-        variant="outline"
-        onClick={() => navigate({ to: `/authors/${username}` })}
-        mb="md"
-      >
+      <Button variant="outline" onClick={() => navigate({ to: `/authors/${username}` })} mb="md">
         View Public Profile Page
       </Button>
       <Divider my="md" />
@@ -312,7 +460,9 @@ export function AccountSettingsForm() {
       <Title order={3}>Email</Title>
       <Group justify="space-between" align="end" mt="md" mb="sm">
         <Stack gap={2}>
-          <Text size="sm" c="dimmed">Current email</Text>
+          <Text size="sm" c="dimmed">
+            Current email
+          </Text>
           <Text>{auth.currentUser?.email ?? '—'}</Text>
         </Stack>
         <Button variant="default" onClick={openChangeEmailModal}>
@@ -324,39 +474,59 @@ export function AccountSettingsForm() {
       <Title order={3}>Public Profile Information</Title>
       <Text mt="xs">This information will be displayed on your public profile page.</Text>
 
-      <form onSubmit={profileForm.onSubmit((values) => profileMutation.mutate(values))}>
+      <form
+        onSubmit={profileForm.onSubmit((values) => {
+          const normalized = normalizeProfileValues(values);
+          profileMutation.mutate(normalized);
+        })}
+      >
         <Stack mt="md">
           <Textarea
             label="About Me"
-            placeholder="Tell us about yourself..."
+            description={`Optional. Up to ${ABOUT_MAX} characters. This is shown publicly on your profile.`}
+            placeholder="Tell readers a bit about yourself..."
             minRows={4}
+            maxLength={ABOUT_MAX}
             {...profileForm.getInputProps('aboutMe')}
             disabled={profileMutation.isPending}
           />
+
           <TextInput
             label="Contact Email"
-            placeholder="A public-facing email (optional)"
+            description={`Optional. Public-facing email (max ${CONTACT_EMAIL_MAX} characters).`}
+            placeholder="you@example.com"
+            maxLength={CONTACT_EMAIL_MAX}
             {...profileForm.getInputProps('contactEmail')}
             disabled={profileMutation.isPending}
           />
+
           <TextInput
             label="Discord"
-            placeholder="@your-discord-tag"
+            description={`Optional. Enter @handle or a Discord link (max ${DISCORD_MAX} characters).`}
+            placeholder="@yourname or https://discord.gg/..."
+            maxLength={DISCORD_MAX}
             {...profileForm.getInputProps('discord')}
             disabled={profileMutation.isPending}
           />
+
           <TextInput
             label="Patreon"
-            placeholder="patreon.com/your-page"
+            description={`Optional. Enter a Patreon link or creator handle (max ${PATREON_MAX} characters).`}
+            placeholder="patreon.com/your-page or your_handle"
+            maxLength={PATREON_MAX}
             {...profileForm.getInputProps('patreon')}
             disabled={profileMutation.isPending}
           />
+
           <TextInput
             label="Other"
-            placeholder="Any other link or information"
+            description={`Optional. One link or short text (max ${OTHER_MAX} characters).`}
+            placeholder="https://your-site.com or other info"
+            maxLength={OTHER_MAX}
             {...profileForm.getInputProps('other')}
             disabled={profileMutation.isPending}
           />
+
           <Button type="submit" mt="md" loading={profileMutation.isPending}>
             Save Public Profile
           </Button>
@@ -375,7 +545,6 @@ export function AccountSettingsForm() {
           borderColor: border,
         }}
       >
-        {/* slim left accent bar */}
         <Box
           style={{
             position: 'absolute',
@@ -407,7 +576,7 @@ export function AccountSettingsForm() {
 
           <Button
             color="red"
-            variant="filled"               // strong, but not stacked on solid red bg anymore
+            variant="filled"
             onClick={() => setDeleteModalOpened(true)}
             loading={deleteAccountMutation.isPending}
             radius="md"
@@ -417,16 +586,11 @@ export function AccountSettingsForm() {
         </Group>
       </Paper>
 
-      <Modal
-        opened={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        title="Change email"
-        centered
-      >
+      <Modal opened={emailModalOpen} onClose={() => setEmailModalOpen(false)} title="Change email" centered>
         <Stack>
           <Text size="sm" c="dimmed">
-            We’ll email a verification link to your new address. Your sign-in email changes
-            only after you click that link.
+            We’ll email a verification link to your new address. Your sign-in email changes only after you click that
+            link.
           </Text>
 
           <TextInput
@@ -439,11 +603,7 @@ export function AccountSettingsForm() {
           />
 
           {!reauthNeeded ? (
-            <Button
-              onClick={sendVerificationToNewEmail}
-              loading={changeLoading}
-              disabled={!newEmail.trim()}
-            >
+            <Button onClick={sendVerificationToNewEmail} loading={changeLoading} disabled={!newEmail.trim()}>
               Send verification
             </Button>
           ) : (
@@ -458,11 +618,7 @@ export function AccountSettingsForm() {
                     disabled={changeLoading}
                     withAsterisk
                   />
-                  <Button
-                    onClick={handleReauthAndRetry}
-                    loading={changeLoading}
-                    disabled={!reauthPassword}
-                  >
+                  <Button onClick={handleReauthAndRetry} loading={changeLoading} disabled={!reauthPassword}>
                     Verify identity & send link
                   </Button>
                 </>
@@ -479,7 +635,6 @@ export function AccountSettingsForm() {
         </Stack>
       </Modal>
 
-
       <Modal
         opened={deleteModalOpened}
         onClose={() => {
@@ -490,9 +645,7 @@ export function AccountSettingsForm() {
         centered
       >
         <Stack gap="sm">
-          <Text size="sm">
-            Deleting your account will permanently remove:
-          </Text>
+          <Text size="sm">Deleting your account will permanently remove:</Text>
 
           <List size="sm" spacing="xs">
             <List.Item>All of your stories and all of their chapters</List.Item>
@@ -505,11 +658,7 @@ export function AccountSettingsForm() {
           </Text>
 
           <Text size="sm">
-            To confirm, type your username{' '}
-            <Text span fw={600}>
-              {expectedUsername}
-            </Text>{' '}
-            below.
+            To confirm, type your username <Text span fw={600}>{expectedUsername}</Text> below.
           </Text>
 
           <TextInput
@@ -526,20 +675,14 @@ export function AccountSettingsForm() {
             mt="sm"
             onClick={handleConfirmDeleteClick}
             loading={deleteAccountMutation.isPending}
-            disabled={
-              deleteConfirmInput.trim() !== expectedUsername ||
-              deleteAccountMutation.isPending
-            }
+            disabled={deleteConfirmInput.trim() !== expectedUsername || deleteAccountMutation.isPending}
           >
             Yes, delete my account
           </Button>
         </Stack>
       </Modal>
-      <ReauthModal
-        opened={reauthOpen}
-        onClose={() => setReauthOpen(false)}
-        onSuccess={() => deleteAccountMutation.mutate()}
-      />
+
+      <ReauthModal opened={reauthOpen} onClose={() => setReauthOpen(false)} onSuccess={() => deleteAccountMutation.mutate()} />
     </Paper>
   );
 }

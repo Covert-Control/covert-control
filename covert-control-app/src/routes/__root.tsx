@@ -1,11 +1,11 @@
 // __root.tsx
 import * as React from 'react';
-import { AppShell, Burger, Group, Skeleton, Title, Alert, Button, Text, Stack } from '@mantine/core';
+import { AppShell, Burger, Group, Skeleton, Title, Alert, Button, Text, Stack, Box } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { Outlet, createRootRoute, useMatchRoute } from '@tanstack/react-router';
+import { Outlet, createRootRoute, useMatchRoute, Link } from '@tanstack/react-router';
 import SchemeToggleButton from '../components/SchemeToggleButton.tsx';
 import DiscordButton from '../components/DiscordButton.tsx';
-import SiteNavbar from '../components/Navbar/Navbar.tsx'; // ⬅️ renamed import
+import SiteNavbar from '../components/Navbar/Navbar.tsx'; 
 import { AccountDropDown } from '../components/AccountDropDown.tsx';
 import { useAuthStore } from '../stores/authStore';
 import { SetUsernamePage } from '../components/SetUsernamePage.tsx';
@@ -16,6 +16,7 @@ import { auth } from '../config/firebase.tsx';
 import { AdminMailbox } from '../components/AdminMailbox';
 import { useUiStore } from '../stores/uiStore';
 import { AuthBootListener } from '../components/useAuthBootListener.tsx';
+import SiteFooter from '../components/SiteFooter';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -165,7 +166,27 @@ function RootComponent() {
               title={desktopOpened ? 'Collapse sidebar' : 'Expand sidebar'}
             />
 
-            <img src={SiteLogo} width="50" height="50" />
+            <Box
+              component={Link}
+              to="/"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 0,
+                textDecoration: 'none',
+              }}
+              aria-label="Go to home"
+            >
+              <img
+                src={SiteLogo}
+                alt="Covert Control"
+                style={{
+                  height: 28,     
+                  width: 'auto', 
+                  display: 'block',
+                }}
+              />
+            </Box>
           </Group>
 
           <Group>
@@ -240,8 +261,8 @@ function RootComponent() {
         <Outlet />
       </AppShell.Main>
 
-      <AppShell.Footer zIndex={mobileOpened ? 'auto' : 201}>
-        {!effectiveReaderMode && <>This is the footer</>}
+      <AppShell.Footer zIndex={mobileOpened ? 'auto' : 201} p={0}>
+        {!effectiveReaderMode && <SiteFooter />}
       </AppShell.Footer>
     </AppShell>
   );

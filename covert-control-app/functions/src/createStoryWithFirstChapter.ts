@@ -51,6 +51,9 @@ const CHAPTER_SUMMARY_MAX = 500;
 // Chapter body constraints
 const BODY_MIN_WORDS = 50;
 
+// JSON body size protection
+const CONTENT_JSON_MAX_CHARS = 1_000_000;
+
 // ------------------------
 // Helpers
 // ------------------------
@@ -88,7 +91,7 @@ function enforceLen(
 function normalizeTag(raw: unknown): string {
   const s = normalizeSpaces(String(raw ?? ''))
     .toLowerCase()
-    .replace(/\s+\(\d+\)\s*$/, '')
+    .replace(/\s*\(\d+\)\s*$/, '')
     .trim();
 
   return s;
@@ -183,6 +186,14 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
+    const emailVerified = request.auth?.token?.email_verified === true;
+    if (!emailVerified) {
+      throw new HttpsError(
+        'permission-denied',
+        'Please verify your email address before submitting a story.'
+      );
+    }
+
     // ---- Required fields ----
     const rawTitle = ensureString(data?.title, 'Title');
     const rawDesc = ensureString(data?.description, 'Description');
@@ -250,7 +261,29 @@ export const createStoryWithFirstChapter = onCall(
     const authorDocRef = db.collection('authors_with_stories').doc(ownerId);
 
     const now = Timestamp.now();
-    const contentString = JSON.stringify(data?.chapterContentJSON ?? null);
+    // ---- Chapter content JSON safety checks ----
+    const chapterContent = data?.chapterContentJSON;
+
+    // Reject missing content explicitly (you can keep relying on wordCount too, but this is safer)
+    if (chapterContent === undefined || chapterContent === null) {
+      throw new HttpsError('invalid-argument', 'Chapter content is required.');
+    }
+
+    // Stringify once, validate size, and reuse it for storage
+    let contentString: string;
+    try {
+      contentString = JSON.stringify(chapterContent);
+    } catch {
+      throw new HttpsError('invalid-argument', 'Chapter content is not valid JSON.');
+    }
+
+    if (contentString.length > CONTENT_JSON_MAX_CHARS) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Chapter content is too large. Please split longer stories into multiple chapters.`
+      );
+    }
+
 
     const title_lc = normalizedTitle.toLowerCase();
     const createdAtNumeric = Date.now();

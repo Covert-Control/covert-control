@@ -30,9 +30,11 @@ import {
   Link2,
   Filter as FilterIcon,
   Search,
+  Pencil,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AdminDropdown } from '../../components/AdminDropdown';
+import { useAuthStore } from '../../stores/authStore';
 
 // --- Types ---
 interface Story {
@@ -164,6 +166,11 @@ function AuthorDetailPage() {
     enabled: !!author?.uid,
     staleTime: 1000 * 60 * 1,
   });
+
+  const authUser = useAuthStore((s: any) => s.user ?? s.currentUser ?? null);
+
+  const isOwnProfile =
+    !!authUser?.uid && !!author?.uid && authUser.uid === author.uid;
 
   // Memos that safely handle undefined data
   const tagStats = useMemo(() => {
@@ -320,12 +327,22 @@ function AuthorDetailPage() {
             </Group>
           </div>
 
-          <AdminDropdown
-            targetUid={author.uid}
-            displayName={author.username}
-            isBanned={!!author.banned}
-            bannedReason={author.bannedReason ?? null}
-          />
+          <Group gap="xs" wrap="nowrap" justify="flex-end">
+            {isOwnProfile && (
+              <Link to="/account-settings" style={{ textDecoration: 'none' }}>
+                <Button variant="light" size="xs" leftSection={<Pencil size={14} />}>
+                  Edit Profile
+                </Button>
+              </Link>
+            )}
+
+            <AdminDropdown
+              targetUid={author.uid}
+              displayName={author.username}
+              isBanned={!!author.banned}
+              bannedReason={author.bannedReason ?? null}
+            />
+          </Group>
         </Group>
 
         {/* Contact section with clear labels */}

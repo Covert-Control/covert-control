@@ -449,7 +449,7 @@ export function TipTap2() {
                   value={form.values.tags}
                   onChange={(tags) => form.setFieldValue('tags', tags)}
                   maxTags={TAGS_MAX}
-                  placeholder="Add tags (e.g., science fiction, military)"
+                  placeholder="Add tags (e.g., science fiction, military). Separate with comma"
                 />
 
                 {form.errors.tags && (

@@ -75,6 +75,8 @@ const CHAPTER_SUMMARY_MAX = 500;
 // Chapter body constraints
 const BODY_MIN_WORDS = 50;
 
+const CONTENT_JSON_MAX_CHARS = 1_000_000;
+
 /* ---------------------------------------------
   Normalizers
 ---------------------------------------------- */
@@ -96,15 +98,45 @@ function normalizeTag(s: string) {
     .replace(/\s+/g, ' ');
 }
 
-function sanitizeTags(input: unknown): string[] {
-  if (!Array.isArray(input)) return [];
-  const cleaned = input
-    .map((t) => normalizeTag(t))
-    .filter((t) => t.length >= TAG_MIN_LEN && t.length <= TAG_MAX_LEN);
+function cleanTagsStrict(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    throw new HttpsError('invalid-argument', 'tags must be an array if provided.');
+  }
 
-  // Unique + bounded
-  return Array.from(new Set(cleaned)).slice(0, TAGS_MAX);
+  const cleaned: string[] = [];
+
+  for (const raw of input) {
+    const tag = normalizeTag(raw);
+    if (!tag) continue;
+
+    if (tag.length < TAG_MIN_LEN) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Tag "${tag}" is too short (min ${TAG_MIN_LEN}).`
+      );
+    }
+    if (tag.length > TAG_MAX_LEN) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Tag "${tag}" is too long (max ${TAG_MAX_LEN}).`
+      );
+    }
+
+    cleaned.push(tag);
+  }
+
+  const deduped = Array.from(new Set(cleaned));
+
+  if (deduped.length < TAGS_MIN) {
+    throw new HttpsError('invalid-argument', `Please add at least ${TAGS_MIN} tags.`);
+  }
+  if (deduped.length > TAGS_MAX) {
+    throw new HttpsError('invalid-argument', `Please use at most ${TAGS_MAX} tags.`);
+  }
+
+  return deduped;
 }
+
 
 /* ---------------------------------------------
   Cloud Function
@@ -122,6 +154,8 @@ export const saveChapter = onCall<SaveChapterRequest>(
       );
     }
 
+    
+
     const {
       storyId,
       chapterNumber,
@@ -134,6 +168,24 @@ export const saveChapter = onCall<SaveChapterRequest>(
       storyDescription,
       tags,
     } = data;
+
+    if (contentJSON === undefined || contentJSON === null) {
+      throw new HttpsError('invalid-argument', 'contentJSON is required.');
+    }
+
+    let contentString: string;
+    try {
+      contentString = JSON.stringify(contentJSON);
+    } catch {
+      throw new HttpsError('invalid-argument', 'Chapter content is not valid JSON.');
+    }
+
+    if (contentString.length > CONTENT_JSON_MAX_CHARS) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Chapter content is too large. Please split longer stories into multiple chapters.'
+      );
+    }
 
     /* ---------------------------------------------
       Basic validation
@@ -384,7 +436,7 @@ export const saveChapter = onCall<SaveChapterRequest>(
           }
 
           // Tags
-          const cleanTags = sanitizeTags(tags);
+          const cleanTags = cleanTagsStrict(tags);
           if (cleanTags.length < TAGS_MIN) {
             throw new HttpsError(
               'invalid-argument',
@@ -420,7 +472,7 @@ export const saveChapter = onCall<SaveChapterRequest>(
         index: chapterNumber,
         chapterTitle: normalizedChapterTitle, // null when blank
         chapterSummary: normalizedChapterSummary, // null when blank
-        content: JSON.stringify(contentJSON),
+        content: contentString,
         wordCount,
         charCount,
         updatedAt: now,

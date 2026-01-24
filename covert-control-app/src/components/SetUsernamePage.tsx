@@ -11,14 +11,59 @@ import { useNavigate } from '@tanstack/react-router';
 function isBannedEmailError(err: any) {
   const code = String(err?.code ?? '');
   const msg = String(err?.message ?? '');
-  // v2 callable HttpsError('permission-denied', ...) typically surfaces like:
-  // code: "functions/permission-denied"
   if (code.includes('permission-denied')) return true;
-
-  // fallback if code is missing
   if (msg.toLowerCase().includes('email address has been banned')) return true;
-
   return false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Username constraints (must match backend)
+//  - 3–30 chars
+//  - letters/numbers/underscore only
+//  - underscore is a separator: no leading/trailing underscore, no "__"
+//  - reserved words blocked
+// ─────────────────────────────────────────────────────────────
+const USERNAME_MIN_LEN = 3;
+const USERNAME_MAX_LEN = 30;
+
+// Letters/numbers, underscore only as a separator between alnum runs
+// Examples allowed: "Eric_Dev", "user123", "a_b_c"
+// Examples rejected: "_user", "user_", "user__name", "____", "user-name", "user.name"
+const USERNAME_REGEX = /^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$/;
+
+const RESERVED_USERNAMES = new Set<string>([
+  // roles / staff / system-ish
+  'admin', 'administrator', 'kike', 'nigger', 'nigga', 'nazi', 'jiggaboo', 'jigaboo',
+  'jailbait', 'lolita', 'pedophile', 'paedophile', 'underage'
+]);
+
+function normalizeUsernameForChecks(raw: string) {
+  return raw.trim().toLowerCase();
+}
+
+function validateUsername(raw: string): string | null {
+  const v = raw.trim();
+
+  if (!v) return 'Username is required.';
+  if (v.length < USERNAME_MIN_LEN || v.length > USERNAME_MAX_LEN) {
+    return `Username must be between ${USERNAME_MIN_LEN} and ${USERNAME_MAX_LEN} characters.`;
+  }
+
+  // Keep logs/UI sane
+  if (/[\r\n\t]/.test(v)) {
+    return 'Username cannot contain tabs or newlines.';
+  }
+
+  if (!USERNAME_REGEX.test(v)) {
+    return 'Username may contain only letters, numbers, and single underscores (no leading/trailing or double underscores).';
+  }
+
+  const vLc = normalizeUsernameForChecks(v);
+  if (RESERVED_USERNAMES.has(vLc)) {
+    return 'That username contains a reserved word. Please choose a different one.';
+  }
+
+  return null;
 }
 
 export function SetUsernamePage() {
@@ -30,7 +75,6 @@ export function SetUsernamePage() {
 
   const deleteMyAccountCallable = httpsCallable<void, any>(functions, 'deleteMyAccount');
 
-
   const currentUser = useAuthStore((s) => s.user);
   const setAuthState = useAuthStore((s) => s.setAuthState);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -39,39 +83,28 @@ export function SetUsernamePage() {
 
   const usernameForm = useForm({
     initialValues: { newUsername: '' },
+    validateInputOnChange: true,
+    validateInputOnBlur: true,
     validate: {
-      newUsername: (value) => {
-        if (!value.trim()) return 'Username cannot be empty';
-        if (value.length < 3 || value.length > 20) {
-          return 'Username must be between 3 and 20 characters';
-        }
-        return null;
-      },
+      newUsername: (value) => validateUsername(value),
     },
   });
 
   async function handleCancelRegistration() {
-    // If they never completed Google sign-in, just exit
     const user = auth.currentUser;
 
     try {
       if (user) {
-        // IMPORTANT: delete first while still authenticated
-        // Use your existing callable (preferred)
         await deleteMyAccountCallable();
-
-        // If your callable does NOT sign them out server-side, do it client-side:
         await auth.signOut();
       }
     } catch (err: any) {
       console.error('Cancel registration deletion failed:', err);
 
-      // Fallback: still sign out so they can browse
       try {
         await auth.signOut();
       } catch {}
 
-      // Optional: show a more specific message, but do not block escape
       notifications.show({
         title: 'Registration cancelled',
         message:
@@ -86,7 +119,6 @@ export function SetUsernamePage() {
       return;
     }
 
-    // Ensure gate drops immediately even before listener resolves
     clearAuth();
 
     notifications.show({
@@ -114,26 +146,28 @@ export function SetUsernamePage() {
       return;
     }
 
+    // Ensure we send the trimmed value (matches backend normalization expectations)
+    const trimmedUsername = values.newUsername.trim();
+
     setSubmitting(true);
 
     try {
-      await completeGoogleRegistrationCallable({ username: values.newUsername });
+      await completeGoogleRegistrationCallable({ username: trimmedUsername });
 
       notifications.show({
         title: 'Username Set!',
-        message: `Welcome, ${values.newUsername}! Your profile is now complete.`,
+        message: `Welcome, ${trimmedUsername}! Your profile is now complete.`,
         color: 'teal',
         icon: <CheckIcon size={18} />,
         autoClose: 9000,
         position: 'bottom-center',
       });
 
-      // Update store so __root gate releases immediately
       setAuthState(
         currentUser,
         true,
         currentUser.uid,
-        values.newUsername,
+        trimmedUsername,
         currentUser.email ?? null,
         null,
         !!currentUser.emailVerified
@@ -143,7 +177,6 @@ export function SetUsernamePage() {
     } catch (error: any) {
       console.error('Error setting username:', error);
 
-      // If banned, let them escape the gate
       if (isBannedEmailError(error)) {
         notifications.show({
           title: 'Email banned',
@@ -203,7 +236,8 @@ export function SetUsernamePage() {
           <TextInput
             required
             label="Username"
-            placeholder="Your unique username"
+            placeholder="3–30 characters (letters, numbers, underscore)"
+            description="Allowed: letters, numbers, underscore. Must start/end with a letter or number. No double underscores."
             {...usernameForm.getInputProps('newUsername')}
             radius="md"
             disabled={submitting}

@@ -45,6 +45,74 @@ type ModalConfig = {
   confirmLabel?: string;
 };
 
+const USERNAME_MIN_LEN = 3;
+const USERNAME_MAX_LEN = 30;
+
+// Letters/numbers, underscore as a separator only (no leading/trailing underscore, no "__")
+const USERNAME_REGEX = /^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$/;
+
+const BANNED_USERNAMES = new Set<string>([
+  // roles / staff
+  'admin', 'administrator', 'kike', 'nigger', 'nigga', 'nazi', 'jiggaboo', 'jigaboo',
+  'jailbait', 'lolita', 'pedophile', 'paedophile', 'underage'
+]);
+
+const PASSWORD_MIN_LEN = 8;
+const PASSWORD_MAX_LEN = 1024;
+
+// Small client-side UX blocklist (do the real check on the backend too)
+const COMMON_PASSWORDS = new Set<string>([
+  'password', 'password1', 'password123', 'password1234',
+  '12345678', '123456789', 'qwerty123', 'letmein', 'iloveyou',
+  'admin123', 'welcome123', 'abc12345',
+]);
+
+function normalizeUsernameForChecks(raw: string) {
+  return raw.trim().toLowerCase();
+}
+
+function validateUsername(raw: string): string | null {
+  const v = raw.trim();
+
+  if (!v) return 'Username is required.';
+  if (v.length < USERNAME_MIN_LEN || v.length > USERNAME_MAX_LEN) {
+    return `Username must be between ${USERNAME_MIN_LEN} and ${USERNAME_MAX_LEN} characters.`;
+  }
+
+  // Guard against tabs/newlines (keeps logs/UI sane)
+  if (/[\r\n\t]/.test(v)) {
+    return 'Username cannot contain tabs or newlines.';
+  }
+
+  if (!USERNAME_REGEX.test(v)) {
+    return 'Username may contain only letters, numbers, and single underscores (no leading/trailing or double underscores).';
+  }
+
+  const vLc = normalizeUsernameForChecks(v);
+  if (BANNED_USERNAMES.has(vLc)) {
+    return 'That username is reserved. Please choose a different one.';
+  }
+
+  return null;
+}
+
+function validatePassword(raw: string): string | null {
+  if (!raw) return 'Password is required.';
+  if (raw.length < PASSWORD_MIN_LEN) {
+    return `Password must be at least ${PASSWORD_MIN_LEN} characters.`;
+  }
+  if (raw.length > PASSWORD_MAX_LEN) {
+    return `Password must be at most ${PASSWORD_MAX_LEN} characters.`;
+  }
+
+  const lowered = raw.toLowerCase();
+  if (COMMON_PASSWORDS.has(lowered)) {
+    return 'That password is too common. Please choose a more unique password.';
+  }
+
+  return null;
+}
+
 const mapFirebaseLoginError = (code?: string) => {
   switch (code) {
     case 'auth/invalid-credential':
@@ -102,35 +170,36 @@ export function AuthenticationForm(props: PaperProps) {
       password: '',
       confirmPassword: '',
       terms: false,
-      validateInputOnChange: true,
-      validateInputOnBlur: true,
     },
+
+    validateInputOnChange: true,
+    validateInputOnBlur: true,
 
     validate: (values) => {
       const errors: Record<string, string> = {};
 
+      // Keep your email check (simple + fast)
       if (!/^\S+@\S+$/.test(values.email)) {
-        errors.email = 'Invalid email';
+        errors.email = 'Invalid email address.';
       }
 
-      if (values.password.length < 6) {
-        errors.password = 'Password should include at least 6 characters';
-      }
-
-      // Registration-only validation
       if (type === 'register') {
-        if (!values.name.trim()) {
-          errors.name = 'Username is required';
-        } else if (values.name.length < 3 || values.name.length > 20) {
-          errors.name = 'Username must be between 3 and 20 characters';
-        }
+        const usernameErr = validateUsername(values.name);
+        if (usernameErr) errors.name = usernameErr;
+
+        const pwErr = validatePassword(values.password);
+        if (pwErr) errors.password = pwErr;
 
         if (values.confirmPassword !== values.password) {
-          errors.confirmPassword = 'Passwords did not match';
+          errors.confirmPassword = 'Passwords did not match.';
         }
 
         if (!values.terms) {
-          errors.terms = 'You must accept terms and conditions';
+          errors.terms = 'You must accept terms and conditions.';
+        }
+      } else {
+        if (!values.password) {
+          errors.password = 'Password is required.';
         }
       }
 
@@ -143,16 +212,10 @@ export function AuthenticationForm(props: PaperProps) {
     initialValues: {
       newUsername: '',
     },
+    validateInputOnChange: true,
+    validateInputOnBlur: true,
     validate: {
-      newUsername: (value) => {
-        if (!value.trim()) {
-          return 'Username cannot be empty';
-        }
-        if (value.length < 3 || value.length > 20) {
-          return 'Username must be between 3 and 20 characters';
-        }
-        return null;
-      },
+      newUsername: (value) => validateUsername(value),
     },
   });
 
@@ -514,7 +577,8 @@ export function AuthenticationForm(props: PaperProps) {
             <TextInput
               required
               label="Username"
-              placeholder="Your unique username"
+              placeholder="3–30 characters (letters, numbers, underscore)"
+              description="Allowed: letters, numbers, underscore. Must start/end with a letter or number. No double underscores."
               radius="md"
               mt="md"
               disabled={isProcessing}
@@ -703,20 +767,19 @@ export function AuthenticationForm(props: PaperProps) {
             )}
           >
           <Stack>
-            {type === 'register' && (
-              <TextInput
-                required
-                label="Username"
-                placeholder="Other users will see this"
-                value={form.values.name}
-                onChange={(event) =>
-                  form.setFieldValue('name', event.currentTarget.value)
-                }
-                error={form.errors.name}
-                radius="md"
-                disabled={isProcessing}
-              />
-            )}
+          {type === 'register' && (
+            <TextInput
+              required
+              label="Username"
+              placeholder="3–30 characters (letters, numbers, underscore)"
+              description="Allowed: letters, numbers, underscore. Must start/end with a letter or number. No double underscores."
+              value={form.values.name}
+              onChange={(event) => form.setFieldValue('name', event.currentTarget.value)}
+              error={form.errors.name}
+              radius="md"
+              disabled={isProcessing}
+            />
+          )}
 
             <TextInput
               required
@@ -734,11 +797,18 @@ export function AuthenticationForm(props: PaperProps) {
             <PasswordInput
               required
               label="Password"
-              placeholder="Your password..."
-              value={form.values.password}
-              onChange={(event) =>
-                form.setFieldValue('password', event.currentTarget.value)
+              placeholder={
+                type === 'register'
+                  ? `At least ${PASSWORD_MIN_LEN} characters`
+                  : 'Your password...'
               }
+              description={
+                type === 'register'
+                  ? `Must be ${PASSWORD_MIN_LEN}–${PASSWORD_MAX_LEN} characters. Avoid common passwords.`
+                  : undefined
+              }
+              value={form.values.password}
+              onChange={(event) => form.setFieldValue('password', event.currentTarget.value)}
               error={form.errors.password}
               radius="md"
               disabled={isProcessing}

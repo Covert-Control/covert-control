@@ -1,7 +1,7 @@
 // src/components/StoryListCard.tsx
-import { Card, Title, Text, Button, Badge, Anchor } from '@mantine/core';
+import { Card, Title, Text, Button, Badge, Anchor, ActionIcon, Tooltip, HoverCard } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight, Eye, BookOpen } from 'lucide-react';
+import { ArrowRight, Eye, BookOpen, BellPlus } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
 import LikeButton from './LikeButton';
 import { useAuthStore } from '../stores/authStore';
@@ -151,6 +151,12 @@ export default function StoryListCard({
   const views = story.viewCount ?? 0;
   const viewsLabel = views === 1 ? '1 view' : `${views} views`;
 
+  const RECENT_UPDATE_DAYS = 7;
+
+  const isRecentUpdate =
+    !!updatedAt &&
+    Date.now() - updatedAt.getTime() < RECENT_UPDATE_DAYS * 24 * 60 * 60 * 1000;
+
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
       <Card.Section
@@ -183,11 +189,39 @@ export default function StoryListCard({
               minWidth: 0,
             }}
           >
+            {isRecentUpdate && (
+            <HoverCard
+              position="bottom"
+              withArrow
+              withinPortal
+              zIndex={5000}
+              openDelay={200}
+              shadow="md"
+              radius="md"
+            >
+              <HoverCard.Target>
+                <ActionIcon
+                  variant="light"
+                  size="sm"
+                  radius="xl"
+                  aria-label="Recently updated"
+                  style={{ alignSelf: 'baseline' }}
+                >
+                  <BellPlus size={16} />
+                </ActionIcon>
+              </HoverCard.Target>
+
+              <HoverCard.Dropdown>
+                <Text size="sm">This story was recently updated.</Text>
+              </HoverCard.Dropdown>
+            </HoverCard>
+            )}
             <Link
               to="/stories/$storyId"
               params={{ storyId: story.id }}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
+
               <Title
                 order={3}
                 size="h4"
@@ -247,8 +281,24 @@ export default function StoryListCard({
             </Text>
 
             <Text size="sm" c="dimmed" title={dateTitle}>
-              {combinedDateLabel}
+              {createdLabel && <Text span inherit>{createdLabel}</Text>}
+
+              {updatedLabel && createdLabel && <Text span inherit>{' · '}</Text>}
+
+              {updatedLabel && (
+                <>
+                  <Text
+                    span
+                    inherit
+                    fw={700} // bold only when recent
+                  >
+                    updated
+                  </Text>
+                  <Text span inherit>{` ${updatedLabel}`}</Text>
+                </>
+              )}
             </Text>
+
           </div>
         </div>
 
