@@ -1,0 +1,134 @@
+/* components/Navbar/Navbar.module.css */
+
+.navbar {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: light-dark(
+    var(--mantine-color-white),
+    var(--mantine-color-dark-6)
+  );
+  border-right: 1px solid
+    light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+/* little floating collapse button on desktop */
+.collapseButton {
+  position: absolute;
+  top: 8px;
+  right: -18px;
+  z-index: 2;
+}
+
+/* Scrollable middle section */
+.links {
+  flex: 1;
+  min-height: 0; /* critical so ScrollArea shrinks and footer stays visible */
+}
+
+.linksInner {
+  padding: 6px 6px; 
+}
+
+.header {
+  padding-bottom: var(--mantine-spacing-sm);
+  margin-bottom: calc(var(--mantine-spacing-sm) * 1.5);
+  border-bottom: 1px solid
+    light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+.footer {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+  border-top: 1px solid
+    light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+}
+
+/* “leaf” links like Login / Logout */
+.link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--mantine-spacing-xs);
+  text-decoration: none;
+  font-size: var(--mantine-font-size-sm);
+  color: light-dark(
+    var(--mantine-color-gray-7),
+    var(--mantine-color-dark-1)
+  );
+  padding: 6px 8px;  /* tighter vertical padding */
+  border-radius: var(--mantine-radius-sm);
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+
+  @mixin hover {
+    background-color: light-dark(
+      var(--mantine-color-gray-0),
+      var(--mantine-color-dark-6)
+    );
+    color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+
+    .linkIcon {
+      color: light-dark(var(--mantine-color-black), var(--mantine-color-white));
+    }
+  }
+
+  &[data-active] {
+    &,
+    &:hover {
+      background-color: var(--mantine-color-blue-light);
+      color: var(--mantine-color-blue-light-color);
+
+      .linkIcon {
+        color: var(--mantine-color-blue-light-color);
+      }
+    }
+  }
+}
+
+.linkIcon {
+  color: light-dark(
+    var(--mantine-color-gray-6),
+    var(--mantine-color-dark-2)
+  );
+  width: 20px;
+  height: 20px;
+}
+
+/* Mobile: partial-width navbar; rest handled by AppShell / overlay */
+@media (max-width: 48rem) {
+  :global(.mantine-AppShell-navbar) {
+    width: 190px;
+    max-width: 90vw;
+    right: auto;
+    background-color: transparent;
+    box-shadow: var(--mantine-shadow-lg);
+  }
+
+  .navbar {
+    background-color: light-dark(
+      var(--mantine-color-white),
+      var(--mantine-color-dark-6)
+    );
+  }
+
+  .linksInner {
+    padding: 6px 6px;
+  }
+
+  .footer {
+    padding: 6px 6px;
+  }
+
+  .link {
+    padding: 6px 8px;
+    gap: 8px;
+  }
+
+  .linkIcon {
+    width: 18px;
+    height: 18px;
+  }
+}
