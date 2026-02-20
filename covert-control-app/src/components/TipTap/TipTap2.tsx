@@ -659,7 +659,7 @@ export function TipTap2() {
         title="Terms & Conditions"
       />
 
-      {/* Error Modal */}
+      {/*   Error Modal   */}
       <Modal
         opened={errorOpen}
         onClose={() => setErrorOpen(false)}
