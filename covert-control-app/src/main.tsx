@@ -24,9 +24,28 @@ const theme = createTheme({
   // You can add valid Mantine theme properties here
 });
 
+const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {},
+  light: {
+    // Darken "dimmed" text (Text c="dimmed") so it isn't washed out on white
+    '--mantine-color-dimmed': theme.colors.gray[7],
+
+    // Darken default borders/outlines (Card withBorder, ActionIcon outline, Inputs, etc.)
+    '--mantine-color-default-border': theme.colors.gray[4],
+  },
+  dark: {
+    // Optional: keep dark borders consistent with Mantine defaults (tweak if desired)
+    '--mantine-color-default-border': theme.colors.dark[4],
+  },
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme='dark'>
+    <MantineProvider
+      theme={theme}
+      defaultColorScheme="dark"
+      cssVariablesResolver={cssVariablesResolver}
+    >
         <Notifications position="bottom-right" />
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />

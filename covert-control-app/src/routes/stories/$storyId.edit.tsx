@@ -24,6 +24,7 @@ import {
   TextInput,
   Textarea,
   Title,
+  Radio
 } from '@mantine/core';
 
 import { notifications } from '@mantine/notifications';
@@ -147,6 +148,7 @@ async function fetchChapterForEdit(storyId: string, chapterNum: number) {
         : '',
     content: d?.content ?? '',
     createdAt: d?.createdAt ?? null,
+    dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : null,
   };
 }
 
@@ -259,6 +261,8 @@ function EditStoryPage() {
 
   const storyFieldsEditable = safeChapter === 1;
 
+  type ChapterDropCapMode = 'inherit' | 'on' | 'off';
+
   const form = useForm({
     initialValues: {
       // story meta (chapter 1 only)
@@ -266,9 +270,13 @@ function EditStoryPage() {
       description: typeof (story as any).description === 'string' ? (story as any).description : '',
       tags: Array.isArray((story as any).tags) ? ((story as any).tags as string[]) : [],
 
+      storyDropCapDefault: !!(story as any).dropCapDefault,
+
       // chapter meta (optional)
       chapterTitle: chapterEditQuery.data?.chapterTitle ?? '',
       chapterSummary: chapterEditQuery.data?.chapterSummary ?? '',
+
+      chapterDropCapMode: 'inherit' as ChapterDropCapMode,
     },
 
     validate: {
@@ -333,10 +341,15 @@ function EditStoryPage() {
   useEffect(() => {
     if (!chapterEditQuery.isFetched) return;
 
+    const chapterDropCap = chapterEditQuery.data?.dropCap; // boolean | null | undefined
+    const mode: ChapterDropCapMode =
+      chapterDropCap === true ? 'on' : chapterDropCap === false ? 'off' : 'inherit';
+
     form.setValues({
       ...form.values,
       chapterTitle: chapterEditQuery.data?.chapterTitle ?? '',
       chapterSummary: chapterEditQuery.data?.chapterSummary ?? '',
+      chapterDropCapMode: mode,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterEditQuery.data, safeChapter]);
@@ -384,6 +397,10 @@ function EditStoryPage() {
         contentJSON: plainifyForCallable(editor.getJSON()),
         wordCount,
         charCount,
+        dropCap:
+          values.chapterDropCapMode === 'inherit'
+            ? null
+            : values.chapterDropCapMode === 'on',
       };
 
       if (storyFieldsEditable) {
@@ -401,6 +418,7 @@ function EditStoryPage() {
         payload.storyTitle = normalizedStoryTitle;
         payload.storyDescription = normalizedStoryDesc;
         payload.tags = cleanedTags;
+        payload.storyDropCapDefault = !!values.storyDropCapDefault;
       }
 
       const res = await saveChapterCallable(payload);
@@ -552,6 +570,11 @@ function EditStoryPage() {
               description={`${(form.values.chapterSummary ?? '').length}/${CHAPTER_SUMMARY_MAX} characters`}
               {...form.getInputProps('chapterSummary')}
             />
+
+            <Divider />
+
+            <Title order={5}>Reader style (this chapter)</Title>
+
           </Stack>
         </Paper>
 
@@ -600,6 +623,21 @@ function EditStoryPage() {
 
               <RichTextEditor.Content />
             </RichTextEditor>
+
+            <Title order={5}>Reader style (this chapter)</Title>
+
+            <Radio.Group
+              label="Drop cap"
+              description="Choose how the first-letter drop cap should behave for this chapter."
+              value={form.values.chapterDropCapMode}
+              onChange={(v) => form.setFieldValue('chapterDropCapMode', v as any)}
+            >
+              <Stack gap={4} mt="xs">
+                <Radio value="inherit" label="Use story default" />
+                <Radio value="on" label="On" />
+                <Radio value="off" label="Off" />
+              </Stack>
+            </Radio.Group>
 
             {/* Match TipTap2 display: show words + chars/limit */}
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>

@@ -16,6 +16,12 @@ interface SaveChapterRequest {
   wordCount: number;
   charCount: number;
 
+  // ✅ Chapter override: true/false sets it, null means "inherit" (delete field)
+  dropCap?: boolean | null;
+
+  // ✅ Story default (only allowed when editing chapter 1)
+  storyDropCapDefault?: boolean;
+
   // Only used when editing chapter 1 (story meta edits)
   storyTitle?: string;
   storyDescription?: string; // REQUIRED for chapter 1 updates (matches client)
@@ -34,6 +40,7 @@ interface StoryDoc {
   totalWordCount?: number;
   totalCharCount?: number;
   lastChapterPublishedAt?: Timestamp;
+  dropCapDefault?: boolean;
 }
 
 interface ChapterDoc {
@@ -45,6 +52,7 @@ interface ChapterDoc {
   chapterSummary?: string | null;
   content?: string;
   updatedAt?: Timestamp;
+  dropCap?: boolean;
 }
 
 /* ---------------------------------------------
@@ -138,7 +146,6 @@ function cleanTagsStrict(input: unknown): string[] {
   return deduped;
 }
 
-
 /* ---------------------------------------------
   Cloud Function
 ---------------------------------------------- */
@@ -155,8 +162,6 @@ export const saveChapter = onCall<SaveChapterRequest>(
       );
     }
 
-    
-
     const {
       storyId,
       chapterNumber,
@@ -168,6 +173,8 @@ export const saveChapter = onCall<SaveChapterRequest>(
       storyTitle,
       storyDescription,
       tags,
+      dropCap,
+      storyDropCapDefault,
     } = data;
 
     if (contentJSON === undefined || contentJSON === null) {
@@ -237,12 +244,30 @@ export const saveChapter = onCall<SaveChapterRequest>(
       );
     }
 
+    // ✅ dropCap: boolean | null if provided
+    if (dropCap !== undefined && dropCap !== null && typeof dropCap !== 'boolean') {
+      throw new HttpsError(
+        'invalid-argument',
+        'dropCap must be a boolean or null if provided.'
+      );
+    }
+
+    // ✅ storyDropCapDefault: boolean if provided, only allowed on chapter 1
+    if (storyDropCapDefault !== undefined && typeof storyDropCapDefault !== 'boolean') {
+      throw new HttpsError(
+        'invalid-argument',
+        'storyDropCapDefault must be a boolean if provided.'
+      );
+    }
+    if (storyDropCapDefault !== undefined && chapterNumber !== 1) {
+      throw new HttpsError(
+        'invalid-argument',
+        'storyDropCapDefault can only be set when editing chapter 1.'
+      );
+    }
+
     // Optional chapterTitle / chapterSummary types + max lengths
-    if (
-      chapterTitle !== undefined &&
-      chapterTitle !== null &&
-      typeof chapterTitle !== 'string'
-    ) {
+    if (chapterTitle !== undefined && chapterTitle !== null && typeof chapterTitle !== 'string') {
       throw new HttpsError(
         'invalid-argument',
         'chapterTitle must be a string if provided.'
@@ -261,10 +286,7 @@ export const saveChapter = onCall<SaveChapterRequest>(
     }
 
     const normalizedChapterTitle = normalizeOptionalString(chapterTitle);
-    if (
-      normalizedChapterTitle &&
-      normalizedChapterTitle.length > CHAPTER_TITLE_MAX
-    ) {
+    if (normalizedChapterTitle && normalizedChapterTitle.length > CHAPTER_TITLE_MAX) {
       throw new HttpsError(
         'invalid-argument',
         `Chapter title must be at most ${CHAPTER_TITLE_MAX} characters.`
@@ -272,10 +294,7 @@ export const saveChapter = onCall<SaveChapterRequest>(
     }
 
     const normalizedChapterSummary = normalizeOptionalString(chapterSummary);
-    if (
-      normalizedChapterSummary &&
-      normalizedChapterSummary.length > CHAPTER_SUMMARY_MAX
-    ) {
+    if (normalizedChapterSummary && normalizedChapterSummary.length > CHAPTER_SUMMARY_MAX) {
       throw new HttpsError(
         'invalid-argument',
         `Chapter summary must be at most ${CHAPTER_SUMMARY_MAX} characters.`
@@ -284,16 +303,11 @@ export const saveChapter = onCall<SaveChapterRequest>(
 
     // If tags provided, must be an array (chapter 1 only in practice)
     if (tags !== undefined && !Array.isArray(tags)) {
-      throw new HttpsError(
-        'invalid-argument',
-        'tags must be an array if provided.'
-      );
+      throw new HttpsError('invalid-argument', 'tags must be an array if provided.');
     }
 
     const storyRef = db.collection('stories').doc(storyId);
-    const chapterRef = storyRef
-      .collection('chapters')
-      .doc(String(chapterNumber));
+    const chapterRef = storyRef.collection('chapters').doc(String(chapterNumber));
 
     const now = Timestamp.now();
     let isNewChapter = false;
@@ -318,7 +332,6 @@ export const saveChapter = onCall<SaveChapterRequest>(
 
       // Hard cap (authoritative / race-safe)
       if (currentCount > CHAPTERS_MAX) {
-        // In case data ever got into a bad state
         throw new HttpsError(
           'failed-precondition',
           `This story has exceeded the maximum of ${CHAPTERS_MAX} chapters.`
@@ -384,9 +397,7 @@ export const saveChapter = onCall<SaveChapterRequest>(
       if (chapterNumber === 1) {
         // If any story-meta key is present, enforce full set (prevents partial/abusive updates)
         const anyMetaProvided =
-          storyTitle !== undefined ||
-          storyDescription !== undefined ||
-          tags !== undefined;
+          storyTitle !== undefined || storyDescription !== undefined || tags !== undefined;
 
         if (anyMetaProvided) {
           // Title
@@ -398,15 +409,9 @@ export const saveChapter = onCall<SaveChapterRequest>(
           }
           const normalizedTitle = normalizeSpaces(storyTitle);
           if (!normalizedTitle) {
-            throw new HttpsError(
-              'invalid-argument',
-              'storyTitle cannot be empty.'
-            );
+            throw new HttpsError('invalid-argument', 'storyTitle cannot be empty.');
           }
-          if (
-            normalizedTitle.length < TITLE_MIN ||
-            normalizedTitle.length > TITLE_MAX
-          ) {
+          if (normalizedTitle.length < TITLE_MIN || normalizedTitle.length > TITLE_MAX) {
             throw new HttpsError(
               'invalid-argument',
               `Title must be between ${TITLE_MIN} and ${TITLE_MAX} characters.`
@@ -422,15 +427,9 @@ export const saveChapter = onCall<SaveChapterRequest>(
           }
           const normalizedDesc = normalizeSpaces(storyDescription);
           if (!normalizedDesc) {
-            throw new HttpsError(
-              'invalid-argument',
-              'storyDescription cannot be empty.'
-            );
+            throw new HttpsError('invalid-argument', 'storyDescription cannot be empty.');
           }
-          if (
-            normalizedDesc.length < STORY_DESC_MIN ||
-            normalizedDesc.length > STORY_DESC_MAX
-          ) {
+          if (normalizedDesc.length < STORY_DESC_MIN || normalizedDesc.length > STORY_DESC_MAX) {
             throw new HttpsError(
               'invalid-argument',
               `Description must be between ${STORY_DESC_MIN} and ${STORY_DESC_MAX} characters.`
@@ -440,22 +439,21 @@ export const saveChapter = onCall<SaveChapterRequest>(
           // Tags
           const cleanTags = cleanTagsStrict(tags);
           if (cleanTags.length < TAGS_MIN) {
-            throw new HttpsError(
-              'invalid-argument',
-              `Please add at least ${TAGS_MIN} tags.`
-            );
+            throw new HttpsError('invalid-argument', `Please add at least ${TAGS_MIN} tags.`);
           }
           if (cleanTags.length > TAGS_MAX) {
-            throw new HttpsError(
-              'invalid-argument',
-              `Please use at most ${TAGS_MAX} tags.`
-            );
+            throw new HttpsError('invalid-argument', `Please use at most ${TAGS_MAX} tags.`);
           }
 
           storyUpdate.title = normalizedTitle;
           storyUpdate.title_lc = normalizedTitle.toLowerCase();
           storyUpdate.description = normalizedDesc;
           storyUpdate.tags = cleanTags;
+        }
+
+        // ✅ Allow updating story drop cap default independently of title/desc/tags
+        if (storyDropCapDefault !== undefined) {
+          storyUpdate.dropCapDefault = storyDropCapDefault;
         }
       }
 
@@ -482,6 +480,18 @@ export const saveChapter = onCall<SaveChapterRequest>(
 
       // Preserve createdAt if it exists
       baseChapterData.createdAt = chapterData?.createdAt ?? now;
+
+      // ✅ Chapter-level drop cap override:
+      // - true/false => set field
+      // - null => delete field (inherit story default)
+      // - undefined => leave unchanged
+      if (dropCap === null) {
+        if (exists) {
+          (baseChapterData as any).dropCap = FieldValue.delete();
+        }
+      } else if (typeof dropCap === 'boolean') {
+        baseChapterData.dropCap = dropCap;
+      }
 
       tx.set(chapterRef, baseChapterData, { merge: true });
     });

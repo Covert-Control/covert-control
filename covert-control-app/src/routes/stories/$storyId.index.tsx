@@ -141,6 +141,7 @@ async function fetchChapterContent(storyId: string, chapter: number) {
     title: d?.chapterTitle ?? d?.title ?? '',
     content: d?.content ?? '',
     chapterSummary: d?.chapterSummary ?? '',
+    dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : null,
   };
 }
 
@@ -605,6 +606,10 @@ function StoryDetailPage() {
 
   const chapterSummaryText = (chapterQuery.data?.chapterSummary ?? '').trim();
 
+  const storyDropCapDefault = !!(story as any)?.dropCapDefault;
+  const chapterDropCap = chapterQuery.data?.dropCap; // boolean | null
+  const dropCapEnabled = chapterDropCap ?? storyDropCapDefault;
+
   return (
     <>
       {/* Kindle-ish typography + drop cap (self-contained for this page) */}
@@ -621,7 +626,7 @@ function StoryDetailPage() {
         .story-content p:first-of-type {
           margin-top: 0;
         }
-        .story-content p:first-of-type::first-letter {
+        .story-content.dropcap p:first-of-type::first-letter {
           float: left;
           font-weight: 700;
           font-size: 3.4em;
@@ -1088,7 +1093,10 @@ function StoryDetailPage() {
                   )}
                 </Box>
 
-                <EditorContent editor={editor} className="story-content" />
+                <EditorContent
+                  editor={editor}
+                  className={`story-content${dropCapEnabled ? ' dropcap' : ''}`}
+                />
               </Box>
             )}
           </Paper>

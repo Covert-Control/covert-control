@@ -140,6 +140,7 @@ export function TipTap2() {
       content: '',
       tags: [] as string[],
       terms: false,
+      dropCapDefault: false,
     },
     validate: {
       title: (value) => {
@@ -306,6 +307,7 @@ export function TipTap2() {
         wordCount,
         charCount,
         username: username ?? null,
+        dropCapDefault: !!form.values.dropCapDefault,
 
         // optional chapter 1 meta
         chapterTitle: normalizedChapterTitle,
@@ -562,6 +564,12 @@ export function TipTap2() {
 
                 <RichTextEditor.Content />
               </RichTextEditor>
+
+              <Checkbox
+                label="Enable drop cap in reader (optional)"
+                description="Shows a large decorative first letter at the start of the chapter."
+                {...form.getInputProps('dropCapDefault', { type: 'checkbox' })}
+              />
 
               {form.errors.content && (
                 <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 4 }}>

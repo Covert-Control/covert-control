@@ -1,27 +1,20 @@
-import { ActionIcon } from '@mantine/core';
+import { ActionIcon, useComputedColorScheme, useMantineColorScheme } from '@mantine/core';
 import { Moon, Sun } from 'lucide-react';
-import {
-    useMantineColorScheme, useComputedColorScheme
-  } from '@mantine/core';
 
 export default function SchemeToggleButton() {
-
-    const { colorScheme, setColorScheme } = useMantineColorScheme();
-    const computedColorScheme = useComputedColorScheme('light');
-    const dark = colorScheme === 'dark';
-
-    const toggleColorScheme = () => {
-      setColorScheme(computedColorScheme === "dark" ? 'light' : 'dark')
-    }
+  const { setColorScheme } = useMantineColorScheme();
+  const computed = useComputedColorScheme('dark');
+  const dark = computed === 'dark';
 
   return (
     <ActionIcon
       variant="outline"
       color={dark ? 'yellow' : 'blue'}
-      onClick={toggleColorScheme}
+      onClick={() => setColorScheme(dark ? 'light' : 'dark')}
       title="Toggle color scheme"
+      aria-label="Toggle color scheme"
     >
-      {computedColorScheme === "dark" ? <Sun color='yellow' size={18} />: <Moon color='blue' size={18} />}
+      {dark ? <Sun size={18} /> : <Moon size={18} />}
     </ActionIcon>
   );
 }

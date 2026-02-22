@@ -45,8 +45,6 @@ export const Route = createLazyFileRoute('/')({
   component: HomePage,
 });
 
-//NEW REPO??
-
 type NewsPost = {
   id: string;
   title: string;

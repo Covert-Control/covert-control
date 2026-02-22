@@ -4,13 +4,13 @@ import {
   CallableRequest,
 } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { randomInt } from 'crypto'; 
+import { randomInt } from 'crypto';
 
 const db = getFirestore();
 
 export interface CreateStoryWithFirstChapterRequest {
   title: string;
-  description: string; 
+  description: string;
   tags: string[];
   chapterContentJSON: unknown;
   wordCount: number;
@@ -20,6 +20,12 @@ export interface CreateStoryWithFirstChapterRequest {
   // optional chapter 1 metadata
   chapterTitle?: string | null;
   chapterSummary?: string | null;
+
+  // ✅ NEW (optional)
+  // chapter-level override: true/false sets it, null/undefined means "inherit"
+  dropCap?: boolean | null;
+  // story-level default (applies when chapter dropCap is not set)
+  storyDropCapDefault?: boolean;
 }
 
 export interface CreateStoryWithFirstChapterResponse {
@@ -27,7 +33,7 @@ export interface CreateStoryWithFirstChapterResponse {
 }
 
 // ------------------------
-// Constraints 
+// Constraints
 // ------------------------
 const BODY_CHAR_LIMIT = 150000;
 
@@ -194,6 +200,29 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
+    // ✅ NEW: validate optional drop cap fields
+    const dropCap = (data as any)?.dropCap as boolean | null | undefined;
+    const storyDropCapDefault = (data as any)?.storyDropCapDefault as
+      | boolean
+      | undefined;
+
+    if (dropCap !== undefined && dropCap !== null && typeof dropCap !== 'boolean') {
+      throw new HttpsError(
+        'invalid-argument',
+        'dropCap must be a boolean or null if provided.'
+      );
+    }
+
+    if (
+      storyDropCapDefault !== undefined &&
+      typeof storyDropCapDefault !== 'boolean'
+    ) {
+      throw new HttpsError(
+        'invalid-argument',
+        'storyDropCapDefault must be a boolean if provided.'
+      );
+    }
+
     // ---- Required fields ----
     const rawTitle = ensureString(data?.title, 'Title');
     const rawDesc = ensureString(data?.description, 'Description');
@@ -284,7 +313,6 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
-
     const title_lc = normalizedTitle.toLowerCase();
     const createdAtNumeric = Date.now();
 
@@ -312,6 +340,11 @@ export const createStoryWithFirstChapter = onCall(
           chapterCount: 1,
           totalWordCount: wordCount,
           totalCharCount: charCount,
+
+          // ✅ NEW: only write if provided
+          ...(storyDropCapDefault !== undefined
+            ? { dropCapDefault: storyDropCapDefault }
+            : {}),
         });
 
         tx.set(chapter1Ref, {
@@ -323,6 +356,9 @@ export const createStoryWithFirstChapter = onCall(
           charCount,
           createdAt: now,
           updatedAt: now,
+
+          // ✅ NEW: only write if explicitly set to true/false
+          ...(typeof dropCap === 'boolean' ? { dropCap } : {}),
         });
 
         tx.set(
