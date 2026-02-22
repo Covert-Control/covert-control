@@ -140,7 +140,7 @@ export function TipTap2() {
       content: '',
       tags: [] as string[],
       terms: false,
-      dropCapDefault: false,
+      dropCap: false,
     },
     validate: {
       title: (value) => {
@@ -307,7 +307,7 @@ export function TipTap2() {
         wordCount,
         charCount,
         username: username ?? null,
-        dropCapDefault: !!form.values.dropCapDefault,
+        dropCap: !!form.values.dropCap,
 
         // optional chapter 1 meta
         chapterTitle: normalizedChapterTitle,
@@ -568,7 +568,7 @@ export function TipTap2() {
               <Checkbox
                 label="Enable drop cap in reader (optional)"
                 description="Shows a large decorative first letter at the start of the chapter."
-                {...form.getInputProps('dropCapDefault', { type: 'checkbox' })}
+                {...form.getInputProps('dropCap', { type: 'checkbox' })}
               />
 
               {form.errors.content && (

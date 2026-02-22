@@ -141,7 +141,7 @@ async function fetchChapterContent(storyId: string, chapter: number) {
     title: d?.chapterTitle ?? d?.title ?? '',
     content: d?.content ?? '',
     chapterSummary: d?.chapterSummary ?? '',
-    dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : null,
+    dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : false,
   };
 }
 
@@ -606,9 +606,7 @@ function StoryDetailPage() {
 
   const chapterSummaryText = (chapterQuery.data?.chapterSummary ?? '').trim();
 
-  const storyDropCapDefault = !!(story as any)?.dropCapDefault;
-  const chapterDropCap = chapterQuery.data?.dropCap; // boolean | null
-  const dropCapEnabled = chapterDropCap ?? storyDropCapDefault;
+  const dropCapEnabled = chapterQuery.data?.dropCap === true;
 
   return (
     <>

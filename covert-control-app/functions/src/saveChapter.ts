@@ -16,11 +16,8 @@ interface SaveChapterRequest {
   wordCount: number;
   charCount: number;
 
-  // ✅ Chapter override: true/false sets it, null means "inherit" (delete field)
-  dropCap?: boolean | null;
-
-  // ✅ Story default (only allowed when editing chapter 1)
-  storyDropCapDefault?: boolean;
+  // ✅ Per-chapter only (no defaults)
+  dropCap?: boolean;
 
   // Only used when editing chapter 1 (story meta edits)
   storyTitle?: string;
@@ -40,7 +37,6 @@ interface StoryDoc {
   totalWordCount?: number;
   totalCharCount?: number;
   lastChapterPublishedAt?: Timestamp;
-  dropCapDefault?: boolean;
 }
 
 interface ChapterDoc {
@@ -174,7 +170,6 @@ export const saveChapter = onCall<SaveChapterRequest>(
       storyDescription,
       tags,
       dropCap,
-      storyDropCapDefault,
     } = data;
 
     if (contentJSON === undefined || contentJSON === null) {
@@ -244,25 +239,11 @@ export const saveChapter = onCall<SaveChapterRequest>(
       );
     }
 
-    // ✅ dropCap: boolean | null if provided
-    if (dropCap !== undefined && dropCap !== null && typeof dropCap !== 'boolean') {
+    // ✅ dropCap: boolean if provided
+    if (dropCap !== undefined && typeof dropCap !== 'boolean') {
       throw new HttpsError(
         'invalid-argument',
-        'dropCap must be a boolean or null if provided.'
-      );
-    }
-
-    // ✅ storyDropCapDefault: boolean if provided, only allowed on chapter 1
-    if (storyDropCapDefault !== undefined && typeof storyDropCapDefault !== 'boolean') {
-      throw new HttpsError(
-        'invalid-argument',
-        'storyDropCapDefault must be a boolean if provided.'
-      );
-    }
-    if (storyDropCapDefault !== undefined && chapterNumber !== 1) {
-      throw new HttpsError(
-        'invalid-argument',
-        'storyDropCapDefault can only be set when editing chapter 1.'
+        'dropCap must be a boolean if provided.'
       );
     }
 
@@ -450,11 +431,6 @@ export const saveChapter = onCall<SaveChapterRequest>(
           storyUpdate.description = normalizedDesc;
           storyUpdate.tags = cleanTags;
         }
-
-        // ✅ Allow updating story drop cap default independently of title/desc/tags
-        if (storyDropCapDefault !== undefined) {
-          storyUpdate.dropCapDefault = storyDropCapDefault;
-        }
       }
 
       tx.update(storyRef, storyUpdate);
@@ -481,15 +457,8 @@ export const saveChapter = onCall<SaveChapterRequest>(
       // Preserve createdAt if it exists
       baseChapterData.createdAt = chapterData?.createdAt ?? now;
 
-      // ✅ Chapter-level drop cap override:
-      // - true/false => set field
-      // - null => delete field (inherit story default)
-      // - undefined => leave unchanged
-      if (dropCap === null) {
-        if (exists) {
-          (baseChapterData as any).dropCap = FieldValue.delete();
-        }
-      } else if (typeof dropCap === 'boolean') {
+      // ✅ Per-chapter drop cap (no delete/inherit logic)
+      if (typeof dropCap === 'boolean') {
         baseChapterData.dropCap = dropCap;
       }
 

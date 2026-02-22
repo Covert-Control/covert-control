@@ -24,7 +24,7 @@ import {
   TextInput,
   Textarea,
   Title,
-  Radio
+  Checkbox,
 } from '@mantine/core';
 
 import { notifications } from '@mantine/notifications';
@@ -148,7 +148,7 @@ async function fetchChapterForEdit(storyId: string, chapterNum: number) {
         : '',
     content: d?.content ?? '',
     createdAt: d?.createdAt ?? null,
-    dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : null,
+    dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : false,
   };
 }
 
@@ -261,22 +261,16 @@ function EditStoryPage() {
 
   const storyFieldsEditable = safeChapter === 1;
 
-  type ChapterDropCapMode = 'inherit' | 'on' | 'off';
-
   const form = useForm({
     initialValues: {
       // story meta (chapter 1 only)
       title: story.title ?? '',
       description: typeof (story as any).description === 'string' ? (story as any).description : '',
       tags: Array.isArray((story as any).tags) ? ((story as any).tags as string[]) : [],
-
-      storyDropCapDefault: !!(story as any).dropCapDefault,
-
+      dropCap:false,
       // chapter meta (optional)
       chapterTitle: chapterEditQuery.data?.chapterTitle ?? '',
       chapterSummary: chapterEditQuery.data?.chapterSummary ?? '',
-
-      chapterDropCapMode: 'inherit' as ChapterDropCapMode,
     },
 
     validate: {
@@ -341,15 +335,11 @@ function EditStoryPage() {
   useEffect(() => {
     if (!chapterEditQuery.isFetched) return;
 
-    const chapterDropCap = chapterEditQuery.data?.dropCap; // boolean | null | undefined
-    const mode: ChapterDropCapMode =
-      chapterDropCap === true ? 'on' : chapterDropCap === false ? 'off' : 'inherit';
-
     form.setValues({
       ...form.values,
       chapterTitle: chapterEditQuery.data?.chapterTitle ?? '',
       chapterSummary: chapterEditQuery.data?.chapterSummary ?? '',
-      chapterDropCapMode: mode,
+      dropCap: !!chapterEditQuery.data?.dropCap,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterEditQuery.data, safeChapter]);
@@ -397,10 +387,7 @@ function EditStoryPage() {
         contentJSON: plainifyForCallable(editor.getJSON()),
         wordCount,
         charCount,
-        dropCap:
-          values.chapterDropCapMode === 'inherit'
-            ? null
-            : values.chapterDropCapMode === 'on',
+        dropCap: !!values.dropCap,
       };
 
       if (storyFieldsEditable) {
@@ -418,7 +405,6 @@ function EditStoryPage() {
         payload.storyTitle = normalizedStoryTitle;
         payload.storyDescription = normalizedStoryDesc;
         payload.tags = cleanedTags;
-        payload.storyDropCapDefault = !!values.storyDropCapDefault;
       }
 
       const res = await saveChapterCallable(payload);
@@ -487,15 +473,17 @@ function EditStoryPage() {
                 : 'Edit chapter'}
             </Title>
 
+            <Text size="md">
+              Chapter number: <strong>{safeChapter}</strong>
+            </Text>
+
             <Text size="sm" c="dimmed">
               {safeChapter === 1
                 ? 'This updates the main story metadata and Chapter 1 content.'
                 : 'Title, description, and tags are only editable in Chapter 1.'}
             </Text>
 
-            <Text size="xs" c="dimmed">
-              Chapter number: <strong>{safeChapter}</strong>
-            </Text>
+
           </Stack>
         </Paper>
 
@@ -624,20 +612,11 @@ function EditStoryPage() {
               <RichTextEditor.Content />
             </RichTextEditor>
 
-            <Title order={5}>Reader style (this chapter)</Title>
-
-            <Radio.Group
-              label="Drop cap"
-              description="Choose how the first-letter drop cap should behave for this chapter."
-              value={form.values.chapterDropCapMode}
-              onChange={(v) => form.setFieldValue('chapterDropCapMode', v as any)}
-            >
-              <Stack gap={4} mt="xs">
-                <Radio value="inherit" label="Use story default" />
-                <Radio value="on" label="On" />
-                <Radio value="off" label="Off" />
-              </Stack>
-            </Radio.Group>
+            <Checkbox
+              label="Enable drop cap in reader (optional)"
+              description="Shows a large decorative first letter at the start of this chapter."
+              {...form.getInputProps('dropCap', { type: 'checkbox' })}
+            />
 
             {/* Match TipTap2 display: show words + chars/limit */}
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>

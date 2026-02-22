@@ -21,11 +21,8 @@ export interface CreateStoryWithFirstChapterRequest {
   chapterTitle?: string | null;
   chapterSummary?: string | null;
 
-  // ✅ NEW (optional)
-  // chapter-level override: true/false sets it, null/undefined means "inherit"
-  dropCap?: boolean | null;
-  // story-level default (applies when chapter dropCap is not set)
-  storyDropCapDefault?: boolean;
+  // ✅ per-chapter setting (chapter 1 only during creation)
+  dropCap?: boolean;
 }
 
 export interface CreateStoryWithFirstChapterResponse {
@@ -200,26 +197,12 @@ export const createStoryWithFirstChapter = onCall(
       );
     }
 
-    // ✅ NEW: validate optional drop cap fields
-    const dropCap = (data as any)?.dropCap as boolean | null | undefined;
-    const storyDropCapDefault = (data as any)?.storyDropCapDefault as
-      | boolean
-      | undefined;
-
-    if (dropCap !== undefined && dropCap !== null && typeof dropCap !== 'boolean') {
+    // ✅ per-chapter drop cap (chapter 1)
+    const dropCap = data?.dropCap;
+    if (dropCap !== undefined && typeof dropCap !== 'boolean') {
       throw new HttpsError(
         'invalid-argument',
-        'dropCap must be a boolean or null if provided.'
-      );
-    }
-
-    if (
-      storyDropCapDefault !== undefined &&
-      typeof storyDropCapDefault !== 'boolean'
-    ) {
-      throw new HttpsError(
-        'invalid-argument',
-        'storyDropCapDefault must be a boolean if provided.'
+        'dropCap must be a boolean if provided.'
       );
     }
 
@@ -290,15 +273,14 @@ export const createStoryWithFirstChapter = onCall(
     const authorDocRef = db.collection('authors_with_stories').doc(ownerId);
 
     const now = Timestamp.now();
+
     // ---- Chapter content JSON safety checks ----
     const chapterContent = data?.chapterContentJSON;
 
-    // Reject missing content explicitly (you can keep relying on wordCount too, but this is safer)
     if (chapterContent === undefined || chapterContent === null) {
       throw new HttpsError('invalid-argument', 'Chapter content is required.');
     }
 
-    // Stringify once, validate size, and reuse it for storage
     let contentString: string;
     try {
       contentString = JSON.stringify(chapterContent);
@@ -315,7 +297,6 @@ export const createStoryWithFirstChapter = onCall(
 
     const title_lc = normalizedTitle.toLowerCase();
     const createdAtNumeric = Date.now();
-
     const rand = randomInt(0, 1_000_000_000_000);
 
     try {
@@ -340,11 +321,6 @@ export const createStoryWithFirstChapter = onCall(
           chapterCount: 1,
           totalWordCount: wordCount,
           totalCharCount: charCount,
-
-          // ✅ NEW: only write if provided
-          ...(storyDropCapDefault !== undefined
-            ? { dropCapDefault: storyDropCapDefault }
-            : {}),
         });
 
         tx.set(chapter1Ref, {
@@ -357,7 +333,7 @@ export const createStoryWithFirstChapter = onCall(
           createdAt: now,
           updatedAt: now,
 
-          // ✅ NEW: only write if explicitly set to true/false
+          // ✅ only write if provided
           ...(typeof dropCap === 'boolean' ? { dropCap } : {}),
         });
 
