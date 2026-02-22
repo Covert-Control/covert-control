@@ -84,7 +84,11 @@ function toDayBounds(d: Date) {
   return { startMs: start.getTime(), endMs: end.getTime() };
 }
 
-function buildFilters(selectedTags: string[], range: [Date | null, Date | null]) {
+function buildFilters(
+  selectedTags: string[],
+  afterDate: Date | null,
+  beforeDate: Date | null
+) {
   const parts: string[] = [];
 
   // Tag filters: tags:"foo" AND tags:"bar"
@@ -96,17 +100,22 @@ function buildFilters(selectedTags: string[], range: [Date | null, Date | null])
     );
   }
 
-  // Date range filters (createdAtNumeric is ms timestamp)
-  const [from, to] = range;
-  if (from && to) {
-    const { startMs } = toDayBounds(from);
-    const { endMs } = toDayBounds(to);
-    parts.push(`createdAtNumeric>=${startMs} AND createdAtNumeric<=${endMs}`);
-  } else if (from) {
-    const { startMs } = toDayBounds(from);
+  // Date filters (createdAtNumeric is ms timestamp)
+  let after = afterDate;
+  let before = beforeDate;
+
+  // If user picks them reversed, swap (so we still get sensible results)
+  if (after && before && after.getTime() > before.getTime()) {
+    [after, before] = [before, after];
+  }
+
+  if (after) {
+    const { startMs } = toDayBounds(after);
     parts.push(`createdAtNumeric>=${startMs}`);
-  } else if (to) {
-    const { endMs } = toDayBounds(to);
+  }
+
+  if (before) {
+    const { endMs } = toDayBounds(before);
     parts.push(`createdAtNumeric<=${endMs}`);
   }
 
@@ -117,7 +126,8 @@ function SearchPage() {
   // query inputs
   const [q, setQ] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [range, setRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [afterDate, setAfterDate] = useState<Date | null>(null);
+  const [beforeDate, setBeforeDate] = useState<Date | null>(null);
 
   // extra UI data
   const [topTags, setTopTags] = useState<string[]>([]);
@@ -146,8 +156,8 @@ function SearchPage() {
   }, []);
 
   const filters = useMemo(
-    () => buildFilters(tags, range),
-    [tags, range]
+    () => buildFilters(tags, afterDate, beforeDate),
+    [tags, afterDate, beforeDate]
   );
 
   // Run Algolia search w/ pagination & sort
@@ -179,7 +189,8 @@ function SearchPage() {
   const clearAll = () => {
     setQ('');
     setTags([]);
-    setRange([null, null]);
+    setAfterDate(null);
+    setBeforeDate(null);
     setHits([]);
     setNbPages(1);
     setPage(1);
@@ -265,14 +276,27 @@ function SearchPage() {
         )}
 
         {/* Date range */}
-        <DatePickerInput
-          type="range"
-          value={range}
-          onChange={setRange}
-          label="Date range (optional)"
-          placeholder="Pick range"
-          weekendDays={[]}
-        />
+        <Group gap="sm" align="flex-end" wrap="wrap">
+          <DatePickerInput
+            value={afterDate}
+            onChange={setAfterDate}
+            label="After date (optional)"
+            placeholder="Pick a date"
+            clearable
+            weekendDays={[]}
+            w={240}
+          />
+
+          <DatePickerInput
+            value={beforeDate}
+            onChange={setBeforeDate}
+            label="Before date (optional)"
+            placeholder="Pick a date"
+            clearable
+            weekendDays={[]}
+            w={240}
+          />
+        </Group>
 
         {/* Sort + buttons row */}
         <Stack gap={4}>
