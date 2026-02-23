@@ -5,7 +5,7 @@ import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import {
   Button,
   TextInput,
@@ -18,6 +18,9 @@ import {
   Title,
   Divider,
   Checkbox,
+  Box,
+  useMantineColorScheme,
+  useMantineTheme,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 
@@ -50,6 +53,11 @@ const TAGS_MAX = 30;
 const TAGS_MIN = 3;
 const TAG_MIN_LEN = 2; // per-tag min length
 const TAG_MAX_LEN = 30;
+
+// Featured / strongly recommended tags
+const FEATURED_A = ['fd', 'md'] as const;
+const FEATURED_B = ['ff', 'mf', 'mm'] as const;
+// type FeaturedTag = (typeof FEATURED_A)[number] | (typeof FEATURED_B)[number];
 
 // Required field constraints
 const TITLE_MIN = 1;
@@ -217,6 +225,63 @@ export function TipTap2() {
         value ? null : 'You must accept the Terms & Conditions',
     },
   });
+
+  // Derived tags snapshot for UI checks (safe even if user has invalid tags mid-edit)
+  const tagsForUi = useMemo(() => {
+    const raw = form.values.tags ?? [];
+    try {
+      return cleanTags(raw);
+    } catch {
+      // fallback: normalize-only for display logic, don’t throw
+      return raw.map(normalizeTag).filter(Boolean);
+    }
+  }, [form.values.tags]);
+
+  // const hasFeaturedA = FEATURED_A.some((t) => tagsForUi.includes(t));
+  // const hasFeaturedB = FEATURED_B.some((t) => tagsForUi.includes(t));
+
+  const FEATURED_ALL = [...FEATURED_A, ...FEATURED_B] as const;
+
+  const selectedFeatured = FEATURED_ALL.filter((t) => tagsForUi.includes(t));
+  const hasAnyFeatured = selectedFeatured.length > 0;
+
+  // Always show warning near Submit if NONE selected
+  const showSubmitFeaturedWarning = !hasAnyFeatured;
+
+  const { colorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
+
+  const accent = colorScheme === 'dark' ? theme.colors.red[7] : theme.colors.red[6];
+  const subBg = colorScheme === 'dark' ? 'rgba(220, 38, 38, 0.08)' : theme.colors.red[0];
+  const border = colorScheme === 'dark' ? theme.colors.red[8] : theme.colors.red[2];
+
+  // Soft recommendation: only show once they’ve met min tags (avoids early nagging)
+  // const showFeaturedRecommendation =
+  //   tagsForUi.length >= TAGS_MIN && (!hasFeaturedA || !hasFeaturedB);
+
+  // const toggleFeaturedTag = (tag: FeaturedTag) => {
+  //   const currentRaw = form.values.tags ?? [];
+
+  //   // remove based on normalized equality so FD/fd etc behave predictably
+  //   const currentlyHas = currentRaw.some((t) => normalizeTag(t) === tag);
+
+  //   const nextRaw = currentlyHas
+  //     ? currentRaw.filter((t) => normalizeTag(t) !== tag)
+  //     : [...currentRaw, tag];
+
+  //   // Normalize/dedupe immediately so the rest of your code stays consistent
+  //   try {
+  //     form.setFieldValue('tags', cleanTags(nextRaw));
+  //     form.clearFieldError('tags');
+  //   } catch (e: any) {
+  //     // If something weird slips in, keep raw and let validation show the error
+  //     form.setFieldValue('tags', nextRaw);
+  //   }
+  // };
+
+  // const addFeaturedTag = (tag: FeaturedTag) => {
+  //   if (!tagsForUi.includes(tag)) toggleFeaturedTag(tag);
+  // };
 
   // Helper to smoothly scroll to the first field containing an error
   const scrollToFirstError = (errors: Record<string, any>) => {
@@ -468,18 +533,30 @@ export function TipTap2() {
               />
 
               <div id="field-tags">
-                <Text size="sm" fw={500} mb={4}>
-                  Tags<span style={{ color: 'red' }}>*</span>{' '}
-                  <Text span size="xs" c="dimmed">
-                    (min {TAGS_MIN}, max {TAGS_MAX})
+                <Group justify="space-between" align="flex-end" mb={4} wrap="wrap">
+                  <Text size="sm" fw={500}>
+                    Tags<span style={{ color: 'red' }}>*</span>{' '}
+                    <Text span size="xs">
+                      <b>(min {TAGS_MIN}, max {TAGS_MAX}</b>)
+                    </Text>
                   </Text>
-                </Text>
+
+
+                </Group>
 
                 <TagPicker
                   value={form.values.tags}
                   onChange={(tags) => form.setFieldValue('tags', tags)}
                   maxTags={TAGS_MAX}
+                  minTagLength={TAG_MIN_LEN}
                   placeholder="Add tags (e.g., science fiction, military). Separate with comma"
+                  featuredTitle="Recommended tags"
+                  featuredDescription="Please consider choosing at least 1 tag for the dominant gender and 1 tag for the gender pairing to help readers filter and find your story."
+                  featuredGroups={[
+                    { label: 'Dominant Gender:', tags: ['fd', 'md'] },
+                    { label: 'Gender Pairing:', tags: ['ff', 'mf', 'mm'] },
+                  ]}
+                  hideFeaturedFromInput
                 />
 
                 {form.errors.tags && (
@@ -493,6 +570,8 @@ export function TipTap2() {
                     {form.errors.tags}
                   </div>
                 )}
+
+
               </div>
 
               <Divider />
@@ -615,10 +694,83 @@ export function TipTap2() {
                 View Terms &amp; Conditions
               </Text>
             </Group>
+            <Group>
+            {showSubmitFeaturedWarning && (
+              // <Group gap={6} wrap="wrap" align="center">
+              //   <Badge variant="light" color="yellow">
+              //     Recommended tags missing
+              //   </Badge>
+              //   <Button
+              //     size="xs"
+              //     variant="subtle"
+              //     onClick={() => {
+              //       document.getElementById('field-tags')?.scrollIntoView({
+              //         behavior: 'smooth',
+              //         block: 'center',
+              //       });
+              //     }}
+              //   >
+              //     Add now
+              //   </Button>
+              // </Group>
+
+            <Paper
+              p="md"
+              radius="md"
+              withBorder
+              style={{
+                position: 'relative',
+                backgroundColor: subBg,
+                borderColor: border,
+              }}
+            >
+              <Box
+                style={{
+                  position: 'absolute',
+                  insetInlineStart: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 6,
+                  backgroundColor: accent,
+                  borderTopLeftRadius: theme.radius.md,
+                  borderBottomLeftRadius: theme.radius.md,
+                }}
+              />
+
+              <Group align="flex-start" justify="space-between" wrap="nowrap" gap="md">
+                <Group align="flex-start" gap="sm" wrap="nowrap">
+
+                  <Stack gap={2}>
+                    <Title order={4} c={colorScheme === 'dark' ? theme.colors.yellow[2] : theme.colors.yellow[7]}>
+                      Recommended Tags Missing ("fd/md" and "ff/mf/mm")
+                    </Title>
+                    <Text size="sm" c="dimmed" maw={640}>
+                      These tags are optional but strongly recommended to help readers find your story. Please consider adding at least one tag from each category.
+                    </Text>
+                  </Stack>
+                </Group>
+
+                <Button
+                  color="yellow"
+                  variant="filled"
+                  radius="md"
+                  onClick={() => {
+                    document.getElementById('field-tags')?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'center',
+                    });
+                  }}
+                >
+                  Add Now
+                </Button>
+              </Group>
+            </Paper>
+            )}
 
             <Button type="submit" loading={busy} disabled={busy}>
               Submit
             </Button>
+            </Group>
           </Group>
         </Stack>
       </form>
