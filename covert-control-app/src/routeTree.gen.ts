@@ -11,6 +11,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthenticationRouteImport } from './routes/authentication'
 import { Route as StoriesStoryIdRouteImport } from './routes/stories/$storyId'
 import { Route as StoriesStoryIdIndexRouteImport } from './routes/stories/$storyId.index'
 import { Route as StoriesStoryIdEditRouteImport } from './routes/stories/$storyId.edit'
@@ -23,7 +24,6 @@ const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
 const FavoritesLazyRouteImport = createFileRoute('/favorites')()
 const FaqLazyRouteImport = createFileRoute('/faq')()
 const AuthorsLazyRouteImport = createFileRoute('/authors')()
-const AuthenticationLazyRouteImport = createFileRoute('/authentication')()
 const AdvancedSearchLazyRouteImport = createFileRoute('/advanced-search')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
 const AboutLazyRouteImport = createFileRoute('/about')()
@@ -71,13 +71,6 @@ const AuthorsLazyRoute = AuthorsLazyRouteImport.update({
   path: '/authors',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/authors.lazy').then((d) => d.Route))
-const AuthenticationLazyRoute = AuthenticationLazyRouteImport.update({
-  id: '/authentication',
-  path: '/authentication',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/authentication.lazy').then((d) => d.Route),
-)
 const AdvancedSearchLazyRoute = AdvancedSearchLazyRouteImport.update({
   id: '/advanced-search',
   path: '/advanced-search',
@@ -97,6 +90,13 @@ const AboutLazyRoute = AboutLazyRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/about.lazy').then((d) => d.Route))
+const AuthenticationRoute = AuthenticationRouteImport.update({
+  id: '/authentication',
+  path: '/authentication',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/authentication.lazy').then((d) => d.Route),
+)
 const IndexLazyRoute = IndexLazyRouteImport.update({
   id: '/',
   path: '/',
@@ -156,10 +156,10 @@ const StoriesStoryIdChaptersRoute = StoriesStoryIdChaptersRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
+  '/authentication': typeof AuthenticationRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/advanced-search': typeof AdvancedSearchLazyRoute
-  '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
@@ -179,10 +179,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
+  '/authentication': typeof AuthenticationRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/advanced-search': typeof AdvancedSearchLazyRoute
-  '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
@@ -202,10 +202,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexLazyRoute
+  '/authentication': typeof AuthenticationRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/advanced-search': typeof AdvancedSearchLazyRoute
-  '/authentication': typeof AuthenticationLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
@@ -227,10 +227,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/authentication'
     | '/about'
     | '/account-settings'
     | '/advanced-search'
-    | '/authentication'
     | '/authors'
     | '/faq'
     | '/favorites'
@@ -250,10 +250,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/authentication'
     | '/about'
     | '/account-settings'
     | '/advanced-search'
-    | '/authentication'
     | '/authors'
     | '/faq'
     | '/favorites'
@@ -272,10 +272,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/authentication'
     | '/about'
     | '/account-settings'
     | '/advanced-search'
-    | '/authentication'
     | '/authors'
     | '/faq'
     | '/favorites'
@@ -296,10 +296,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
+  AuthenticationRoute: typeof AuthenticationRoute
   AboutLazyRoute: typeof AboutLazyRoute
   AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
   AdvancedSearchLazyRoute: typeof AdvancedSearchLazyRoute
-  AuthenticationLazyRoute: typeof AuthenticationLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
   FaqLazyRoute: typeof FaqLazyRoute
   FavoritesLazyRoute: typeof FavoritesLazyRoute
@@ -362,13 +362,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorsLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/authentication': {
-      id: '/authentication'
-      path: '/authentication'
-      fullPath: '/authentication'
-      preLoaderRoute: typeof AuthenticationLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/advanced-search': {
       id: '/advanced-search'
       path: '/advanced-search'
@@ -388,6 +381,13 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authentication': {
+      id: '/authentication'
+      path: '/authentication'
+      fullPath: '/authentication'
+      preLoaderRoute: typeof AuthenticationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -509,10 +509,10 @@ const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
+  AuthenticationRoute: AuthenticationRoute,
   AboutLazyRoute: AboutLazyRoute,
   AccountSettingsLazyRoute: AccountSettingsLazyRoute,
   AdvancedSearchLazyRoute: AdvancedSearchLazyRoute,
-  AuthenticationLazyRoute: AuthenticationLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
   FaqLazyRoute: FaqLazyRoute,
   FavoritesLazyRoute: FavoritesLazyRoute,

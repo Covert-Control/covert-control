@@ -27,7 +27,6 @@ import {
   SegmentedControl,
   Chip,
   Transition,
-  SimpleGrid,
 } from '@mantine/core';
 import {
   CircleArrowLeft,

@@ -65,7 +65,6 @@ export function ChapterSelector({
             if (!Number.isFinite(next)) return;
             onChangeChapter(next);
           }}
-          withinPortal
           searchable
           clearable={false}
         />

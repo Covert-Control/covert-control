@@ -559,10 +559,6 @@ function EditStoryPage() {
               {...form.getInputProps('chapterSummary')}
             />
 
-            <Divider />
-
-            <Title order={5}>Reader style (this chapter)</Title>
-
           </Stack>
         </Paper>
 

@@ -29,7 +29,7 @@ export default function StoryActions({ storyId: propStoryId, ownerId, isAdmin }:
 
   if (!canManage || !storyId) return null;
 
-  const handleEdit = () => navigate({ to: './edit' });
+  const handleEdit = () => navigate({ to: './edit' } as any);
 
   const confirmDelete = async () => {
     try {

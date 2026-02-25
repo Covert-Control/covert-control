@@ -1,10 +1,9 @@
 // src/components/StoryListCard.tsx
-import { Card, Title, Text, Button, Badge, Anchor, ActionIcon, Tooltip, HoverCard } from '@mantine/core';
+import { Card, Title, Text, Button, Badge, Anchor, ActionIcon, HoverCard } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, Eye, BookOpen, BellPlus } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
 import LikeButton from './LikeButton';
-import { useAuthStore } from '../stores/authStore';
 import type { Story } from '../types/story';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
@@ -48,8 +47,6 @@ export default function StoryListCard({
   lineClamp = 3,
   expandableDescription = true,
 }: StoryListCardProps) {
-  const user = useAuthStore((s) => s.user);
-  const isOwnStory = user?.uid && story.ownerId && user.uid === story.ownerId;
 
   // Slightly wider breakpoint so header stacks sooner
   const isNarrow = useMediaQuery('(max-width: 768px)');
@@ -124,13 +121,6 @@ export default function StoryListCard({
       updatedLabel = formatDate(updatedAt);
     }
   }
-
-  const combinedDateLabel =
-    updatedLabel && createdLabel
-      ? `${createdLabel} · updated ${updatedLabel}`
-      : updatedLabel && !createdLabel
-      ? `Updated ${updatedLabel}`
-      : createdLabel;
 
   const dateTitle =
     createdAt || updatedAt

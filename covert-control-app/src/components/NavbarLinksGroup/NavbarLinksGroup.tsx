@@ -55,7 +55,7 @@ export function LinksGroup({
         className={classes.control}
         onClick={onLinkClick}
       >
-        <Group position="apart" align="center" wrap={false}>
+        <Group justify="space-between" align="center" wrap="nowrap">
           <Box style={{ display: 'flex', alignItems: 'center' }}>
             <ThemeIcon variant="light" size={30}>
               <Icon size={18} />
@@ -74,7 +74,7 @@ export function LinksGroup({
         onClick={() => setOpened((o) => !o)}
         className={classes.control}
       >
-        <Group position="apart" align="center" wrap={false}>
+        <Group justify="space-between" align="center" wrap="nowrap">
           <Box style={{ display: 'flex', alignItems: 'center' }}>
             <ThemeIcon variant="light" size={30}>
               <Icon size={18} />

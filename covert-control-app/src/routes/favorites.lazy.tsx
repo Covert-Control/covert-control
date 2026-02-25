@@ -176,9 +176,9 @@ function RouteComponent() {
           You need to be signed in to view your favorites.
         </Text>
         <Space h="md" />
-        <Button component={Link} to="/authentication" search={{ redirect: '/favorites' }}>
-          Sign in to continue
-        </Button>
+        <Link to="/authentication" search={{ redirect: '/favorites' }}>
+          <Button>Sign in to continue</Button>
+        </Link>
       </div>
     );
   }
