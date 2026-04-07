@@ -561,7 +561,7 @@ export function AccountSettingsForm() {
           }}
         />
 
-        <Group align="flex-start" justify="space-between" wrap="nowrap" gap="md">
+        <Group align="flex-start" justify="space-between" wrap="wrap" gap="md">
           <Group align="flex-start" gap="sm" wrap="nowrap">
             <ThemeIcon color="red" variant="light" size="lg" radius="md">
               <AlertTriangle size={18} />

@@ -191,7 +191,7 @@ function StoriesListComponent() {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: '4px 20px 20px' }}>
       <Group justify="space-between" align="flex-end">
         <Title order={2} mb="xs">
           All Stories

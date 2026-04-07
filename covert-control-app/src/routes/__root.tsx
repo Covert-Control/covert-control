@@ -157,6 +157,7 @@ function RootComponent() {
     <>
       {Boot}
       <AppShell
+        zIndex={100}
         header={{ height: 60, collapsed: effectiveReaderMode }}
         navbar={{
           width: 190,
@@ -269,7 +270,7 @@ function RootComponent() {
           <Outlet />
         </AppShell.Main>
 
-        <AppShell.Footer zIndex={mobileOpened ? 'auto' : 201} p={0}>
+        <AppShell.Footer p={0}>
           {!effectiveReaderMode && <SiteFooter />}
         </AppShell.Footer>
       </AppShell>

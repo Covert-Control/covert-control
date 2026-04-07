@@ -545,6 +545,7 @@ export function AuthenticationForm(props: PaperProps) {
     <Box pos="relative">
       {/* Global lightweight error/confirm modal */}
       <Modal
+        zIndex={1000}
         opened={modal.opened}
         onClose={() => setModal((m) => ({ ...m, opened: false }))}
         title={modal.title}
@@ -558,6 +559,7 @@ export function AuthenticationForm(props: PaperProps) {
 
       {/* Username chooser for brand-new Google users */}
       <Modal
+        zIndex={1000}
         opened={usernameModalOpened}
         onClose={() => {
           // Currently: allow closing (user will technically be signed in
@@ -602,6 +604,7 @@ export function AuthenticationForm(props: PaperProps) {
       </Modal>
 
       <Modal
+        zIndex={1000}
         opened={verifyModalOpened}
         onClose={() => {
           setVerifyModalOpened(false);
@@ -631,6 +634,7 @@ export function AuthenticationForm(props: PaperProps) {
       </Modal>
 
       <Modal
+        zIndex={1000}
         opened={termsModalOpened}
         onClose={() => setTermsModalOpened(false)}
         title="Terms & Conditions"
@@ -728,6 +732,7 @@ export function AuthenticationForm(props: PaperProps) {
       </Modal>
 
       <Modal
+        zIndex={1000}
         opened={forgotModalOpened}
         onClose={() => setForgotModalOpened(false)}
         title="Reset your password"

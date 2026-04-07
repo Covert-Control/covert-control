@@ -61,7 +61,7 @@ export function ReauthModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Please verify it’s you" centered>
+    <Modal zIndex={1000} opened={opened} onClose={onClose} title="Please verify it’s you" centered>
       <Stack>
         <Text c="dimmed" size="sm">
           For your security, you need a recent sign-in to delete your account.

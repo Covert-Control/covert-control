@@ -1,6 +1,7 @@
 // src/routes/index.lazy.tsx
 import { createLazyFileRoute, Link as RouterLink } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import * as React from 'react';
 import {
   Alert,
   Anchor,
@@ -20,7 +21,17 @@ import {
   Accordion,
 } from '@mantine/core';
 import { useLocalStorage } from '@mantine/hooks';
-import { ExternalLink, Megaphone, Dices, Search, BookOpen, HeartHandshake } from 'lucide-react';
+import {
+  ExternalLink,
+  Megaphone,
+  Dices,
+  Search,
+  BookOpen,
+  HeartHandshake,
+  CalendarDays,
+  Users,
+  Pin,
+} from 'lucide-react';
 
 import { db } from '../config/firebase';
 import {
@@ -61,6 +72,16 @@ function formatDate(d: Date | null) {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function sortNewsForDisplay(items: NewsPost[]) {
+  return [...items].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+
+    const at = (a.publishedAt ?? a.createdAt)?.getTime() ?? 0;
+    const bt = (b.publishedAt ?? b.createdAt)?.getTime() ?? 0;
+    return bt - at;
+  });
+}
+
 async function fetchPublishedNews(): Promise<NewsPost[]> {
   const ref = collection(db, 'newsPosts');
 
@@ -73,33 +94,20 @@ async function fetchPublishedNews(): Promise<NewsPost[]> {
 
   try {
     const snap = await getDocs(qPrimary);
-    return normalizeNewsDocs(snap);
+    return sortNewsForDisplay(normalizeNewsDocs(snap));
   } catch (err) {
     const e = err as FirestoreError;
 
-    // ✅ This will usually include the exact reason (and often an index link)
     console.error('News query failed:', {
       code: e.code,
       message: e.message,
       name: e.name,
     });
 
-    // ✅ Fallback: no orderBy (avoids composite index)
-    // This should work as long as single-field index on isPublished exists (it does by default).
     const qFallback = fsQuery(ref, where('isPublished', '==', true), limit(10));
     const snap2 = await getDocs(qFallback);
 
-    const items = normalizeNewsDocs(snap2);
-
-    // Client-side sort (since fallback has no ordering)
-    items.sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      const at = (a.publishedAt ?? a.createdAt)?.getTime() ?? 0;
-      const bt = (b.publishedAt ?? b.createdAt)?.getTime() ?? 0;
-      return bt - at;
-    });
-
-    return items;
+    return sortNewsForDisplay(normalizeNewsDocs(snap2));
   }
 }
 
@@ -164,8 +172,18 @@ function HomePage() {
     retry: 1,
   });
 
+  const defaultOpenNewsIds = React.useMemo(() => {
+    const items = newsQuery.data ?? [];
+    if (!items.length) return [];
+
+    const pinnedIds = items.filter((p) => p.pinned).map((p) => p.id);
+    const newestRegular = items.find((p) => !p.pinned);
+
+    return newestRegular ? [...pinnedIds, newestRegular.id] : pinnedIds;
+  }, [newsQuery.data]);
+
   return (
-    <Container size="lg" py="xl">
+    <Container size="lg" pt="sm" pb="xl">
       <Stack gap="lg">
         {/* 1) Beta disclaimer */}
         {!betaDismissed && (
@@ -187,15 +205,15 @@ function HomePage() {
         <Paper radius="xl" p="lg" withBorder>
           <Stack gap="xs">
             <Title order={1} style={{ letterSpacing: -0.5 }}>
-              Read short fiction. Share when you’re ready.
+              Covert Control: Mind Control Erotica
             </Title>
             <Text c="dimmed">
-              Discover stories, explore tags, and keep track of favorites. Updates and new features roll out
-              regularly during beta.
+              Discover stories, explore tags, and track your favorites. 
             </Text>
 
-            <Group mt="sm" wrap="wrap">
+            <Group mt="sm" wrap="wrap" justify="center">
               <Button
+                variant="light"
                 component={RouterLink}
                 to="/stories"
                 leftSection={<BookOpen size={16} />}
@@ -220,6 +238,24 @@ function HomePage() {
               >
                 Advanced search
               </Button>
+
+              <Button
+                component={RouterLink}
+                to="/stories/weeklynew"
+                variant="light"
+                leftSection={<CalendarDays size={16} />}
+              >
+                Last week&apos;s stories
+              </Button>
+
+              <Button
+                component={RouterLink}
+                to="/authors"
+                variant="light"
+                leftSection={<Users size={16} />}
+              >
+                Browse authors
+              </Button>
             </Group>
           </Stack>
         </Paper>
@@ -230,9 +266,6 @@ function HomePage() {
             <Stack gap={6}>
               <Group justify="space-between">
                 <Text fw={600}>Start exploring</Text>
-                <Badge variant="light" style={{ textTransform: 'none' }}>
-                  Reader-first
-                </Badge>
               </Group>
               <Text size="sm" c="dimmed">
                 Jump straight into the library. No account needed to read.
@@ -246,16 +279,13 @@ function HomePage() {
           <Paper radius="xl" p="md" withBorder>
             <Stack gap={6}>
               <Group justify="space-between">
-                <Text fw={600}>Find exactly what you want</Text>
-                <Badge variant="light" style={{ textTransform: 'none' }}>
-                  Filters
-                </Badge>
+                <Text fw={600}>Site Features</Text>
               </Group>
               <Text size="sm" c="dimmed">
-                Use advanced search to narrow by keywords, tags, and more.
+                See a list of the site features as well as review content guidelines and other questions at the FAQ
               </Text>
-              <Button component={RouterLink} to="/advanced-search" variant="light" size="sm" mt="xs">
-                Search stories
+              <Button component={RouterLink} to="/faq" variant="light" size="sm" mt="xs">
+                FAQ
               </Button>
             </Stack>
           </Paper>
@@ -306,9 +336,6 @@ function HomePage() {
         <Group justify="space-between" align="flex-end">
           <div>
             <Title order={2}>News</Title>
-            <Text size="sm" c="dimmed">
-              Updates from the developer. (Infrequent, so we cache aggressively.)
-            </Text>
           </div>
         </Group>
 
@@ -334,8 +361,12 @@ function HomePage() {
             </Text>
           </Paper>
         ) : (
-          <Paper withBorder radius="xl" p="md">
-            <Accordion variant="contained" radius="lg">
+            <Accordion
+              variant="contained"
+              radius="lg"
+              multiple
+              defaultValue={defaultOpenNewsIds}
+            >
               {newsQuery.data!.map((p) => (
                 <Accordion.Item key={p.id} value={p.id}>
                   <Accordion.Control>
@@ -346,9 +377,14 @@ function HomePage() {
                             {p.title}
                           </Text>
                           {p.pinned && (
-                            <Badge variant="light" color="yellow" style={{ textTransform: 'none' }}>
-                              Pinned
-                            </Badge>
+                          <Badge
+                            variant="light"
+                            color="yellow"
+                            leftSection={<Pin size={10} style={{ display: 'block' }} />}
+                            style={{ textTransform: 'none' }}
+                          >
+                            Pinned
+                          </Badge>
                           )}
                         </Group>
                         <Text size="xs" c="dimmed">
@@ -364,14 +400,7 @@ function HomePage() {
                 </Accordion.Item>
               ))}
             </Accordion>
-          </Paper>
         )}
-
-        {/* Optional: small footer note */}
-        <Text size="xs" c="dimmed">
-          Tip: If a News query ever asks for an index in the console, just click “Create index” — it’s a
-          one-time setup.
-        </Text>
       </Stack>
     </Container>
   );

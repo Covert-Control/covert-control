@@ -546,7 +546,11 @@ export function TipTap2() {
 
                 <TagPicker
                   value={form.values.tags}
-                  onChange={(tags) => form.setFieldValue('tags', tags)}
+                  onChange={(tags) => {
+                    form.setFieldValue('tags', tags);
+                    if (form.errors.tags) form.clearFieldError('tags');
+                  }}
+                  error={form.errors.tags}
                   maxTags={TAGS_MAX}
                   minTagLength={TAG_MIN_LEN}
                   placeholder="Add tags (e.g., science fiction, military). Separate with comma"
@@ -558,18 +562,6 @@ export function TipTap2() {
                   ]}
                   hideFeaturedFromInput
                 />
-
-                {form.errors.tags && (
-                  <div
-                    style={{
-                      color: 'red',
-                      fontSize: '0.875rem',
-                      marginTop: 4,
-                    }}
-                  >
-                    {form.errors.tags}
-                  </div>
-                )}
 
 
               </div>
@@ -656,12 +648,6 @@ export function TipTap2() {
                 </div>
               )}
 
-              {form.errors.terms && (
-                <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 8 }}>
-                  {form.errors.terms}
-                </div>
-              )}
-
               <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
                 {wordCount} words • {charCount}/{BODY_CHAR_LIMIT} characters
               </div>
@@ -671,6 +657,7 @@ export function TipTap2() {
           {/* Actions */}
           <Group justify="space-between" wrap="wrap" align="center">
             {/* Checkbox + link acting as one clickable unit */}
+          <Stack gap={4}>
             <Group
               id="field-terms"
               gap="xs"
@@ -694,6 +681,12 @@ export function TipTap2() {
                 View Terms &amp; Conditions
               </Text>
             </Group>
+              {form.errors.terms && (
+                <div style={{ color: 'red', fontSize: '0.875rem', marginTop: 8 }}>
+                  {form.errors.terms}
+                </div>
+              )}
+            </Stack>
             <Group>
             {showSubmitFeaturedWarning && (
               // <Group gap={6} wrap="wrap" align="center">
@@ -737,7 +730,7 @@ export function TipTap2() {
                 }}
               />
 
-              <Group align="flex-start" justify="space-between" wrap="nowrap" gap="md">
+              <Group align="flex-start" justify="space-between" wrap="wrap" gap="md">
                 <Group align="flex-start" gap="sm" wrap="nowrap">
 
                   <Stack gap={2}>

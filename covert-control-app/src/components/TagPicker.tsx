@@ -28,6 +28,7 @@ export type FeaturedTagGroup = {
 export type TagPickerProps = {
   value: string[];
   onChange: (next: string[]) => void;
+  error?: React.ReactNode;
   placeholder?: string;
   maxTags?: number;
   minCharsToSearch?: number;    // default 3
@@ -35,7 +36,6 @@ export type TagPickerProps = {
   minTagLength?: number;        // default 2 (changed to allow fd/md/ff/mf/mm)
   disabled?: boolean;
 
-  // New:
   featuredTitle?: string;
   featuredDescription?: string;
   featuredGroups?: FeaturedTagGroup[];
@@ -73,6 +73,7 @@ function dedupeCaseInsensitive(values: string[]) {
 export function TagPicker({
   value,
   onChange,
+  error,
   placeholder = 'Separate tags with commas',
   maxTags,
   minCharsToSearch = 3,
@@ -274,6 +275,7 @@ export function TagPicker({
         maxDropdownHeight={240}
         disabled={disabled}
         clearable
+        error={error}
         // splitChars={[',']}
       />
     </Stack>

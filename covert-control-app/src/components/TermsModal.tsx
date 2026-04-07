@@ -1,3 +1,4 @@
+//TermsModal.tsx 
 import { useEffect, useState } from 'react';
 import { Modal, Stack, Text, Checkbox, Group, Button, List } from '@mantine/core';
 
@@ -40,7 +41,18 @@ export function TermsModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title={title} centered size={size}>
+    <Modal 
+      opened={opened} 
+      onClose={onClose} 
+      withinPortal title={title} 
+      zIndex={1000}
+      centered 
+        overlayProps={{
+        backgroundOpacity: 0.55,
+        blur: 3,
+      }}
+      size={size}
+    >
       <Stack gap="sm">
         {/* Scrollable terms body */}
         <div
