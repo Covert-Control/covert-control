@@ -53,6 +53,7 @@ const client = algoliasearch(
 
 const INDEX_NAME = import.meta.env.VITE_ALGOLIA_INDEX_STORIES!;
 const HITS_PER_PAGE = 10;
+const BASIC_TAGS = ['md', 'fd', 'mf', 'mm', 'ff'] as const;
 
 type SortKey =
   | 'relevance'
@@ -131,6 +132,13 @@ function SearchPage() {
 
   // extra UI data
   const [topTags, setTopTags] = useState<string[]>([]);
+
+  const basicTagSet = useMemo(() => new Set(BASIC_TAGS), []);
+
+  const otherTopTags = useMemo(
+    () => topTags.filter((t) => !basicTagSet.has(String(t).toLowerCase() as any)),
+    [topTags, basicTagSet]
+  );
 
   // pagination / results
   const [page, setPage] = useState(1); // Mantine is 1-based
@@ -248,23 +256,24 @@ function SearchPage() {
           placeholder="Add tags..."
           minCharsToSearch={3}
           suggestionLimit={12}
-          minTagLength={3}
+          minTagLength={2}
         />
 
         {/* Top tag chips row with label */}
-        {topTags.length > 0 && (
+        <Stack gap={6}>
           <Group gap="xs" wrap="wrap" align="center">
             <Text size="sm" fw={500} c="dimmed" style={{ marginRight: 4 }}>
-              Top Tags:
+              Basic Tags:
             </Text>
-            {topTags.map((t) => (
+
+            {BASIC_TAGS.map((t) => (
               <Chip
                 key={t}
                 checked={tags.includes(t)}
                 onChange={(checked) =>
                   setTags((prev) =>
                     checked
-                      ? [...prev, t]
+                      ? Array.from(new Set([...prev, t]))
                       : prev.filter((x) => x !== t)
                   )
                 }
@@ -273,7 +282,31 @@ function SearchPage() {
               </Chip>
             ))}
           </Group>
-        )}
+
+          {otherTopTags.length > 0 && (
+            <Group gap="xs" wrap="wrap" align="center">
+              <Text size="sm" fw={500} c="dimmed" style={{ marginRight: 4 }}>
+                Top Tags:
+              </Text>
+
+              {otherTopTags.map((t) => (
+                <Chip
+                  key={t}
+                  checked={tags.includes(t)}
+                  onChange={(checked) =>
+                    setTags((prev) =>
+                      checked
+                        ? Array.from(new Set([...prev, t]))
+                        : prev.filter((x) => x !== t)
+                    )
+                  }
+                >
+                  {t}
+                </Chip>
+              ))}
+            </Group>
+          )}
+        </Stack>
 
         {/* Date range */}
         <Group gap="sm" align="flex-end" wrap="wrap">
