@@ -1,4 +1,3 @@
-// src/routes/stories.lazy.tsx
 import * as React from 'react';
 import {
   createLazyFileRoute,
@@ -14,15 +13,19 @@ import {
   limit as fbLimit,
   orderBy,
   query as fsQuery,
+  QueryConstraint,
   QueryDocumentSnapshot,
   startAfter,
+  where,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import {
   Button,
   Center,
+  Chip,
   Group,
   Loader,
+  Paper,
   Select,
   Space,
   Stack,
@@ -37,6 +40,7 @@ export const Route = createLazyFileRoute('/stories')({
 });
 
 const PAGE_SIZE = 20;
+const BASIC_QUICK_TAGS = ['md', 'fd', 'ff', 'mf', 'mm'] as const;
 
 type SortKey =
   | 'updatedAt_desc'
@@ -74,12 +78,15 @@ function parseSort(search: any): SortKey {
   return 'updatedAt_desc';
 }
 
-// ✅ FIX #1: split on last underscore so "title_lc_asc" => field="title_lc", dir="asc"
 function sortToOrderBy(sort: SortKey): { field: string; dir: 'asc' | 'desc' } {
   const lastUnderscore = sort.lastIndexOf('_');
   const field = sort.slice(0, lastUnderscore);
   const dir = sort.slice(lastUnderscore + 1) as 'asc' | 'desc';
   return { field, dir };
+}
+
+function normalizeQuickTags(tags: string[]) {
+  return Array.from(new Set(tags)).sort();
 }
 
 function normalizeStory(docSnap: QueryDocumentSnapshot<DocumentData>): Story {
@@ -120,27 +127,60 @@ function StoriesListComponent() {
   const navigate = useNavigate();
   const isCurrentlyAtStoriesBase = location.pathname === '/stories';
 
-  const search = Route.useSearch() as any;
-  const sort = React.useMemo(() => parseSort(search), [search?.sort]);
-  const { field, dir } = React.useMemo(() => sortToOrderBy(sort), [sort]);
+  const search = Route.useSearch() as { sort?: string };
+  const sortFromUrl = React.useMemo(() => parseSort(search), [search?.sort]);
+
+  const [pendingQuickTags, setPendingQuickTags] = React.useState<string[]>([]);
+  const [appliedQuickTags, setAppliedQuickTags] = React.useState<string[]>([]);
+
+  const [pendingSort, setPendingSort] = React.useState<SortKey>(sortFromUrl);
+  const [appliedSort, setAppliedSort] = React.useState<SortKey>(sortFromUrl);
+
+  React.useEffect(() => {
+    setPendingSort(sortFromUrl);
+    setAppliedSort(sortFromUrl);
+  }, [sortFromUrl]);
+
+  const normalizedPendingQuickTags = React.useMemo(
+    () => normalizeQuickTags(pendingQuickTags),
+    [pendingQuickTags],
+  );
+
+  const normalizedAppliedQuickTags = React.useMemo(
+    () => normalizeQuickTags(appliedQuickTags),
+    [appliedQuickTags],
+  );
+
+  const { field, dir } = React.useMemo(() => sortToOrderBy(appliedSort), [appliedSort]);
+
+  const filtersDirty =
+    pendingSort !== appliedSort ||
+    normalizedPendingQuickTags.join('|') !== normalizedAppliedQuickTags.join('|');
 
   const storiesQuery = useInfiniteQuery({
-    queryKey: ['storiesList', field, dir],
+    queryKey: ['storiesList', field, dir, normalizedAppliedQuickTags],
     queryFn: async ({ pageParam }) => {
-      // ✅ FIX #2: make secondary __name__ order direction match primary direction
-      const baseConstraints = [
+      const constraints: QueryConstraint[] = [];
+
+      if (normalizedAppliedQuickTags.length > 0) {
+        constraints.push(
+          where('tags', 'array-contains-any', normalizedAppliedQuickTags),
+        );
+      }
+
+      constraints.push(
         orderBy(field, dir),
         orderBy('__name__', dir),
         fbLimit(PAGE_SIZE),
-      ] as const;
+      );
 
       const q = pageParam
         ? fsQuery(
             collection(db, 'stories'),
-            ...baseConstraints,
+            ...constraints,
             startAfter(pageParam as QueryDocumentSnapshot<DocumentData>),
           )
-        : fsQuery(collection(db, 'stories'), ...baseConstraints);
+        : fsQuery(collection(db, 'stories'), ...constraints);
 
       const snap = await getDocs(q);
 
@@ -163,54 +203,124 @@ function StoriesListComponent() {
     [storiesQuery.data],
   );
 
-  const onChangeSort = (next: string | null) => {
-    const nextSort = (next ?? 'updatedAt_desc') as SortKey;
+  const togglePendingTag = (tag: string, checked: boolean) => {
+    setPendingQuickTags((prev) =>
+      checked ? normalizeQuickTags([...prev, tag]) : prev.filter((t) => t !== tag),
+    );
+  };
+
+  const applyFilters = () => {
+    setAppliedQuickTags(normalizedPendingQuickTags);
+    setAppliedSort(pendingSort);
 
     navigate({
       to: '/stories',
-      search: { sort: nextSort } as any,
+      search: { sort: pendingSort } as any,
+      replace: true,
+    });
+  };
+
+  const clearFilters = () => {
+    const defaultSort: SortKey = 'updatedAt_desc';
+
+    setPendingQuickTags([]);
+    setAppliedQuickTags([]);
+    setPendingSort(defaultSort);
+    setAppliedSort(defaultSort);
+
+    navigate({
+      to: '/stories',
+      search: { sort: defaultSort } as any,
+      replace: true,
     });
   };
 
   if (!isCurrentlyAtStoriesBase) return <Outlet />;
 
-  if (storiesQuery.isLoading) {
-    return (
-      <Center style={{ height: '100vh' }}>
-        <Loader size="xl" />
-      </Center>
-    );
-  }
-
-  if (storiesQuery.isError) {
-    return (
-      <Text c="red">
-        Error loading stories: {(storiesQuery.error as Error)?.message ?? 'Unknown error'}
-      </Text>
-    );
-  }
-
   return (
     <div style={{ padding: '4px 20px 20px' }}>
-      <Group justify="space-between" align="flex-end">
-        <Title order={2} mb="xs">
-          All Stories
-        </Title>
+      <Title order={2} mb="xs">
+        All Stories
+      </Title>
 
-        <Select
-          label="Sort"
-          value={sort}
-          onChange={onChangeSort}
-          data={SORT_OPTIONS}
-          w={280}
-          searchable
-          clearable={false}
-        />
-      </Group>
+      <Paper withBorder radius="lg" p="md">
+        <Stack gap="md">
+          <div>
+            <Text fw={600}>Quick Filters</Text>
+            <Text size="sm" c="dimmed">
+              Select one or more basic tags and a sort order, then press{' '}
+              <b>Apply Filters</b>.
+            </Text>
+            <Text size="xs" c="dimmed" mt={4}>
+              Additional category filters will be added in the future.
+            </Text>
+          </div>
+
+          <Group gap="xs" wrap="wrap">
+            {BASIC_QUICK_TAGS.map((tag) => (
+              <Chip
+                key={tag}
+                checked={normalizedPendingQuickTags.includes(tag)}
+                onChange={(checked) => togglePendingTag(tag, checked)}
+              >
+                {tag}
+              </Chip>
+            ))}
+          </Group>
+
+          <Select
+            label="Sort"
+            value={pendingSort}
+            onChange={(next) => {
+              if (next) setPendingSort(next as SortKey);
+            }}
+            data={SORT_OPTIONS}
+            w={320}
+            searchable
+            clearable={false}
+          />
+
+          <Group gap="xs" wrap="wrap">
+            <Button
+              onClick={applyFilters}
+              disabled={!filtersDirty}
+            >
+              Apply Filters
+            </Button>
+
+            <Button
+              variant="light"
+              onClick={clearFilters}
+              disabled={
+                pendingSort === 'updatedAt_desc' &&
+                appliedSort === 'updatedAt_desc' &&
+                normalizedPendingQuickTags.length === 0 &&
+                normalizedAppliedQuickTags.length === 0
+              }
+            >
+              Clear Filters
+            </Button>
+
+            {normalizedAppliedQuickTags.length > 0 && (
+              <Text size="sm" c="dimmed">
+                Active tags: {normalizedAppliedQuickTags.join(', ')}
+              </Text>
+            )}
+          </Group>
+        </Stack>
+      </Paper>
 
       <Space h="lg" />
 
-      {allStories.length > 0 ? (
+      {storiesQuery.isLoading ? (
+        <Center py="xl">
+          <Loader size="xl" />
+        </Center>
+      ) : storiesQuery.isError ? (
+        <Text c="red">
+          Error loading stories: {(storiesQuery.error as Error)?.message ?? 'Unknown error'}
+        </Text>
+      ) : allStories.length > 0 ? (
         <Stack gap="md">
           {allStories.map((story) => (
             <StoryListCard key={story.id} story={story} />
@@ -228,7 +338,11 @@ function StoriesListComponent() {
           </Center>
         </Stack>
       ) : (
-        <Text>No stories found. Be the first to submit one!</Text>
+        <Text>
+          {normalizedAppliedQuickTags.length > 0
+            ? 'No stories found for the selected quick filters.'
+            : 'No stories found. Be the first to submit one!'}
+        </Text>
       )}
     </div>
   );

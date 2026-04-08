@@ -83,6 +83,11 @@ function sortNewsForDisplay(items: NewsPost[]) {
 }
 
 async function fetchPublishedNews(): Promise<NewsPost[]> {
+  const freshCache = readCachedNews();
+  if (freshCache) {
+    return freshCache;
+  }
+
   const ref = collection(db, 'newsPosts');
 
   const qPrimary = fsQuery(
@@ -94,7 +99,9 @@ async function fetchPublishedNews(): Promise<NewsPost[]> {
 
   try {
     const snap = await getDocs(qPrimary);
-    return sortNewsForDisplay(normalizeNewsDocs(snap));
+    const items = sortNewsForDisplay(normalizeNewsDocs(snap));
+    writeCachedNews(items);
+    return items;
   } catch (err) {
     const e = err as FirestoreError;
 
@@ -104,10 +111,20 @@ async function fetchPublishedNews(): Promise<NewsPost[]> {
       name: e.name,
     });
 
-    const qFallback = fsQuery(ref, where('isPublished', '==', true), limit(10));
-    const snap2 = await getDocs(qFallback);
+    try {
+      const qFallback = fsQuery(ref, where('isPublished', '==', true), limit(10));
+      const snap2 = await getDocs(qFallback);
+      const items = sortNewsForDisplay(normalizeNewsDocs(snap2));
+      writeCachedNews(items);
+      return items;
+    } catch (fallbackErr) {
+      const staleCache = readCachedNews({ allowStale: true });
+      if (staleCache) {
+        return staleCache;
+      }
 
-    return sortNewsForDisplay(normalizeNewsDocs(snap2));
+      throw fallbackErr;
+    }
   }
 }
 
@@ -125,6 +142,76 @@ function normalizeNewsDocs(snap: any): NewsPost[] {
       contentJSON: data.contentJSON ?? null,
     } as NewsPost;
   });
+}
+
+const NEWS_CACHE_KEY = 'cc:homepage-news:v1';
+const NEWS_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+type CachedNewsPost = Omit<NewsPost, 'publishedAt' | 'createdAt'> & {
+  publishedAt: string | null;
+  createdAt: string | null;
+};
+
+type CachedNewsPayload = {
+  cachedAt: number;
+  data: CachedNewsPost[];
+};
+
+function toCachedNews(posts: NewsPost[]): CachedNewsPost[] {
+  return posts.map((p) => ({
+    ...p,
+    publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
+    createdAt: p.createdAt ? p.createdAt.toISOString() : null,
+  }));
+}
+
+function fromCachedNews(posts: CachedNewsPost[]): NewsPost[] {
+  return posts.map((p) => ({
+    ...p,
+    publishedAt: p.publishedAt ? new Date(p.publishedAt) : null,
+    createdAt: p.createdAt ? new Date(p.createdAt) : null,
+  }));
+}
+
+function readCachedNews(options?: { allowStale?: boolean }): NewsPost[] | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(NEWS_CACHE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as CachedNewsPayload;
+
+    if (
+      !parsed ||
+      typeof parsed.cachedAt !== 'number' ||
+      !Array.isArray(parsed.data)
+    ) {
+      return null;
+    }
+
+    const isExpired = Date.now() - parsed.cachedAt > NEWS_CACHE_TTL_MS;
+    if (isExpired && !options?.allowStale) return null;
+
+    return sortNewsForDisplay(fromCachedNews(parsed.data));
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedNews(posts: NewsPost[]) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const payload: CachedNewsPayload = {
+      cachedAt: Date.now(),
+      data: toCachedNews(posts),
+    };
+
+    window.localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore storage failures
+  }
 }
 
 function ReadOnlyNewsContent({ contentJSON }: { contentJSON: unknown }) {
@@ -162,10 +249,8 @@ function HomePage() {
   const newsQuery = useQuery({
     queryKey: ['news', 'homepage', 'published'],
     queryFn: fetchPublishedNews,
-
-    // Aggressive caching (you said updates are rare)
-    staleTime: 1000 * 60 * 60 * 24 * 30, // 30 days
-    gcTime: 1000 * 60 * 60 * 24 * 60, // 60 days
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours
+    gcTime: 1000 * 60 * 60 * 24,    // 24 hours
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,
