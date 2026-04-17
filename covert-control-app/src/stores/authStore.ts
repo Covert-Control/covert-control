@@ -10,6 +10,11 @@ export interface UserProfile {
   other: string | null;
 }
 
+type FavoriteItem = {
+  id: string;
+  createdAtMs: number;
+};
+
 interface AuthState {
   user: User | null;
   isProfileComplete: boolean | null;
@@ -19,9 +24,12 @@ interface AuthState {
   email: string | null;
   profileData: UserProfile | null;
   isEmailVerified: boolean | null;
-  favoritesLoaded: boolean;                // has the listener hydrated?
-  favoriteIds: string[];                   // ordered by createdAt desc
-  favoritesMap: Record<string, true>;      // O(1) membership
+
+  favoritesLoaded: boolean;
+  favoriteIds: string[];
+  favoritesMap: Record<string, true>;
+  favoriteCreatedAtById: Record<string, number>;
+
   isAdmin: boolean;
 
   setAuthState: (
@@ -33,13 +41,16 @@ interface AuthState {
     profileData: UserProfile | null,
     isEmailVerified: boolean | null
   ) => void;
+
   setProfileData: (data: Partial<UserProfile>) => void;
   setLoading: (loading: boolean) => void;
   clearAuth: () => void;
-  setFavoritesIds: (ids: string[]) => void;
-  addFavoriteLocal: (id: string) => void;
+
+  setFavoritesData: (items: FavoriteItem[]) => void;
+  addFavoriteLocal: (id: string, createdAtMs?: number) => void;
   removeFavoriteLocal: (id: string) => void;
   resetFavorites: () => void;
+
   refreshEmailVerification: () => Promise<boolean>;
   setIsAdmin: (value: boolean) => void;
 }
@@ -53,9 +64,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   email: null,
   profileData: null,
   isEmailVerified: false,
+
   favoritesLoaded: false,
   favoriteIds: [],
   favoritesMap: {},
+  favoriteCreatedAtById: {},
+
   isAdmin: false,
 
   setAuthState: (
@@ -100,6 +114,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesLoaded: false,
       favoriteIds: [],
       favoritesMap: {},
+      favoriteCreatedAtById: {},
       isAdmin: false,
     }),
 
@@ -116,37 +131,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setIsAdmin: (value) => set({ isAdmin: value }),
 
-  // favorites helpers ...
-  setFavoritesIds: (ids) =>
+  setFavoritesData: (items) =>
     set({
       favoritesLoaded: true,
-      favoriteIds: ids,
-      favoritesMap: ids.reduce<Record<string, true>>((acc, id) => {
-        acc[id] = true;
+      favoriteIds: items.map((item) => item.id),
+      favoritesMap: items.reduce<Record<string, true>>((acc, item) => {
+        acc[item.id] = true;
+        return acc;
+      }, {}),
+      favoriteCreatedAtById: items.reduce<Record<string, number>>((acc, item) => {
+        acc[item.id] = item.createdAtMs;
         return acc;
       }, {}),
     }),
 
-  addFavoriteLocal: (id) => {
-    const { favoritesMap, favoriteIds } = get();
+  addFavoriteLocal: (id, createdAtMs = Date.now()) => {
+    const { favoritesMap, favoriteIds, favoriteCreatedAtById } = get();
     if (favoritesMap[id]) return;
+
     set({
       favoritesMap: { ...favoritesMap, [id]: true },
       favoriteIds: [id, ...favoriteIds],
+      favoriteCreatedAtById: {
+        ...favoriteCreatedAtById,
+        [id]: createdAtMs,
+      },
     });
   },
 
   removeFavoriteLocal: (id) => {
-    const { favoritesMap, favoriteIds } = get();
+    const { favoritesMap, favoriteIds, favoriteCreatedAtById } = get();
     if (!favoritesMap[id]) return;
-    const { [id]: _, ...rest } = favoritesMap;
+
+    const { [id]: _removedFavorite, ...restMap } = favoritesMap;
+    const { [id]: _removedCreatedAt, ...restCreatedAt } = favoriteCreatedAtById;
+
     set({
-      favoritesMap: rest,
+      favoritesMap: restMap,
       favoriteIds: favoriteIds.filter((x) => x !== id),
+      favoriteCreatedAtById: restCreatedAt,
     });
   },
 
   resetFavorites: () =>
-    set({ favoritesLoaded: false, favoriteIds: [], favoritesMap: {} }),
+    set({
+      favoritesLoaded: false,
+      favoriteIds: [],
+      favoritesMap: {},
+      favoriteCreatedAtById: {},
+    }),
 }));
-

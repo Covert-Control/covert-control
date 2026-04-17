@@ -16,17 +16,24 @@ export function startFavoritesListener(uid: string) {
   unsub = onSnapshot(
     qy,
     (snap) => {
-      const ids = snap.docs.map((d) => d.id);
-      useAuthStore.getState().setFavoritesIds(ids); // sets favoritesLoaded=true
+      const items = snap.docs.map((d) => {
+        const data = d.data();
+
+        return {
+          id: d.id,
+          createdAtMs: data.createdAt?.toMillis?.() ?? 0,
+        };
+      });
+
+      useAuthStore.getState().setFavoritesData(items);
     },
     (err) => {
       console.error('Favorites listener error:', err);
       // Prevent permanent loading state
-      useAuthStore.getState().setFavoritesIds([]);
+      useAuthStore.getState().setFavoritesData([]);
     }
   );
 }
-
 
 export function stopFavoritesListener() {
   if (unsub) {

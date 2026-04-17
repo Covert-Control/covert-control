@@ -1,3 +1,4 @@
+//authentication.lazy.tsx
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { AuthenticationForm } from '../components/AuthenticationForm'
 

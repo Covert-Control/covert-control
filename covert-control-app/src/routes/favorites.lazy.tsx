@@ -1,4 +1,3 @@
-// src/routes/favorites.lazy.tsx
 import { createLazyFileRoute, Link } from '@tanstack/react-router';
 import { useQueries } from '@tanstack/react-query';
 import { doc, getDoc, FirestoreError } from 'firebase/firestore';
@@ -11,6 +10,7 @@ import {
   Group,
   Paper,
   SegmentedControl,
+  Select,
   Skeleton,
   Space,
   Stack,
@@ -20,12 +20,36 @@ import {
   Title,
   Transition,
 } from '@mantine/core';
-import { useMemo, useState } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
+import { useEffect, useMemo, useState } from 'react';
 import { Heart, Search } from 'lucide-react';
 import StoryListCard from '../components/StoryListCard';
 import type { Story as BaseStory } from '../types/story';
 
-type Story = BaseStory & { tags?: string[]; lastChapterPublishedAt?: Date };
+type Story = BaseStory & {
+  tags?: string[];
+  lastChapterPublishedAt?: Date;
+  favoritedAtMs?: number;
+};
+
+type SortValue =
+  | 'updated'
+  | 'alpha'
+  | 'favoritedNew'
+  | 'favoritedOld'
+  | 'storyNew'
+  | 'storyOld';
+
+const SORT_OPTIONS: { label: string; value: SortValue }[] = [
+  { label: 'Updated', value: 'updated' },
+  { label: 'Newest Favorite', value: 'favoritedNew' },
+  { label: 'Oldest Favorite', value: 'favoritedOld' },
+  { label: 'Story Newest', value: 'storyNew' },
+  { label: 'Story Oldest', value: 'storyOld' },
+  { label: 'A–Z', value: 'alpha' },
+];
+
+const TAGS_BATCH_SIZE = 20;
 
 export const Route = createLazyFileRoute('/favorites')({
   component: RouteComponent,
@@ -35,11 +59,12 @@ function RouteComponent() {
   const user = useAuthStore((s) => s.user);
   const uid = user?.uid ?? null;
 
-  // ✅ Use the already-hydrated favorites from the store
   const favoritesLoaded = useAuthStore((s) => s.favoritesLoaded);
   const favoriteIds = useAuthStore((s) => s.favoriteIds);
+  const favoriteCreatedAtById = useAuthStore((s) => s.favoriteCreatedAtById);
 
-  // ✅ Cache each story doc by id; adding a new favorite usually reads only that one new doc
+  const isMobile = useMediaQuery('(max-width: 48em)') ?? false;
+
   const storyQueries = useQueries({
     queries: (favoriteIds ?? []).map((storyId) => ({
       queryKey: ['story', storyId],
@@ -71,13 +96,24 @@ function RouteComponent() {
 
   const stories = useMemo(() => {
     if (!favoriteIds?.length) return [];
+
     const byId = new Map<string, Story>();
     storyQueries.forEach((q) => {
       if (q.data) byId.set(q.data.id, q.data);
     });
-    // preserve favoriteIds order (which should already be createdAt desc from your listener)
-    return favoriteIds.map((id) => byId.get(id)).filter(Boolean) as Story[];
-  }, [favoriteIds, storyQueries]);
+
+    return favoriteIds
+      .map((id) => {
+        const story = byId.get(id);
+        if (!story) return null;
+
+        return {
+          ...story,
+          favoritedAtMs: favoriteCreatedAtById[id] ?? 0,
+        };
+      })
+      .filter(Boolean) as Story[];
+  }, [favoriteIds, storyQueries, favoriteCreatedAtById]);
 
   const isLoading =
     !!uid &&
@@ -103,13 +139,12 @@ function RouteComponent() {
     return na.full.localeCompare(nb.full, undefined, { sensitivity: 'base' });
   }
 
-  // ——— UI state: search, sort, tag filtering ———
   const [queryText, setQueryText] = useState('');
-  const [sort, setSort] = useState<'updated' | 'alpha' | 'new' | 'old'>('updated');
+  const [sort, setSort] = useState<SortValue>('updated');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [matchMode, setMatchMode] = useState<'any' | 'all'>('any');
+  const [visibleTagCount, setVisibleTagCount] = useState(TAGS_BATCH_SIZE);
 
-  // Build tag list with frequencies from favorites
   const tagStats = useMemo(() => {
     const m = new Map<string, number>();
     (stories ?? []).forEach((s) =>
@@ -124,10 +159,22 @@ function RouteComponent() {
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }, [stories]);
 
+  useEffect(() => {
+    setVisibleTagCount((current) =>
+      Math.min(current, Math.max(TAGS_BATCH_SIZE, tagStats.length))
+    );
+  }, [tagStats.length]);
+
+  const visibleTagStats = useMemo(
+    () => tagStats.slice(0, visibleTagCount),
+    [tagStats, visibleTagCount]
+  );
+
+  const remainingTagCount = Math.max(0, tagStats.length - visibleTagCount);
+
   const visibleStories = useMemo(() => {
     let list = stories ?? [];
 
-    // Search
     if (queryText.trim()) {
       const q = queryText.trim().toLowerCase();
       list = list.filter((s) =>
@@ -137,7 +184,6 @@ function RouteComponent() {
       );
     }
 
-    // Tag filter
     if (selectedTags.length > 0) {
       list = list.filter((s) => {
         const storyTags = (s.tags ?? []).map((t) => String(t).trim().toLowerCase());
@@ -147,26 +193,42 @@ function RouteComponent() {
         return selectedTags.every((t) => storyTags.includes(t));
       });
     }
-    if (sort === 'updated')
+
+    if (sort === 'updated') {
       list = [...list].sort((a, b) => {
         const at = a.lastChapterPublishedAt?.getTime?.() ?? a.createdAt?.getTime?.() ?? 0;
         const bt = b.lastChapterPublishedAt?.getTime?.() ?? b.createdAt?.getTime?.() ?? 0;
         return bt - at;
       });
-    if (sort === 'new')
+    }
+
+    if (sort === 'favoritedNew') {
+      list = [...list].sort((a, b) => (b.favoritedAtMs ?? 0) - (a.favoritedAtMs ?? 0));
+    }
+
+    if (sort === 'favoritedOld') {
+      list = [...list].sort((a, b) => (a.favoritedAtMs ?? 0) - (b.favoritedAtMs ?? 0));
+    }
+
+    if (sort === 'storyNew') {
       list = [...list].sort(
         (a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
       );
-    if (sort === 'old')
+    }
+
+    if (sort === 'storyOld') {
       list = [...list].sort(
         (a, b) => (a.createdAt?.getTime?.() || 0) - (b.createdAt?.getTime?.() || 0)
       );
-    if (sort === 'alpha') list = [...list].sort((a, b) => alphaCompare(a.title, b.title));
+    }
+
+    if (sort === 'alpha') {
+      list = [...list].sort((a, b) => alphaCompare(a.title, b.title));
+    }
 
     return list;
   }, [stories, queryText, selectedTags, matchMode, sort]);
 
-  // ——— Not signed in ———
   if (!uid) {
     return (
       <div style={{ padding: '20px' }}>
@@ -183,7 +245,6 @@ function RouteComponent() {
     );
   }
 
-  // ——— Loading ———
   if (isLoading) {
     return (
       <div style={{ padding: '20px' }}>
@@ -198,7 +259,6 @@ function RouteComponent() {
     );
   }
 
-  // ——— Error ———
   if (isError) {
     return (
       <div style={{ padding: '20px' }}>
@@ -218,7 +278,6 @@ function RouteComponent() {
     <div style={{ padding: '20px' }}>
       <Header count={count} />
 
-      {/* Toolbar */}
       <Paper
         withBorder
         radius="lg"
@@ -228,7 +287,7 @@ function RouteComponent() {
         style={{ backdropFilter: 'blur(4px)' }}
       >
         <Stack gap="sm">
-          <Group justify="space-between" wrap="wrap">
+          <Stack gap="sm">
             <TextInput
               value={queryText}
               onChange={(e) => setQueryText(e.currentTarget.value)}
@@ -237,25 +296,35 @@ function RouteComponent() {
               w={{ base: '100%', sm: 320 }}
               radius="md"
             />
-            <Group gap="xs" align="center">
+
+            <Stack gap={6} maw="100%">
               <Text c="dimmed" size="sm">
                 Sort by:
               </Text>
-              <SegmentedControl
-                value={sort}
-                onChange={(v) => setSort(v as 'new' | 'old' | 'alpha')}
-                data={[
-                  { label: 'Updated', value: 'updated' },
-                  { label: 'A–Z', value: 'alpha' },
-                  { label: 'Newest', value: 'new' },
-                  { label: 'Oldest', value: 'old' },
-                ]}
-                radius="md"
-              />
-            </Group>
-          </Group>
 
-          {/* Tag Chips filter */}
+              {isMobile ? (
+                <Select
+                  value={sort}
+                  onChange={(value) => {
+                    if (value) setSort(value as SortValue);
+                  }}
+                  data={SORT_OPTIONS}
+                  radius="md"
+                  allowDeselect={false}
+                  checkIconPosition="right"
+                  w={{ base: '100%', sm: 260 }}
+                />
+              ) : (
+                <SegmentedControl
+                  value={sort}
+                  onChange={(value) => setSort(value as SortValue)}
+                  data={SORT_OPTIONS}
+                  radius="md"
+                />
+              )}
+            </Stack>
+          </Stack>
+
           {tagStats.length > 0 && (
             <Stack gap="xs">
               <Group justify="space-between" align="center">
@@ -267,13 +336,14 @@ function RouteComponent() {
                     value={matchMode}
                     onChange={(v) => setMatchMode(v as 'any' | 'all')}
                     data={[
-                      { label: 'Any tag', value: 'any' },
-                      { label: 'All tags', value: 'all' },
+                      { label: 'Any selected tag', value: 'any' },
+                      { label: 'All selected tags', value: 'all' },
                     ]}
                     size="xs"
                     radius="md"
                   />
                 </Group>
+
                 {selectedTags.length > 0 && (
                   <Button variant="subtle" size="xs" onClick={() => setSelectedTags([])}>
                     Clear
@@ -287,7 +357,7 @@ function RouteComponent() {
                 onChange={(vals) => setSelectedTags(vals as string[])}
               >
                 <Group gap="xs">
-                  {tagStats.map(({ tag, count }) => (
+                  {visibleTagStats.map(({ tag, count }) => (
                     <Chip key={tag} value={tag} radius="md">
                       {tag}{' '}
                       <Text span size="xs" c="dimmed">
@@ -297,16 +367,47 @@ function RouteComponent() {
                   ))}
                 </Group>
               </Chip.Group>
+
+              {tagStats.length > TAGS_BATCH_SIZE && (
+                <Group gap="xs">
+                  {remainingTagCount > 0 && (
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      onClick={() =>
+                        setVisibleTagCount((current) => current + TAGS_BATCH_SIZE)
+                      }
+                    >
+                      Show {Math.min(TAGS_BATCH_SIZE, remainingTagCount)} more
+                    </Button>
+                  )}
+
+                  {visibleTagCount > TAGS_BATCH_SIZE && (
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      onClick={() => setVisibleTagCount(TAGS_BATCH_SIZE)}
+                    >
+                      Show less
+                    </Button>
+                  )}
+                </Group>
+              )}
             </Stack>
           )}
         </Stack>
       </Paper>
 
-      {/* Cards list */}
       {visibleStories.length > 0 ? (
         <div style={{ gap: '20px', display: 'flex', flexDirection: 'column' }}>
           {visibleStories.map((story, i) => (
-            <Transition key={story.id} mounted transition="fade" duration={180} timingFunction="ease">
+            <Transition
+              key={story.id}
+              mounted
+              transition="fade"
+              duration={180}
+              timingFunction="ease"
+            >
               {(styles) => (
                 <div style={{ ...styles, transitionDelay: `${i * 30}ms` }}>
                   <StoryListCard story={story} />
@@ -322,27 +423,23 @@ function RouteComponent() {
   );
 }
 
-/* ——— Header ——— */
 function Header({ count }: { count: number }) {
   return (
-    <Group justify="space-between" align="center">
-      <Group>
-        <ThemeIcon size={42} radius="xl" variant="gradient" gradient={{ from: 'pink', to: 'violet' }}>
-          <Heart />
+    <Group justify="space-between" align="flex-start" wrap="wrap">
+      <Group gap="md" align="center">
+        <ThemeIcon size={40} radius="xl" variant="light" color="white">
+          <Heart size={18} fill="red" strokeWidth={1.8} />
         </ThemeIcon>
+
         <div>
-          <Title order={2} style={{ marginBottom: 4 }}>
-            <Text inherit variant="gradient" gradient={{ from: 'pink', to: 'violet', deg: 45 }} fw={900}>
-              Your Favorites
-            </Text>
-          </Title>
-          <Group gap="xs" align="center">
-            <Badge variant="light" radius="sm">
-              {count}
+          <Group gap="sm" align="center">
+            <Title order={2} fw={800}>
+              Favorites
+            </Title>
+
+            <Badge variant="light" color="gray" radius="sm">
+              {count} saved
             </Badge>
-            <Text c="dimmed" size="sm">
-              saved {count === 1 ? 'story' : 'stories'}
-            </Text>
           </Group>
         </div>
       </Group>
@@ -350,7 +447,6 @@ function Header({ count }: { count: number }) {
   );
 }
 
-/* ——— Empty state ——— */
 function EmptyState() {
   return (
     <Paper withBorder radius="lg" p="xl" style={{ textAlign: 'center' }}>
@@ -370,7 +466,6 @@ function EmptyState() {
   );
 }
 
-/* ——— Skeleton card ——— */
 function SkeletonCard() {
   return (
     <Paper withBorder radius="lg" p="lg">

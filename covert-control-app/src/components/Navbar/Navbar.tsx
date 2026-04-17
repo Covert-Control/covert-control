@@ -7,7 +7,7 @@ import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-rea
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
-import { useUiStore } from '../../stores/uiStore'; // ✅ add
+import { useUiStore } from '../../stores/uiStore';
 import classes from './Navbar.module.css';
 
 interface NavItem {
@@ -18,31 +18,16 @@ interface NavItem {
   links?: { label: string; link: string }[];
 }
 
-const linkdata: NavItem[] = [
-  { label: 'Home', icon: House, link: '/' },
-  {
-    label: 'Stories',
-    icon: Library,
-    initiallyOpened: false,
-    links: [
-      { label: 'All Stories', link: '/stories' },
-      { label: 'Search Stories', link: '/advanced-search' },
-      { label: 'Last Week\'s Stories', link: '/stories/weeklynew' },
-      { label: 'Random', link: '/stories/random' },
-      { label: 'Authors', link: '/authors' },
-    ],
-  },
-  { label: 'Submit Story', icon: PencilLine, link: '/submit' },
-];
-
 export type SiteNavbarProps = {
   desktopOpened: boolean;
   onToggleDesktop: () => void;
 };
 
 export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavbarProps) {
-  const { clearAuth } = useAuthStore();
-  const readerMode = useUiStore((s) => s.readerMode); // ✅ add
+  const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const readerMode = useUiStore((s) => s.readerMode);
+
   const theme = useMantineTheme();
   const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
 
@@ -55,11 +40,28 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
     }
   };
 
+  const linkdata: NavItem[] = [
+    { label: 'Home', icon: House, link: '/' },
+    {
+      label: 'Stories',
+      icon: Library,
+      initiallyOpened: false,
+      links: [
+        { label: 'All Stories', link: '/stories' },
+        { label: 'Search Stories', link: '/advanced-search' },
+        { label: "Last Week's Stories", link: '/stories/weeklynew' },
+        { label: 'Random', link: '/stories/random' },
+        { label: 'Authors', link: '/authors' },
+        ...(user ? [{ label: 'Favorites', link: '/favorites' }] : []),
+      ],
+    },
+    { label: 'Submit Story', icon: PencilLine, link: '/submit' },
+  ];
+
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
   return (
     <AppShell.Navbar p={0} zIndex={300}>
-      {/* Hide the collapse arrow in reader mode */}
       {!readerMode && desktopOpened && isDesktop && (
         <ActionIcon
           aria-label="Collapse sidebar"
@@ -80,7 +82,7 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
         </ScrollArea>
 
         <div className={classes.footer}>
-          {auth.currentUser === null ? (
+          {!user ? (
             <Link to="/authentication" className={classes.link}>
               <LogIn className={classes.linkIcon} />
               <span>Login</span>
