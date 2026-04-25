@@ -77,3 +77,8 @@ export { updatePublicProfile } from './updatePublicProfile';
 export { upsertNewsPost } from './upsertNewsPost';
 export { updateNewsPostFlags } from './updateNewsPostFlags';
 export { deleteNewsPost } from './deleteNewsPost';
+
+/* ------------------------------------------------------------------ */
+/*  Verification Email                                          */
+/* ------------------------------------------------------------------ */
+export { sendVerificationEmail } from './sendVerificationEmail';
