@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useEffect, useRef, useState } from 'react';
+import { notifications } from '@mantine/notifications';
 
 type Props = { storyId: string };
 
@@ -17,6 +18,8 @@ export default function FavoriteButton({ storyId }: Props) {
   const isFav = useAuthStore((s) => !!s.favoritesMap[storyId]);
   const addFavoriteLocal = useAuthStore((s) => s.addFavoriteLocal);
   const removeFavoriteLocal = useAuthStore((s) => s.removeFavoriteLocal);
+
+  const isEmailVerified = useAuthStore((s) => s.isEmailVerified);
 
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(false);
@@ -61,6 +64,14 @@ export default function FavoriteButton({ storyId }: Props) {
   const toggle = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isEmailVerified) {
+      notifications.show({
+        title: 'Email verification required',
+        message: 'Please verify your email to like stories.',
+        color: 'yellow',
+      });
+      return;
+    }
     if (disabled) return;
 
     // Client-side “pause”
@@ -93,6 +104,8 @@ export default function FavoriteButton({ storyId }: Props) {
 
   const tooltipLabel = !favoritesLoaded
     ? 'Loading favorites…'
+    : !isEmailVerified
+    ? 'Verify your email to favorite'
     : isFav
     ? 'Unfavorite'
     : 'Favorite this story';

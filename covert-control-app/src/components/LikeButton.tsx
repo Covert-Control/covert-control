@@ -30,6 +30,8 @@ export default function LikeButton({
 
   const queryClient = useQueryClient();
 
+  const isEmailVerified = useAuthStore((s) => s.isEmailVerified);
+
   const [busy, setBusy] = useState(false);
   const [count, setCount] = useState(initialCount);
   const [isLiked, setIsLiked] = useState(false);
@@ -38,7 +40,7 @@ export default function LikeButton({
   const likeLabel = count === 1 ? 'like' : 'likes';
 
   const isOwnStory = !!uid && !!ownerId && uid === ownerId;
-  const canToggle = !!uid && !isOwnStory;
+  const canToggle = !!uid && isEmailVerified && !isOwnStory;
 
   function bumpLikesInCache(delta: number) {
     const applyToStory = (s: any) => {
@@ -98,6 +100,8 @@ export default function LikeButton({
 
   const tooltipLabel = !uid
     ? 'Log in to like'
+    : !isEmailVerified
+    ? 'Verify your email to like'
     : isOwnStory
     ? "You can’t like your own story"
     : isLiked
@@ -105,7 +109,15 @@ export default function LikeButton({
     : 'Like';
 
   const handleClick = async () => {
-    // Not logged in: show login nudge
+    if (!isEmailVerified) {
+      notifications.show({
+        title: 'Email verification required',
+        message: 'Please verify your email to like stories.',
+        color: 'yellow',
+      });
+      return;
+    }
+
     if (!uid) {
       notifications.show({
         title: 'Login required',

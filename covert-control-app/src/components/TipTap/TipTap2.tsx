@@ -553,7 +553,7 @@ export function TipTap2() {
                   error={form.errors.tags}
                   maxTags={TAGS_MAX}
                   minTagLength={TAG_MIN_LEN}
-                  placeholder="Add tags (e.g., science fiction, military). Separate with comma"
+                  placeholder="Add tags (e.g., science fiction, fantasy, super hero). Separate with comma."
                   featuredTitle="Recommended tags"
                   featuredDescription="Please consider choosing at least 1 tag for the dominant gender and 1 tag for the gender pairing to help readers filter and find your story."
                   featuredGroups={[

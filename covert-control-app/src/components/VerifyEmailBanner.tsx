@@ -100,7 +100,7 @@ export function EmailVerificationBanner() {
 
         <Text size="sm" c="dimmed">
           You must verify your email to submit and like stories. We sent a link to{' '}
-          <b>{email ?? 'your email address'}</b>. Didn’t see it?
+          <b>{email ?? 'your email address'}</b>. Please check your spam folder, or click the button to resend the verification.
         </Text>
 
         <Group justify="space-between" wrap="wrap">
