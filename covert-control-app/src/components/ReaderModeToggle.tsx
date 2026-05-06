@@ -28,7 +28,7 @@ export function ReaderModeToggle({ variant, size = 'xs' }: Props) {
         leftSection={<BookOpen size={16} />}
         onClick={() => setReaderMode(true)}
       >
-        Reader mode
+        Hide UI
       </Button>
     );
   }

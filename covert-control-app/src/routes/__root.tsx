@@ -208,7 +208,7 @@ function RootComponent() {
                 <img
                   src={SiteLogo}
                   alt="Covert Control"
-                  style={{ height: 28, width: 'auto', display: 'block' }}
+                  style={{ height: 40, width: 'auto', display: 'block' }}
                 />
               </Box>
             </Group>

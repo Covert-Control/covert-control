@@ -25,7 +25,6 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   getAdditionalUserInfo,
-  sendEmailVerification,
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import {
@@ -33,6 +32,7 @@ import {
   googleProvider,
   registerUserCallable,
   completeGoogleRegistrationCallable,
+  sendVerificationEmailCallable,
 } from '../config/firebase.tsx';
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
@@ -322,53 +322,53 @@ export function AuthenticationForm(props: PaperProps) {
       return;
     }
 
-    // START LOADING UI
     setIsProcessing(true);
     setLoadingMessage('Creating your account...');
 
     try {
       // 1. Call backend to create account + Firestore doc
-      const result = await registerUserCallable({
+      const registerResult = await registerUserCallable({
         email: form.getValues().email,
         password: form.getValues().password,
         username: form.getValues().name,
       });
 
-      // 2. Immediately sign them in so we have auth.currentUser
-      await signInWithEmailAndPassword(
+      // 2. Immediately sign them in
+      const signInCredential = await signInWithEmailAndPassword(
         auth,
         form.getValues().email,
         form.getValues().password
       );
 
-      console.log('Registration successful:', result.data);
+      console.log('Registration successful:', registerResult.data);
 
-      // 3. Send verification email
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
+      // 3. Send verification email through custom Cloud Function
+      const signedInUser = signInCredential.user;
+
+      if (!signedInUser.email) {
+        throw new Error('Could not determine the signed-in user email.');
       }
+
+      setLoadingMessage('Sending verification email...');
+
+      await sendVerificationEmailCallable({
+        email: signedInUser.email,
+      });
 
       // 4. Tell them to verify
       notifications.show({
         title: 'Almost done!',
-        message: `We sent a verification link to ${form.values.email}.`,
+        message: `We sent a verification link to ${signedInUser.email}.`,
         color: 'teal',
         icon: <CheckIcon size={18} />,
         autoClose: 7000,
       });
 
-      // 5. Show "please verify" modal instead of navigating away
-      showVerifyNotice(form.values.email);
-
-      // DO NOT navigate('/') yet.
-      // We want them to verify first, then log in again.
-      // Also: leave isProcessing=true until they dismiss modal? We can drop it now:
-      // We drop it in the modal "Got it" button so UI unlocks.
-
+      // 5. Show "please verify" modal
+      showVerifyNotice(signedInUser.email);
     } catch (error: any) {
       console.error('Error calling registerUser function: ', error);
 
-      // STOP LOADING
       setIsProcessing(false);
 
       if (error.message) {
@@ -616,7 +616,7 @@ export function AuthenticationForm(props: PaperProps) {
       >
         <Stack>
           <Text>
-            We just sent a verification link to <b>{pendingEmail}</b>. Please open that email and click the link to activate your account.
+            We just sent a verification link to <b>{pendingEmail}</b>. Please open that email and click the link to activate your account. <b>Check your spam folder if you don't see it.</b>
           </Text>
 
           <Button

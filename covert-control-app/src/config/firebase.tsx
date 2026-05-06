@@ -114,3 +114,14 @@ export const saveChapterCallable: HttpsCallable<
 export const upsertNewsPostCallable = httpsCallable(functions, 'upsertNewsPost');
 export const updateNewsPostFlagsCallable = httpsCallable(functions, 'updateNewsPostFlags');
 export const deleteNewsPostCallable = httpsCallable(functions, 'deleteNewsPost');
+
+type SendVerificationEmailInput = {
+  email: string;
+};
+
+type SendVerificationEmailOutput = void;
+
+export const sendVerificationEmailCallable: HttpsCallable<
+  SendVerificationEmailInput,
+  SendVerificationEmailOutput
+> = httpsCallable(functions, 'sendVerificationEmail');
