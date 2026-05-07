@@ -42,6 +42,7 @@ import {
   ThumbsUp,
   Trash2,
   User as UserIcon,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -124,6 +125,73 @@ function formatShortDate(d: Date) {
     day: 'numeric',
   });
 }
+
+/* ---------------------------------------------
+   Reading presets
+---------------------------------------------- */
+
+type ReadingPresetKey = 'default' | 'paper' | 'sepia' | 'night' | 'sage' | 'contrast';
+
+interface ReadingPreset {
+  label: string;
+  /** Emoji/icon shown in the menu next to the label */
+  icon: string;
+  background: string;
+  color: string;
+  dividerColor: string;
+  /** Optional: nudge the user toward a specific font, but don't force it */
+  suggestedFont?: 'sans' | 'serif' | 'mono';
+}
+
+const READING_PRESETS: Record<ReadingPresetKey, ReadingPreset> = {
+  default: {
+    label: 'Default',
+    icon: '☀️',
+    background: 'var(--mantine-color-body)',
+    color: 'var(--mantine-color-text)',
+    dividerColor: 'var(--mantine-color-gray-3)',
+  },
+  paper: {
+    label: 'Paper',
+    icon: '📄',
+    background: '#f5f0e8',
+    color: '#2c2825',
+    dividerColor: '#c8bfb0',         // warm mid-tone, clearly visible on cream
+    suggestedFont: 'serif',
+  },
+  sepia: {
+    label: 'Sepia',
+    icon: '🟤',
+    background: '#fbf0d9',
+    color: '#3b2f1e',
+    dividerColor: '#c9ae88',         // amber-tan, matches the sepia palette
+    suggestedFont: 'serif',
+  },
+  night: {
+    label: 'Night',
+    icon: '🌙',
+    background: '#1c1c1e',
+    color: '#e8e6e0',
+    dividerColor: 'rgba(255,255,255,0.2)',  // subtle but visible on near-black
+    suggestedFont: 'serif',
+  },
+  sage: {
+    label: 'Sage',
+    icon: '🌿',
+    background: '#eef2ec',
+    color: '#253020',
+    dividerColor: '#b0c4aa',         // muted green-grey
+    suggestedFont: 'sans',
+  },
+  contrast: {
+    label: 'High Contrast',
+    icon: '◑',
+    background: '#ffffff',
+    color: '#000000',
+    dividerColor: '#999999',         // solid mid-grey, crisp on pure white
+    suggestedFont: 'sans',
+  },
+};
 
 /* ---------------------------------------------
    Chapter fetcher (single chapter content)
@@ -357,9 +425,18 @@ function StoryDetailPage() {
 
   // reading prefs
   const [fontSize, setFontSize] = useState<'sm' | 'md' | 'lg' | 'xl'>('md');
-  const [fontFamily, setFontFamily] = useState<'sans' | 'serif' | 'mono'>(
-    'serif'
-  );
+  const [fontFamily, setFontFamily] = useState<'sans' | 'serif' | 'mono'>('serif');
+  const [readingPreset, setReadingPreset] = useState<ReadingPresetKey>('default');
+
+  // When a preset with a suggestedFont is chosen, nudge the font selector to match.
+  // The user can still override it afterward with the Font submenu.
+  function applyPreset(key: ReadingPresetKey) {
+    setReadingPreset(key);
+    const suggested = READING_PRESETS[key].suggestedFont;
+    if (suggested) setFontFamily(suggested);
+  }
+
+  const activePreset = READING_PRESETS[readingPreset];
 
   const fontSizeMap: Record<typeof fontSize, string> = {
     sm: '0.95rem',
@@ -598,10 +675,8 @@ function StoryDetailPage() {
 
   const hasCustomTitle = !!rawChapterTitle && !isDefaultTitle;
 
-  // If custom title exists: 1. “Title”
-  // If missing/default title: Chapter N
   const chapterHeaderText = hasCustomTitle
-    ? `${safeChapter}. “${rawChapterTitle}”`
+    ? `${safeChapter}. "${rawChapterTitle}"`
     : defaultTitle;
 
   const chapterSummaryText = (chapterQuery.data?.chapterSummary ?? '').trim();
@@ -643,6 +718,10 @@ function StoryDetailPage() {
           justifyContent: 'center',
           paddingTop: readerMode ? 0 : 'var(--mantine-spacing-md)',
           paddingBottom: readerMode ? 0 : 'var(--mantine-spacing-xl)',
+          // Preset background bleeds edge-to-edge in reader mode for full immersion
+          background: readerMode ? activePreset.background : undefined,
+          minHeight: readerMode ? '100vh' : undefined,
+          transition: 'background 0.3s ease',
         }}
       >
         <Container
@@ -885,24 +964,55 @@ function StoryDetailPage() {
 
                     <ReaderModeToggle variant="enter" />
 
+                    {/* ---- READING OPTIONS MENU ---- */}
                     <Menu withArrow shadow="md" position="bottom-end">
-                      <Menu.Target>
-                        <Tooltip
-                          label="Reading options"
-                          withArrow
-                          position="bottom"
-                        >
-                          <ActionIcon
-                            variant="subtle"
-                            radius="md"
-                            aria-label="Reading options"
-                          >
-                            <MoreVertical size={18} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Menu.Target>
+<Menu.Target>
+  <Tooltip label="Reading options" withArrow position="bottom">
+    <Button
+      variant="subtle"
+      size="xs"
+      radius="md"
+      leftSection={<SlidersHorizontal size={14} />}
+    >
+      Display
+    </Button>
+  </Tooltip>
+</Menu.Target>
 
                       <Menu.Dropdown>
+                        {/* --- PRESETS --- */}
+                        <Menu.Label>Theme</Menu.Label>
+                        {(Object.entries(READING_PRESETS) as [ReadingPresetKey, ReadingPreset][]).map(
+                          ([key, preset]) => (
+                            <Menu.Item
+                              key={key}
+                              onClick={() => applyPreset(key)}
+                              rightSection={readingPreset === key ? '✓' : undefined}
+                              leftSection={
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    width: 14,
+                                    height: 14,
+                                    borderRadius: 3,
+                                    background: preset.background.startsWith('var')
+                                      ? undefined
+                                      : preset.background,
+                                    border: '1px solid var(--mantine-color-gray-4)',
+                                    flexShrink: 0,
+                                    verticalAlign: 'middle',
+                                  }}
+                                />
+                              }
+                            >
+                              {preset.label}
+                            </Menu.Item>
+                          )
+                        )}
+
+                        <Menu.Divider />
+
+                        {/* --- TEXT SIZE --- */}
                         <Menu.Label>Text size</Menu.Label>
                         <Menu.Item
                           onClick={() => setFontSize('sm')}
@@ -930,6 +1040,8 @@ function StoryDetailPage() {
                         </Menu.Item>
 
                         <Menu.Divider />
+
+                        {/* --- FONT --- */}
                         <Menu.Label>Font</Menu.Label>
                         <Menu.Item
                           onClick={() => setFontFamily('sans')}
@@ -1036,7 +1148,13 @@ function StoryDetailPage() {
             radius={readerMode ? 0 : 'lg'}
             p={readerMode ? 'xl' : 'md'}
             mt={readerMode ? 0 : 'md'}
-            withBorder={!readerMode}
+            // Only apply the border when not using a custom preset and not in reader mode
+            withBorder={!readerMode && readingPreset === 'default'}
+            style={{
+              background: activePreset.background,
+              color: activePreset.color,
+              transition: 'background 0.3s ease, color 0.3s ease',
+            }}
           >
             {chapterQuery.isLoading ? (
               <Center py="xl">
@@ -1053,15 +1171,20 @@ function StoryDetailPage() {
                   fontSize: fontSizeMap[fontSize],
                   lineHeight: lineHeightMap[fontSize],
                   wordBreak: 'break-word',
+                  // Inherit the preset text color through to TipTap content
+                  color: 'inherit',
                 }}
               >
-                {/* Kindle-ish chapter header (title/summary optional) */}
+                {/* Kindle-ish chapter header */}
                 <Box mb="lg">
                   <Title
                     order={3}
                     fw={600}
                     ta="center"
-                    style={{ letterSpacing: '0.01em' }}
+                    style={{
+                      letterSpacing: '0.01em',
+                      color: 'inherit',
+                    }}
                   >
                     {chapterHeaderText}
                   </Title>
@@ -1071,7 +1194,7 @@ function StoryDetailPage() {
                     mx="auto"
                     style={{
                       width: 'min(420px, 70%)',
-                      borderBottom: '1px solid var(--mantine-color-gray-3)',
+                      borderBottom: `1px solid ${activePreset.dividerColor}`,
                     }}
                   />
 
@@ -1079,11 +1202,12 @@ function StoryDetailPage() {
                     <Text
                       mt="sm"
                       size="sm"
-                      c="dimmed"
                       ta="center"
                       style={{
                         fontStyle: 'italic',
                         lineHeight: 1.5,
+                        color: 'inherit',
+                        opacity: 0.75,
                       }}
                     >
                       {chapterSummaryText}
@@ -1099,7 +1223,7 @@ function StoryDetailPage() {
             )}
           </Paper>
 
-          {/* CHAPTER NAV + JUMP (kept visible even in reader mode for usability) */}
+          {/* CHAPTER NAV */}
           {totalChapters > 1 && (
             <Stack mt="lg" gap="xs" align="center">
               {!readerMode && (

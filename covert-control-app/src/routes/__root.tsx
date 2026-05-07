@@ -177,7 +177,7 @@ function RootComponent() {
           <Outlet />
         </AppShell.Main>
 
-        <AppShell.Footer p={0}>
+        <AppShell.Footer p={0} style={{ bottom: -1 }}>
           {!effectiveReaderMode && <SiteFooter />}
         </AppShell.Footer>
       </AppShell>

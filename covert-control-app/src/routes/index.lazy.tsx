@@ -257,6 +257,10 @@ function HomePage() {
     retry: 1,
   });
 
+  const newestRegular = React.useMemo(() => {
+    return (newsQuery.data ?? []).find((p) => !p.pinned);
+  }, [newsQuery.data]);
+
   const defaultOpenNewsIds = React.useMemo(() => {
     const items = newsQuery.data ?? [];
     if (!items.length) return [];
@@ -453,7 +457,19 @@ function HomePage() {
               defaultValue={defaultOpenNewsIds}
             >
               {newsQuery.data!.map((p) => (
-                <Accordion.Item key={p.id} value={p.id}>
+                <Accordion.Item
+                  key={p.id}
+                  value={p.id}
+                  style={
+                    p.pinned
+                      ? {
+                          background: 'rgba(255, 215, 0, 0.04)',
+                          borderColor: 'rgba(255, 215, 0, 0.18)',
+                          borderLeft: '4px solid rgba(255, 215, 0, 0.55)',
+                        }
+                      : undefined
+                  }
+                >
                   <Accordion.Control>
                     <Group justify="space-between" wrap="nowrap">
                       <Box style={{ minWidth: 0 }}>
@@ -470,6 +486,15 @@ function HomePage() {
                           >
                             Pinned
                           </Badge>
+                          )}
+                          {!p.pinned && p.id === newestRegular?.id && (
+                            <Badge
+                              variant="light"
+                              color="blue"
+                              style={{ textTransform: 'none' }}
+                            >
+                              Latest
+                            </Badge>
                           )}
                         </Group>
                         <Text size="xs" c="dimmed">

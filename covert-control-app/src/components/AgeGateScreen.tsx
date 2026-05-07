@@ -19,8 +19,16 @@ export function AgeGateScreen(props: {
   const [remember, setRemember] = useState(true);
 
   return (
-    <Container size="sm" py={60}>
-      <Paper withBorder radius="lg" p="xl">
+    <Container
+      size="md"
+      p="md"
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <Paper withBorder radius="lg" p="md">
         <Stack gap="md">
           <Title order={2}>Adults only (18+)</Title>
 
