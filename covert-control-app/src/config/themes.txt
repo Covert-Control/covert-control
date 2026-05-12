@@ -1,0 +1,271 @@
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import '@mantine/core/styles.css';
+import { MantineProvider, createTheme, CSSVariablesResolver } from '@mantine/core';
+import { routeTree } from './routeTree.gen';
+import '@mantine/tiptap/styles.css';
+import { NothingFoundPage } from './components/NothingFoundPage/NothingFoundPage';
+import { Notifications } from '@mantine/notifications';
+import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+const router = createRouter({ routeTree, defaultNotFoundComponent: () => <NothingFoundPage /> });
+
+declare module '@tanstack/react-router' {
+  interface Register { router: typeof router; }
+}
+
+const theme = createTheme({
+  primaryColor: 'ocean',
+  primaryShade: { light: 7, dark: 3 },
+  defaultRadius: 'lg',
+  fontFamily: `'Inter', system-ui, -apple-system, sans-serif`,
+  colors: {
+    ocean: [
+      '#e0fbfa', // 0
+      '#b3f4f2', // 1
+      '#7eecea', // 2
+      '#3ddbd8', // 3  ← dark primary
+      '#18c5c2', // 4
+      '#0da8a5', // 5
+      '#098a88', // 6
+      '#076e6c', // 7  ← light primary
+      '#055251', // 8
+      '#033635', // 9
+    ],
+  },
+});
+
+const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {},
+  light: {
+    '--mantine-color-dimmed': theme.colors.gray[6],
+    '--mantine-color-default-border': theme.colors.gray[4],
+  },
+  dark: {
+    '--mantine-color-dimmed': '#5a7a80',
+    '--mantine-color-default-border': '#0e2228',
+    '--mantine-color-text': '#e0eff2',
+    '--mantine-color-body': '#060d10',
+    '--mantine-color-dark-6': '#0c1a20',   // card/paper fill
+    '--mantine-color-dark-7': '#060d10',   // page bg
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
+      <Notifications position="bottom-right" />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </MantineProvider>
+  </StrictMode>
+);
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import '@mantine/core/styles.css';
+import { MantineProvider, createTheme, CSSVariablesResolver } from '@mantine/core';
+import { routeTree } from './routeTree.gen';
+import '@mantine/tiptap/styles.css';
+import { NothingFoundPage } from './components/NothingFoundPage/NothingFoundPage';
+import { Notifications } from '@mantine/notifications';
+import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+const router = createRouter({ routeTree, defaultNotFoundComponent: () => <NothingFoundPage /> });
+
+declare module '@tanstack/react-router' {
+  interface Register { router: typeof router; }
+}
+
+const theme = createTheme({
+  primaryColor: 'amber',
+  primaryShade: { light: 8, dark: 4 },
+  defaultRadius: 'md',
+  fontFamily: `system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`,
+  colors: {
+    amber: [
+      '#fff9e6', // 0
+      '#ffedb3', // 1
+      '#ffdf80', // 2
+      '#ffcf4d', // 3
+      '#ffbf1a', // 4  ← dark primary
+      '#f5ad00', // 5
+      '#d49200', // 6
+      '#b37800', // 7
+      '#8f5e00', // 8  ← light primary
+      '#664200', // 9
+    ],
+  },
+});
+
+const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {},
+  light: {
+    '--mantine-color-dimmed': theme.colors.gray[6],
+    '--mantine-color-default-border': theme.colors.gray[4],
+  },
+  dark: {
+    '--mantine-color-dimmed': '#7a7060',
+    '--mantine-color-default-border': '#2a2418',
+    '--mantine-color-text': '#f5efe0',
+    '--mantine-color-body': '#080807',
+    '--mantine-color-dark-6': '#141210',   // card/paper fill
+    '--mantine-color-dark-7': '#080807',   // page bg
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
+      <Notifications position="bottom-right" />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </MantineProvider>
+  </StrictMode>
+);
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import '@mantine/core/styles.css';
+import { MantineProvider, createTheme, CSSVariablesResolver } from '@mantine/core';
+import { routeTree } from './routeTree.gen';
+import '@mantine/tiptap/styles.css';
+import { NothingFoundPage } from './components/NothingFoundPage/NothingFoundPage';
+import { Notifications } from '@mantine/notifications';
+import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+const router = createRouter({ routeTree, defaultNotFoundComponent: () => <NothingFoundPage /> });
+
+declare module '@tanstack/react-router' {
+  interface Register { router: typeof router; }
+}
+
+const theme = createTheme({
+  primaryColor: 'crimson',
+  primaryShade: { light: 7, dark: 4 },
+  defaultRadius: 'sm',
+  fontFamily: `Georgia, Cambria, 'Times New Roman', serif`,
+  colors: {
+    crimson: [
+      '#ffe8ed', // 0
+      '#ffc9d4', // 1
+      '#ff9ab0', // 2
+      '#ff6888', // 3
+      '#f53d65', // 4  ← dark primary
+      '#e02050', // 5
+      '#c4143e', // 6
+      '#a80d31', // 7  ← light primary
+      '#880826', // 8
+      '#65051b', // 9
+    ],
+  },
+});
+
+const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {},
+  light: {
+    '--mantine-color-dimmed': theme.colors.gray[6],
+    '--mantine-color-default-border': theme.colors.gray[4],
+  },
+  dark: {
+    '--mantine-color-dimmed': '#8a6a70',
+    '--mantine-color-default-border': '#3a1a20',
+    '--mantine-color-text': '#f5e8ea',
+    '--mantine-color-body': '#0f0608',
+    '--mantine-color-dark-6': '#1c0c0f',   // card/paper fill
+    '--mantine-color-dark-7': '#0f0608',   // page bg
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
+      <Notifications position="bottom-right" />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </MantineProvider>
+  </StrictMode>
+);
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import '@mantine/core/styles.css';
+import { MantineProvider, createTheme, CSSVariablesResolver } from '@mantine/core';
+import { routeTree } from './routeTree.gen';
+import '@mantine/tiptap/styles.css';
+import { NothingFoundPage } from './components/NothingFoundPage/NothingFoundPage';
+import { Notifications } from '@mantine/notifications';
+import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+const router = createRouter({ routeTree, defaultNotFoundComponent: () => <NothingFoundPage /> });
+
+declare module '@tanstack/react-router' {
+  interface Register { router: typeof router; }
+}
+
+const theme = createTheme({
+  primaryColor: 'noir',
+  primaryShade: { light: 7, dark: 4 },
+  defaultRadius: 'md',
+  fontFamily: `'Inter', system-ui, -apple-system, sans-serif`,
+  colors: {
+    noir: [
+      '#f0ecff', // 0
+      '#ddd4ff', // 1
+      '#bcaaff', // 2
+      '#977dff', // 3
+      '#7a55ff', // 4  ← dark primary
+      '#6840ff', // 5
+      '#5a30f0', // 6
+      '#4a22d6', // 7  ← light primary
+      '#3918b0', // 8
+      '#280f88', // 9
+    ],
+  },
+});
+
+const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {},
+  light: {
+    '--mantine-color-dimmed': theme.colors.gray[6],
+    '--mantine-color-default-border': theme.colors.gray[4],
+  },
+  dark: {
+    '--mantine-color-dimmed': '#7a6f9a',
+    '--mantine-color-default-border': '#2e2845',
+    '--mantine-color-text': '#ede8ff',
+    '--mantine-color-body': '#0c0914',
+    '--mantine-color-dark-6': '#16112a',   // card/paper fill
+    '--mantine-color-dark-7': '#0c0914',   // page bg (AppShell main)
+  },
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
+      <Notifications position="bottom-right" />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </MantineProvider>
+  </StrictMode>
+);

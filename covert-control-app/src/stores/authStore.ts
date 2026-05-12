@@ -1,3 +1,4 @@
+//authStore.ts
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import { auth } from '../config/firebase.tsx';

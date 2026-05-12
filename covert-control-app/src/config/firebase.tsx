@@ -125,3 +125,24 @@ export const sendVerificationEmailCallable: HttpsCallable<
   SendVerificationEmailInput,
   SendVerificationEmailOutput
 > = httpsCallable(functions, 'sendVerificationEmail');
+
+export type ReadingPreferences = {
+  preset: 'default' | 'paper' | 'sepia' | 'night' | 'sage' | 'contrast';
+  fontSize: 'sm' | 'md' | 'lg' | 'xl';
+  fontFamily: 'sans' | 'serif' | 'mono';
+  textAlign: 'justify' | 'left';
+  readingWidth: 'narrow' | 'md' | 'wide';
+}
+
+export const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
+  preset: 'default',
+  fontSize: 'md',
+  fontFamily: 'serif',
+  textAlign: 'justify',
+  readingWidth: 'md',
+};
+
+export const saveReadingPreferencesCallable: HttpsCallable<
+  ReadingPreferences,
+  { ok: true }
+> = httpsCallable(functions, 'saveReadingPreferences');
