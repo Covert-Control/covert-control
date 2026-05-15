@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import { auth } from '../config/firebase.tsx';
+import type { ReadingPreferences } from '../config/firebase.tsx';
 
 export interface UserProfile {
   aboutMe: string | null;
@@ -33,6 +34,8 @@ interface AuthState {
 
   isAdmin: boolean;
 
+  readingPreferences: ReadingPreferences | null;
+
   setAuthState: (
     currentUser: User | null,
     isProfileComplete: boolean | null,
@@ -54,6 +57,7 @@ interface AuthState {
 
   refreshEmailVerification: () => Promise<boolean>;
   setIsAdmin: (value: boolean) => void;
+  setReadingPreferences: (prefs: ReadingPreferences) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -72,6 +76,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   favoriteCreatedAtById: {},
 
   isAdmin: false,
+
+  readingPreferences: null,
 
   setAuthState: (
     user,
@@ -117,6 +123,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesMap: {},
       favoriteCreatedAtById: {},
       isAdmin: false,
+      readingPreferences: null,
     }),
 
   refreshEmailVerification: async () => {
@@ -181,4 +188,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesMap: {},
       favoriteCreatedAtById: {},
     }),
+
+    setReadingPreferences: (prefs) => set({ readingPreferences: prefs }),
 }));

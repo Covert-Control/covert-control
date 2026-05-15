@@ -275,8 +275,8 @@ function StoriesListComponent() {
               if (next) setPendingSort(next as SortKey);
             }}
             data={SORT_OPTIONS}
-            w={320}
-            searchable
+            maw={320}
+            w="100%"
             clearable={false}
           />
 

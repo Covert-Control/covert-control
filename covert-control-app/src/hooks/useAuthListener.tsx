@@ -12,7 +12,8 @@ export function useAuthListener() {
   const setAuthState = useAuthStore((s) => s.setAuthState);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const refreshEmailVerification = useAuthStore((s) => s.refreshEmailVerification);
-  const setIsAdmin = useAuthStore((s) => s.setIsAdmin);   // 👈 NEW
+  const setIsAdmin = useAuthStore((s) => s.setIsAdmin); 
+  const setReadingPreferences = useAuthStore((s) => s.setReadingPreferences);
 
   // Listen for login/logout and hydrate profile + admin flag
   useEffect(() => {
@@ -53,6 +54,11 @@ export function useAuthListener() {
               };
 
               isProfileComplete = Boolean(username && String(username).trim().length >= 3);
+
+              if (data?.readingPreferences) {
+                setReadingPreferences(data.readingPreferences);
+              }
+
             } else {
               isProfileComplete = false;
             }
@@ -101,7 +107,7 @@ export function useAuthListener() {
       unsub();
       stopFavoritesListener(); // ✅ ensure Firestore listener is cleaned up if hook unmounts
     };
-  }, [setAuthState, clearAuth, setIsAdmin]);
+  }, [setAuthState, clearAuth, setIsAdmin, setReadingPreferences]);
 
 
   // On mount and when returning focus to the app, re-check (reload only)

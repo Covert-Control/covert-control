@@ -37,7 +37,6 @@ export const completeGoogleRegistration = onCall(async (req: CallableRequest) =>
             tx.set(userDocRef, {
               username,
               username_lc,
-              email,
               createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
           }
@@ -62,7 +61,6 @@ export const completeGoogleRegistration = onCall(async (req: CallableRequest) =>
         {
           username,
           username_lc,
-          email,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true },

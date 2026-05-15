@@ -105,26 +105,25 @@
     right: auto;
     background-color: transparent;
     box-shadow: var(--mantine-shadow-lg);
+    overflow: hidden;
   }
 
   .navbar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+
     background-color: light-dark(
       var(--mantine-color-white),
       var(--mantine-color-dark-6)
     );
   }
 
-  .linksInner {
-    padding: 6px 6px;
-  }
-
-  .footer {
-    padding: 6px 6px;
-  }
-
-  .link {
-    padding: 6px 8px;
-    gap: 8px;
+  .links {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .linkIcon {

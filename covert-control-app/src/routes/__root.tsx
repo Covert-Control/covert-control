@@ -155,7 +155,7 @@ function RootComponent() {
                 <img
                   src={SiteLogo}
                   alt="Covert Control"
-                  style={{ height: 40, width: 'auto', display: 'block' }}
+                  style={{ height: 60, width: 'auto', display: 'block' }}
                 />
               </Box>
             </Group>
@@ -177,7 +177,7 @@ function RootComponent() {
           <Outlet />
         </AppShell.Main>
 
-        <AppShell.Footer p={0} style={{ bottom: -3 }}>
+        <AppShell.Footer p={0} >
           {!effectiveReaderMode && <SiteFooter />}
         </AppShell.Footer>
       </AppShell>

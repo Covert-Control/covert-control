@@ -38,7 +38,6 @@ export const registerUser = onCall(async (req) => {
       tx.set(userRef, {
         username,
         username_lc,
-        email: userRecord.email,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 

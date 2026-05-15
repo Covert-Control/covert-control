@@ -82,3 +82,8 @@ export { deleteNewsPost } from './deleteNewsPost';
 /*  Verification Email                                          */
 /* ------------------------------------------------------------------ */
 export { sendVerificationEmail } from './sendVerificationEmail';
+
+/* ------------------------------------------------------------------ */
+/*  Reading Preferences                                          */
+/* ------------------------------------------------------------------ */
+export { saveReadingPreferences } from './savePreferences';
