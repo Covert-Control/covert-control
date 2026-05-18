@@ -8,6 +8,10 @@ import {
 } from '../config/firebase';
 import { useAuthStore } from '../stores/authStore';
 import { notifications } from '@mantine/notifications';
+import {
+  loadLocalReadingPreferences,
+  saveLocalReadingPreferences,
+} from '../utils/readingPreferences';
 
 export type ReadingPresetKey = 'default' | 'paper' | 'sepia' | 'night' | 'sage' | 'contrast';
 
@@ -99,9 +103,16 @@ export interface ReadingStyleValues {
   readingWidthCss: string;
 }
 
+// Resolves the full hierarchy: Firestore → localStorage → defaults.
+// Called by the parent page to initialize readingStyle state.
 export function getDefaultReadingStyle(
-  prefs?: ReadingPreferences | null
+  firestorePrefs?: ReadingPreferences | null
 ): ReadingStyleValues {
+  const localPrefs = loadLocalReadingPreferences();
+
+  // Firestore wins over local, local wins over defaults
+  const prefs = firestorePrefs ?? localPrefs;
+
   const preset = (prefs?.preset ?? DEFAULT_READING_PREFERENCES.preset) as ReadingPresetKey;
   const fontSize = prefs?.fontSize ?? DEFAULT_READING_PREFERENCES.fontSize;
   const fontFamily = prefs?.fontFamily ?? DEFAULT_READING_PREFERENCES.fontFamily;
@@ -128,25 +139,30 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
   const storedPrefs = useAuthStore((s) => s.readingPreferences);
   const setStoredPrefs = useAuthStore((s) => s.setReadingPreferences);
 
+  // Hierarchy for initial state: Firestore → localStorage → defaults
+  const localPrefs = loadLocalReadingPreferences();
+  const effectivePrefs = storedPrefs ?? localPrefs;
+
   const [fontSize, setFontSizeState] = useState<'sm' | 'md' | 'lg' | 'xl'>(
-    (storedPrefs?.fontSize ?? DEFAULT_READING_PREFERENCES.fontSize) as 'sm' | 'md' | 'lg' | 'xl'
+    (effectivePrefs?.fontSize ?? DEFAULT_READING_PREFERENCES.fontSize) as 'sm' | 'md' | 'lg' | 'xl'
   );
   const [fontFamily, setFontFamilyState] = useState<'sans' | 'serif' | 'mono'>(
-    (storedPrefs?.fontFamily ?? DEFAULT_READING_PREFERENCES.fontFamily) as 'sans' | 'serif' | 'mono'
+    (effectivePrefs?.fontFamily ?? DEFAULT_READING_PREFERENCES.fontFamily) as 'sans' | 'serif' | 'mono'
   );
   const [readingPreset, setReadingPresetState] = useState<ReadingPresetKey>(
-    (storedPrefs?.preset ?? DEFAULT_READING_PREFERENCES.preset) as ReadingPresetKey
+    (effectivePrefs?.preset ?? DEFAULT_READING_PREFERENCES.preset) as ReadingPresetKey
   );
   const [textAlign, setTextAlignState] = useState<'justify' | 'left'>(
-    (storedPrefs?.textAlign ?? DEFAULT_READING_PREFERENCES.textAlign) as 'justify' | 'left'
+    (effectivePrefs?.textAlign ?? DEFAULT_READING_PREFERENCES.textAlign) as 'justify' | 'left'
   );
   const [readingWidth, setReadingWidthState] = useState<'narrow' | 'md' | 'wide'>(
-    (storedPrefs?.readingWidth ?? DEFAULT_READING_PREFERENCES.readingWidth) as 'narrow' | 'md' | 'wide'
+    (effectivePrefs?.readingWidth ?? DEFAULT_READING_PREFERENCES.readingWidth) as 'narrow' | 'md' | 'wide'
   );
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  // Emit computes the full style values immediately using overrides,
-  // avoiding stale state since React setState is async.
+  // Single place where all current values are assembled and broadcast.
+  // Persists to localStorage here so every change is automatically cached,
+  // regardless of whether the user clicks "Save Preferences".
   function emit(overrides: Partial<{
     preset: ReadingPresetKey;
     fontFamily: string;
@@ -168,6 +184,15 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
       lineHeight: LINE_HEIGHT_MAP[fs],
       textAlign: ta,
       readingWidthCss: READING_WIDTH_MAP[rw],
+    });
+
+    // Always persist locally — works for both guests and logged-in users
+    saveLocalReadingPreferences({
+      preset: p,
+      fontSize: fs as ReadingPreferences['fontSize'],
+      fontFamily: ff as ReadingPreferences['fontFamily'],
+      textAlign: ta,
+      readingWidth: rw as ReadingPreferences['readingWidth'],
     });
   }
 
@@ -199,10 +224,8 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
     emit({ preset: key, fontFamily: newFontFamily });
   }
 
-  function saveLocalPreferences(prefs: ReadingPreferences) {
-    localStorage.setItem('readingPreferences', JSON.stringify(prefs));
-  }
-
+  // "Save Preferences" only does the Firestore write + store update.
+  // localStorage is already up to date from emit().
   async function handleSavePreferences() {
     if (!user) return;
     setSavingPrefs(true);
@@ -216,7 +239,6 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
       };
       await saveReadingPreferencesCallable(prefs);
       setStoredPrefs(prefs);
-      saveLocalPreferences(prefs);
       notifications.show({
         title: 'Preferences saved',
         message: 'Your reading settings will apply automatically next time.',
@@ -252,103 +274,98 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
       </Menu.Target>
 
       <Menu.Dropdown p="sm" w={260}>
-  <Stack gap="sm">
+        <Stack gap="sm">
 
-    <div>
-      <Text size="xs" fw={700} mb={4}>Theme</Text>
+          <div>
+            <Text size="xs" fw={700} mb={4}>Theme</Text>
+            <SimpleGrid cols={2} spacing={6}>
+              {Object.entries(READING_PRESETS).map(([key, preset]) => (
+                <Button
+                  key={key}
+                  size="xs"
+                  variant={readingPreset === key ? 'filled' : 'light'}
+                  onClick={() => applyPreset(key as ReadingPresetKey)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </SimpleGrid>
+          </div>
 
-      <SimpleGrid cols={2} spacing={6}>
-        {Object.entries(READING_PRESETS).map(([key, preset]) => (
-          <Button
-            key={key}
-            size="xs"
-            variant={readingPreset === key ? 'filled' : 'light'}
-            onClick={() => applyPreset(key as ReadingPresetKey)}
-          >
-            {preset.label}
-          </Button>
-        ))}
-      </SimpleGrid>
-    </div>
+          <div>
+            <Text size="xs" fw={700} mb={4}>Text Size</Text>
+            <SegmentedControl
+              fullWidth
+              size="xs"
+              value={fontSize}
+              onChange={(v) => setFontSize(v as 'sm' | 'md' | 'lg' | 'xl')}
+              data={[
+                { label: 'S', value: 'sm' },
+                { label: 'M', value: 'md' },
+                { label: 'L', value: 'lg' },
+                { label: 'XL', value: 'xl' },
+              ]}
+            />
+          </div>
 
-    <div>
-      <Text size="xs" fw={700} mb={4}>Text Size</Text>
+          <div>
+            <Text size="xs" fw={700} mb={4}>Font</Text>
+            <SegmentedControl
+              fullWidth
+              size="xs"
+              value={fontFamily}
+              onChange={(v) => setFontFamily(v as 'sans' | 'serif' | 'mono')}
+              data={[
+                { label: 'Sans', value: 'sans' },
+                { label: 'Serif', value: 'serif' },
+                { label: 'Mono', value: 'mono' },
+              ]}
+            />
+          </div>
 
-      <SegmentedControl
-        fullWidth
-        size="xs"
-        value={fontSize}
-        onChange={(v) => setFontSize(v as any)}
-        data={[
-          { label: 'S', value: 'sm' },
-          { label: 'M', value: 'md' },
-          { label: 'L', value: 'lg' },
-          { label: 'XL', value: 'xl' },
-        ]}
-      />
-    </div>
+          <div>
+            <Text size="xs" fw={700} mb={4}>Align</Text>
+            <SegmentedControl
+              fullWidth
+              size="xs"
+              value={textAlign}
+              onChange={(v) => setTextAlign(v as 'justify' | 'left')}
+              data={[
+                { label: 'Justify', value: 'justify' },
+                { label: 'Left', value: 'left' },
+              ]}
+            />
+          </div>
 
-    <div>
-      <Text size="xs" fw={700} mb={4}>Font</Text>
+          <div>
+            <Text size="xs" fw={700} mb={4}>Width</Text>
+            <SegmentedControl
+              fullWidth
+              size="xs"
+              value={readingWidth}
+              onChange={(v) => setReadingWidth(v as 'narrow' | 'md' | 'wide')}
+              data={[
+                { label: 'Narrow', value: 'narrow' },
+                { label: 'Medium', value: 'md' },
+                { label: 'Wide', value: 'wide' },
+              ]}
+            />
+          </div>
 
-      <SegmentedControl
-        fullWidth
-        size="xs"
-        value={fontFamily}
-        onChange={(v) => setFontFamily(v as any)}
-        data={[
-          { label: 'Sans', value: 'sans' },
-          { label: 'Serif', value: 'serif' },
-          { label: 'Mono', value: 'mono' },
-        ]}
-      />
-    </div>
+          {user && (
+            <Button
+              fullWidth
+              size="xs"
+              onClick={handleSavePreferences}
+              loading={savingPrefs}
+              leftSection={<BookmarkCheck size={14} />}
+            >
+              Save Preferences
+            </Button>
+          )}
 
-    <div>
-      <Text size="xs" fw={700} mb={4}>Align</Text>
-
-      <SegmentedControl
-        fullWidth
-        size="xs"
-        value={textAlign}
-        onChange={(v) => setTextAlign(v as any)}
-        data={[
-          { label: 'Justify', value: 'justify' },
-          { label: 'Left', value: 'left' },
-        ]}
-      />
-    </div>
-
-    <div>
-      <Text size="xs" fw={700} mb={4}>Width</Text>
-
-      <SegmentedControl
-        fullWidth
-        size="xs"
-        value={readingWidth}
-        onChange={(v) => setReadingWidth(v as any)}
-        data={[
-          { label: 'Narrow', value: 'narrow' },
-          { label: 'Medium', value: 'md' },
-          { label: 'Wide', value: 'wide' },
-        ]}
-      />
-    </div>
-
-    {user && (
-      <Button
-        fullWidth
-        size="xs"
-        onClick={handleSavePreferences}
-        loading={savingPrefs}
-        leftSection={<BookmarkCheck size={14} />}
-      >
-        Save Preferences
-      </Button>
-    )}
-
-  </Stack>
-</Menu.Dropdown>
+        </Stack>
+      </Menu.Dropdown>
     </Menu>
   );
 }

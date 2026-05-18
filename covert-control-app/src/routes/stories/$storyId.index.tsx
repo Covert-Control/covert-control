@@ -620,11 +620,13 @@ function StoryDetailPage() {
                 />
               }
               reportButton={
-                <ReportModal
-                  storyId={storyId}
-                  story={story}
-                  canReport={canReport}
-                />
+                !isOwnStory ? (
+                  <ReportModal
+                    storyId={storyId}
+                    story={story}
+                    canReport={canReport}
+                  />
+                ) : null
               }
             />
           )}

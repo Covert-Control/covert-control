@@ -10,9 +10,18 @@ import { Notifications } from '@mantine/notifications';
 import '@mantine/notifications/styles.css';
 import '@mantine/dates/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAuthStore } from './stores/authStore';
+import { loadLocalReadingPreferences } from './utils/readingPreferences';
 
 const queryClient = new QueryClient();
 const router = createRouter({ routeTree, defaultNotFoundComponent: () => <NothingFoundPage /> });
+const localPrefs = loadLocalReadingPreferences();
+
+if (localPrefs) {
+  useAuthStore.setState({
+    readingPreferences: localPrefs,
+  });
+}
 
 declare module '@tanstack/react-router' {
   interface Register { router: typeof router; }

@@ -46,7 +46,7 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!canReport) return null;
+  const disabled = !canReport || !user;
 
   async function handleSubmit() {
     if (!user) {
@@ -141,19 +141,31 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
 
   return (
     <>
-      <Tooltip label="Report this story" withArrow position="bottom">
-        <ActionIcon
-          variant="subtle"
-          radius="md"
-          aria-label="Report this story"
-          onClick={() => {
-            setError(null);
-            setOpen(true);
-          }}
-        >
-          <Flag size={18} />
-        </ActionIcon>
-      </Tooltip>
+<Tooltip
+  label={
+    disabled
+      ? 'You must be logged in to report a story'
+      : 'Report this story'
+  }
+  withArrow
+>
+  <ActionIcon
+    variant="subtle"
+    radius="md"
+    aria-label="Report this story"
+    onClick={() => {
+      if (disabled) return;
+      setError(null);
+      setOpen(true);
+    }}
+    style={{
+      opacity: disabled ? 0.4 : 1,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+    }}
+  >
+    <Flag size={18} />
+  </ActionIcon>
+</Tooltip>
 
       <Modal
         opened={open}
