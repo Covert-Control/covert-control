@@ -169,7 +169,12 @@ function RootComponent() {
           </Group>
         </AppShell.Header>
 
-        <SiteNavbar desktopOpened={desktopOpened} onToggleDesktop={toggleDesktop} />
+        <SiteNavbar
+          desktopOpened={desktopOpened}
+          onToggleDesktop={toggleDesktop}
+          onCloseMobile={closeMobile}
+          mobileOpened={mobileOpened}
+        />
 
         <AppShell.Main style={effectiveReaderMode ? { padding: 0 } : undefined}>
           {!effectiveReaderMode && <EmailVerificationBanner />}

@@ -20,13 +20,16 @@ interface NavItem {
 
 export type SiteNavbarProps = {
   desktopOpened: boolean;
+  mobileOpened: boolean;
   onToggleDesktop: () => void;
+  onCloseMobile: () => void;
 };
 
-export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavbarProps) {
+export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobile, mobileOpened, }: SiteNavbarProps) {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const readerMode = useUiStore((s) => s.readerMode);
+  
 
   const theme = useMantineTheme();
   const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);
@@ -58,15 +61,25 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop }: SiteNavba
     { label: 'Submit Story', icon: PencilLine, link: '/submit' },
   ];
 
+  const showCollapseButton =
+    !readerMode &&
+    ((isDesktop && desktopOpened) || (!isDesktop && mobileOpened));
+
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
   return (
     <AppShell.Navbar p={0} zIndex={300}>
-      {!readerMode && desktopOpened && isDesktop && (
+      {showCollapseButton && (
         <ActionIcon
-          aria-label="Collapse sidebar"
-          title="Collapse sidebar"
-          onClick={onToggleDesktop}
+          aria-label="Close sidebar"
+          title="Close sidebar"
+          onClick={() => {
+            if (isDesktop) {
+              onToggleDesktop();
+            } else {
+              onCloseMobile();
+            }
+          }}
           variant="default"
           radius="xl"
           size="lg"

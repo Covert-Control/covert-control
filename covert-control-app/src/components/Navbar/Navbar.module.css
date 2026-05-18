@@ -105,7 +105,7 @@
     right: auto;
     background-color: transparent;
     box-shadow: var(--mantine-shadow-lg);
-    overflow: hidden;
+    overflow: visible;
   }
 
   .navbar {
