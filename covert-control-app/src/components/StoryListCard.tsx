@@ -7,6 +7,7 @@ import LikeButton from './LikeButton';
 import type { Story } from '../types/story';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
+import { TagPill } from './TagPill';
 
 type StoryListCardProps = {
   story: Pick<
@@ -451,16 +452,7 @@ export default function StoryListCard({
 
 
             {visibleTags.map((tag) => (
-              <Badge
-                key={tag}
-                size="xs"
-                radius="xl"
-                variant="light"
-                color="gray"
-                style={{ textTransform: 'none' }}
-              >
-                {tag}
-              </Badge>
+              <TagPill key={tag} tag={tag} />
             ))}
 
             {hiddenCount > 0 && (

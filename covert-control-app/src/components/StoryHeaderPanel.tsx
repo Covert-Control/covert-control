@@ -27,6 +27,7 @@ import LikeButton from './LikeButton';
 import FavoriteButton from './FavoriteButton';
 import { ReaderModeToggle } from './ReaderModeToggle';
 import { ChapterSelector, type ChapterMeta } from './ChapterSelector';
+import { TagPill } from './TagPill';
 
 interface StoryPanelData {
   id: string;
@@ -241,16 +242,7 @@ export function StoryHeaderPanel({
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {visibleTags.map((tag) => (
-                <Badge
-                  key={tag}
-                  size="xs"
-                  radius="xl"
-                  variant="light"
-                  color="gray"
-                  style={{ textTransform: 'none' }}
-                >
-                  {tag}
-                </Badge>
+                <TagPill key={tag} tag={tag} />
               ))}
               {hiddenCount > 0 && (
                 <Badge

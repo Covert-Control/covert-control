@@ -1,5 +1,5 @@
 // src/routes/advanced-search.lazy.tsx
-import { createLazyFileRoute } from '@tanstack/react-router';
+import { createLazyFileRoute, useSearch } from '@tanstack/react-router';
 import { algoliasearch } from 'algoliasearch';
 import type { SearchResponse } from '@algolia/client-search';
 import { useEffect, useMemo, useState } from 'react';
@@ -124,9 +124,9 @@ function buildFilters(
 }
 
 function SearchPage() {
-  // query inputs
+  const { tags: initialTags } = useSearch({ from: '/advanced-search' });
   const [q, setQ] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(initialTags);
   const [afterDate, setAfterDate] = useState<Date | null>(null);
   const [beforeDate, setBeforeDate] = useState<Date | null>(null);
 
@@ -167,6 +167,13 @@ function SearchPage() {
     () => buildFilters(tags, afterDate, beforeDate),
     [tags, afterDate, beforeDate]
   );
+
+  useEffect(() => {
+    if (initialTags.length > 0) {
+      runSearch(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Run Algolia search w/ pagination & sort
   const runSearch = (pageZeroBased = 0) => {

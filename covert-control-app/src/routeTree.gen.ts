@@ -12,6 +12,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticationRouteImport } from './routes/authentication'
+import { Route as AdvancedSearchRouteImport } from './routes/advanced-search'
 import { Route as StoriesStoryIdRouteImport } from './routes/stories/$storyId'
 import { Route as StoriesStoryIdIndexRouteImport } from './routes/stories/$storyId.index'
 import { Route as StoriesStoryIdEditRouteImport } from './routes/stories/$storyId.edit'
@@ -24,7 +25,6 @@ const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
 const FavoritesLazyRouteImport = createFileRoute('/favorites')()
 const FaqLazyRouteImport = createFileRoute('/faq')()
 const AuthorsLazyRouteImport = createFileRoute('/authors')()
-const AdvancedSearchLazyRouteImport = createFileRoute('/advanced-search')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
 const AboutLazyRouteImport = createFileRoute('/about')()
 const IndexLazyRouteImport = createFileRoute('/')()
@@ -71,13 +71,6 @@ const AuthorsLazyRoute = AuthorsLazyRouteImport.update({
   path: '/authors',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/authors.lazy').then((d) => d.Route))
-const AdvancedSearchLazyRoute = AdvancedSearchLazyRouteImport.update({
-  id: '/advanced-search',
-  path: '/advanced-search',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/advanced-search.lazy').then((d) => d.Route),
-)
 const AccountSettingsLazyRoute = AccountSettingsLazyRouteImport.update({
   id: '/account-settings',
   path: '/account-settings',
@@ -96,6 +89,13 @@ const AuthenticationRoute = AuthenticationRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() =>
   import('./routes/authentication.lazy').then((d) => d.Route),
+)
+const AdvancedSearchRoute = AdvancedSearchRouteImport.update({
+  id: '/advanced-search',
+  path: '/advanced-search',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() =>
+  import('./routes/advanced-search.lazy').then((d) => d.Route),
 )
 const IndexLazyRoute = IndexLazyRouteImport.update({
   id: '/',
@@ -156,10 +156,10 @@ const StoriesStoryIdChaptersRoute = StoriesStoryIdChaptersRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
+  '/advanced-search': typeof AdvancedSearchRoute
   '/authentication': typeof AuthenticationRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
-  '/advanced-search': typeof AdvancedSearchLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
@@ -179,10 +179,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
+  '/advanced-search': typeof AdvancedSearchRoute
   '/authentication': typeof AuthenticationRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
-  '/advanced-search': typeof AdvancedSearchLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
@@ -202,10 +202,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexLazyRoute
+  '/advanced-search': typeof AdvancedSearchRoute
   '/authentication': typeof AuthenticationRoute
   '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
-  '/advanced-search': typeof AdvancedSearchLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
@@ -227,10 +227,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/advanced-search'
     | '/authentication'
     | '/about'
     | '/account-settings'
-    | '/advanced-search'
     | '/authors'
     | '/faq'
     | '/favorites'
@@ -250,10 +250,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/advanced-search'
     | '/authentication'
     | '/about'
     | '/account-settings'
-    | '/advanced-search'
     | '/authors'
     | '/faq'
     | '/favorites'
@@ -272,10 +272,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/advanced-search'
     | '/authentication'
     | '/about'
     | '/account-settings'
-    | '/advanced-search'
     | '/authors'
     | '/faq'
     | '/favorites'
@@ -296,10 +296,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
+  AdvancedSearchRoute: typeof AdvancedSearchRoute
   AuthenticationRoute: typeof AuthenticationRoute
   AboutLazyRoute: typeof AboutLazyRoute
   AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
-  AdvancedSearchLazyRoute: typeof AdvancedSearchLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
   FaqLazyRoute: typeof FaqLazyRoute
   FavoritesLazyRoute: typeof FavoritesLazyRoute
@@ -362,13 +362,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorsLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/advanced-search': {
-      id: '/advanced-search'
-      path: '/advanced-search'
-      fullPath: '/advanced-search'
-      preLoaderRoute: typeof AdvancedSearchLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/account-settings': {
       id: '/account-settings'
       path: '/account-settings'
@@ -388,6 +381,13 @@ declare module '@tanstack/react-router' {
       path: '/authentication'
       fullPath: '/authentication'
       preLoaderRoute: typeof AuthenticationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/advanced-search': {
+      id: '/advanced-search'
+      path: '/advanced-search'
+      fullPath: '/advanced-search'
+      preLoaderRoute: typeof AdvancedSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -509,10 +509,10 @@ const StoriesLazyRouteWithChildren = StoriesLazyRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
+  AdvancedSearchRoute: AdvancedSearchRoute,
   AuthenticationRoute: AuthenticationRoute,
   AboutLazyRoute: AboutLazyRoute,
   AccountSettingsLazyRoute: AccountSettingsLazyRoute,
-  AdvancedSearchLazyRoute: AdvancedSearchLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
   FaqLazyRoute: FaqLazyRoute,
   FavoritesLazyRoute: FavoritesLazyRoute,
