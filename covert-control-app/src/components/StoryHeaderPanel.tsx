@@ -28,6 +28,7 @@ import FavoriteButton from './FavoriteButton';
 import { ReaderModeToggle } from './ReaderModeToggle';
 import { ChapterSelector, type ChapterMeta } from './ChapterSelector';
 import { TagPill } from './TagPill';
+import { useMediaQuery } from '@mantine/hooks';
 
 interface StoryPanelData {
   id: string;
@@ -47,7 +48,6 @@ interface StoryHeaderPanelProps {
   safeChapter: number;
   totalChapters: number;
   chapterList: ChapterMeta[];
-  isMobile: boolean;
   createdAt: Date | undefined;
   updatedAt: Date | undefined;
   deleting: boolean;
@@ -77,7 +77,6 @@ export function StoryHeaderPanel({
   isOwnStory,
   safeChapter,
   chapterList,
-  isMobile,
   createdAt,
   updatedAt,
   deleting,
@@ -123,6 +122,8 @@ export function StoryHeaderPanel({
   const visibleTags = tagsExpanded ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
+  const isMobileInternal = useMediaQuery('(max-width: 600px)') ?? false;
+
   return (
     <Paper radius="lg" p="md" withBorder>
       <Stack gap="sm">
@@ -137,79 +138,124 @@ export function StoryHeaderPanel({
         )}
 
         {/* META ROW */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            justifyContent: isMobile ? 'flex-start' : 'space-between',
-            alignItems: 'flex-start',
-            rowGap: '0.5rem',
-          }}
+{/* META ROW */}
+{isMobileInternal ? (
+  <Stack gap={4}>
+    {/* Row 1: Author */}
+    <Text size="sm" c="dimmed">
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <UserIcon size={16} />
+        <span>by</span>
+        <Anchor
+          component={RouterLink}
+          to="/authors/$authorId"
+          params={{ authorId: story.username } as any}
+          style={{ textDecoration: 'underline', color: 'inherit' }}
         >
-          <div
-            style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}
-          >
-            <Text size="sm" c="dimmed">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <UserIcon size={16} />
-                <span>by</span>
-                <Anchor
-                  component={RouterLink}
-                  to="/authors/$authorId"
-                  params={{ authorId: story.username } as any}
-                  style={{ textDecoration: 'underline', color: 'inherit' }}
-                >
-                  {story.username}
-                </Anchor>
-              </span>
-            </Text>
-          </div>
+          {story.username}
+        </Anchor>
+      </span>
+    </Text>
 
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              rowGap: 4,
-              columnGap: isMobile ? 8 : 12,
-              alignItems: 'center',
-              flexShrink: 0,
-            }}
-          >
-            {isOwnStory ? (
-              <Group gap={4} align="center">
-                <ThumbsUp size={16} />
-                <Text size="xs" c="dimmed">{likesLabel}</Text>
-              </Group>
-            ) : (
-              <Group gap={4} align="center">
-                <LikeButton
-                  storyId={story.id}
-                  ownerId={story.ownerId}
-                  initialCount={story.likesCount ?? 0}
-                />
-              </Group>
-            )}
+    {/* Row 2: Likes + Views */}
+    <Group gap={8} align="center">
+      {isOwnStory ? (
+        <Group gap={4} align="center">
+          <ThumbsUp size={15} />
+          <Text size="xs" c="dimmed">{likesLabel}</Text>
+        </Group>
+      ) : (
+        <LikeButton
+          storyId={story.id}
+          ownerId={story.ownerId}
+          initialCount={story.likesCount ?? 0}
+        />
+      )}
+      <Text size="sm" c="dimmed">•</Text>
+      <Group gap={4} align="center">
+        <Eye size={15} />
+        <Text size="xs" c="dimmed">{story.viewCount} views</Text>
+      </Group>
+    </Group>
 
-            <Text size="sm" c="dimmed">•</Text>
+    {/* Row 3: Date */}
+    <Text
+      size="sm"
+      c="dimmed"
+      style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+      title={dateTitle}
+    >
+      <Calendar size={15} />
+      {combinedDateLabel}
+    </Text>
+  </Stack>
+) : (
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    }}
+  >
+    {/* Left: Author */}
+    <Text size="sm" c="dimmed">
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <UserIcon size={16} />
+        <span>by</span>
+        <Anchor
+          component={RouterLink}
+          to="/authors/$authorId"
+          params={{ authorId: story.username } as any}
+          style={{ textDecoration: 'underline', color: 'inherit' }}
+        >
+          {story.username}
+        </Anchor>
+      </span>
+    </Text>
 
-            <Group gap={4} align="center">
-              <Eye size={16} />
-              <Text size="xs" c="dimmed">{story.viewCount} views</Text>
-            </Group>
-
-            <Text size="sm" c="dimmed">•</Text>
-
-            <Text
-              size="sm"
-              c="dimmed"
-              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-              title={dateTitle}
-            >
-              <Calendar size={16} />
-              {combinedDateLabel}
-            </Text>
-          </div>
-        </div>
+    {/* Right: Likes + Views + Date */}
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        rowGap: 4,
+        columnGap: 12,
+        alignItems: 'center',
+        flexShrink: 0,
+      }}
+    >
+      {isOwnStory ? (
+        <Group gap={4} align="center">
+          <ThumbsUp size={16} />
+          <Text size="xs" c="dimmed">{likesLabel}</Text>
+        </Group>
+      ) : (
+        <Group gap={4} align="center">
+          <LikeButton
+            storyId={story.id}
+            ownerId={story.ownerId}
+            initialCount={story.likesCount ?? 0}
+          />
+        </Group>
+      )}
+      <Text size="sm" c="dimmed">•</Text>
+      <Group gap={4} align="center">
+        <Eye size={16} />
+        <Text size="xs" c="dimmed">{story.viewCount} views</Text>
+      </Group>
+      <Text size="sm" c="dimmed">•</Text>
+      <Text
+        size="sm"
+        c="dimmed"
+        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+        title={dateTitle}
+      >
+        <Calendar size={16} />
+        {combinedDateLabel}
+      </Text>
+    </div>
+  </div>
+)}
 
         {/* TAGS + CHAPTER SELECTOR + ACTIONS ROW */}
         <div

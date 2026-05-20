@@ -598,7 +598,6 @@ function StoryDetailPage() {
               safeChapter={safeChapter}
               totalChapters={totalChapters}
               chapterList={chapterList}
-              isMobile={false}
               createdAt={createdAt}
               updatedAt={updatedAt}
               deleting={deleting}
