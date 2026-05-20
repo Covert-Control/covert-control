@@ -311,7 +311,7 @@ export function StoryHeaderPanel({
               display: 'flex',
               alignItems: 'center',
               columnGap: 8,
-              marginLeft: 'auto',
+              marginLeft: isMobileInternal ? 0 : 'auto',
             }}
           >
             <FavoriteButton storyId={story.id} />

@@ -68,6 +68,23 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
   const links = linkdata.map((item) => <LinksGroup {...item} key={item.label} />);
 
   return (
+    <>
+    {!isDesktop && mobileOpened && (
+      <div
+        onClick={onCloseMobile}
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          top: 60,       // matches header height in AppShell config
+          bottom: 40,    // matches footer height in AppShell config
+          left: 0,
+          right: 0,
+          zIndex: 299,
+          background: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(2px)',
+        }}
+      />
+    )}
     <AppShell.Navbar p={0} zIndex={300}>
       {showCollapseButton && (
         <ActionIcon
@@ -109,5 +126,6 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
         </div>
       </nav>
     </AppShell.Navbar>
+    </>
   );
 }
