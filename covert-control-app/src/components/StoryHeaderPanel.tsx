@@ -27,7 +27,7 @@ import LikeButton from './LikeButton';
 import FavoriteButton from './FavoriteButton';
 import { ReaderModeToggle } from './ReaderModeToggle';
 import { ChapterSelector, type ChapterMeta } from './ChapterSelector';
-import { TagPill } from './TagPill';
+import { TagPill, sortTags } from './TagPill';
 import { useMediaQuery } from '@mantine/hooks';
 
 interface StoryPanelData {
@@ -118,7 +118,7 @@ export function StoryHeaderPanel({
   const n = story.likesCount ?? 0;
   const likesLabel = n === 1 ? '1 like' : `${n} likes`;
 
-  const allTags = Array.isArray(story.tags) ? story.tags : [];
+  const allTags = Array.isArray(story.tags) ? sortTags(story.tags) : [];
   const visibleTags = tagsExpanded ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
 
@@ -290,7 +290,7 @@ export function StoryHeaderPanel({
               {visibleTags.map((tag) => (
                 <TagPill key={tag} tag={tag} />
               ))}
-              {hiddenCount > 0 && (
+              {(hiddenCount > 0 || tagsExpanded) && (
                 <Badge
                   size="xs"
                   radius="xl"

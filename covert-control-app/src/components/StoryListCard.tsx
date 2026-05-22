@@ -7,7 +7,7 @@ import LikeButton from './LikeButton';
 import type { Story } from '../types/story';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
-import { TagPill } from './TagPill';
+import { TagPill, sortTags } from './TagPill';
 
 type StoryListCardProps = {
   story: Pick<
@@ -103,7 +103,7 @@ export default function StoryListCard({
   const canToggleDescription = expandableDescription && hasDescription && (isClamped || expanded);
 
   // ----- Tags w/ expand/collapse -----
-  const allTags = Array.isArray(story.tags) ? story.tags : [];
+  const allTags = Array.isArray(story.tags) ? sortTags(story.tags) : [];
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const visibleTags = tagsExpanded ? allTags : allTags.slice(0, MAX_VISIBLE_TAGS);
   const hiddenCount = Math.max(0, allTags.length - visibleTags.length);
@@ -455,7 +455,7 @@ export default function StoryListCard({
               <TagPill key={tag} tag={tag} />
             ))}
 
-            {hiddenCount > 0 && (
+            {(hiddenCount > 0 || tagsExpanded) && (
               <Badge
                 size="xs"
                 radius="xl"
