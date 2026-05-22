@@ -44,11 +44,20 @@ export type TagPickerProps = {
 
 /** Lowercase + trim; collapse multiple spaces to one */
 function normalize(s: string) {
-  return s
+  const normalized = s
     .trim()
     .toLowerCase()
     .replace(/\s*\(\d+\)\s*$/, '') // remove trailing " (123)"
     .replace(/\s+/g, ' ');
+
+  // Canonical tag aliases
+  switch (normalized) {
+    case 'fm':
+      return 'mf';
+
+    default:
+      return normalized;
+  }
 }
 
 /** Remove all chars except a-z, 0-9, space, hyphen; collapse spaces; trim */
