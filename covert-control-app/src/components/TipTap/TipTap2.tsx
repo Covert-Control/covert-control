@@ -70,6 +70,8 @@ const STORY_DESC_MAX = 500;
 const CHAPTER_TITLE_MAX = 80;
 const CHAPTER_SUMMARY_MAX = 500;
 
+const DISCLAIMER_MAX = 1000;
+
 function normalizeSpaces(s: string) {
   return String(s ?? '').trim().replace(/\s+/g, ' ');
 }
@@ -149,6 +151,8 @@ export function TipTap2() {
       tags: [] as string[],
       terms: false,
       dropCap: false,
+      headerDisclaimer: '',
+      footerDisclaimer: '',
     },
     validate: {
       title: (value) => {
@@ -202,6 +206,23 @@ export function TipTap2() {
           return `Character limit exceeded! You have ${charCount} characters, but the limit is ${BODY_CHAR_LIMIT}. Please split longer stories into multiple chapters.`;
         }
         return null;
+      },
+
+      //Disclaimers
+      headerDisclaimer: (value) => {
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return null;
+        return v.length > DISCLAIMER_MAX
+          ? `Header disclaimer must be at most ${DISCLAIMER_MAX} characters`
+          : null;
+      },
+
+      footerDisclaimer: (value) => {
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return null;
+        return v.length > DISCLAIMER_MAX
+          ? `Footer disclaimer must be at most ${DISCLAIMER_MAX} characters`
+          : null;
       },
 
       tags: (tags) => {
@@ -367,6 +388,9 @@ export function TipTap2() {
       const payload: any = {
         title: normalizedTitle,
         description: normalizedDescription,
+        // 👇 ADD after chapterSummary in payload
+        headerDisclaimer: normalizeSpaces(form.values.headerDisclaimer ?? '').trim() || null,
+        footerDisclaimer: normalizeSpaces(form.values.footerDisclaimer ?? '').trim() || null,
         tags: tagsLower,
         chapterContentJSON,
         wordCount,
@@ -532,6 +556,8 @@ export function TipTap2() {
                 id="field-description"
               />
 
+              <Divider />
+
               <div id="field-tags">
                 <Group justify="space-between" align="flex-end" mb={4} wrap="wrap">
                   <Text size="sm" fw={500}>
@@ -543,6 +569,7 @@ export function TipTap2() {
 
 
                 </Group>
+                
 
                 <TagPicker
                   value={form.values.tags}
@@ -563,8 +590,33 @@ export function TipTap2() {
                   hideFeaturedFromInput
                 />
 
+                
+
 
               </div>
+
+              {/* 👇 ADD this entire block */}
+              <Divider />
+              <Title order={5}>Disclaimers (optional)</Title>
+              <Text size="sm" c="dimmed">
+                Appear in a highlighted box at the start and/or end of every chapter in the reader. Common uses include content warnings, author notes, or other important information you'd like readers to see on every chapter.
+              </Text>
+              <Textarea
+                label="Header disclaimer"
+                minRows={2}
+                maxLength={DISCLAIMER_MAX}
+                description={`Shown above every chapter. ${(form.values.headerDisclaimer ?? '').length}/${DISCLAIMER_MAX} characters`}
+                placeholder="e.g. All characters in this story are fictional adults aged 18 or over."
+                {...form.getInputProps('headerDisclaimer')}
+              />
+              <Textarea
+                label="Footer disclaimer"
+                minRows={2}
+                maxLength={DISCLAIMER_MAX}
+                description={`Shown below every chapter. ${(form.values.footerDisclaimer ?? '').length}/${DISCLAIMER_MAX} characters`}
+                placeholder="e.g. This is a work of fiction. Any resemblance to real persons is coincidental."
+                {...form.getInputProps('footerDisclaimer')}
+              />
 
               <Divider />
 

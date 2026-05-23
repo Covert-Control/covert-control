@@ -20,6 +20,8 @@ export interface CreateStoryWithFirstChapterRequest {
   // optional chapter 1 metadata
   chapterTitle?: string | null;
   chapterSummary?: string | null;
+  headerDisclaimer?: string | null;
+  footerDisclaimer?: string | null;
 
   // ✅ per-chapter setting (chapter 1 only during creation)
   dropCap?: boolean;
@@ -50,6 +52,7 @@ const STORY_DESC_MAX = 500;
 // Optional chapter 1 field constraints
 const CHAPTER_TITLE_MAX = 80;
 const CHAPTER_SUMMARY_MAX = 500;
+const DISCLAIMER_MAX = 1000;
 
 // Chapter body constraints
 const BODY_MIN_WORDS = 50;
@@ -261,6 +264,18 @@ export const createStoryWithFirstChapter = onCall(
       CHAPTER_SUMMARY_MAX
     );
 
+    const headerDisclaimer = normalizeOptionalField(
+      data?.headerDisclaimer,
+      'Header disclaimer',
+      DISCLAIMER_MAX
+    );
+
+    const footerDisclaimer = normalizeOptionalField(
+      data?.footerDisclaimer,
+      'Footer disclaimer',
+      DISCLAIMER_MAX
+    );
+
     // ---- Other fields ----
     const ownerId = auth.uid;
     const safeUsername =
@@ -318,6 +333,10 @@ export const createStoryWithFirstChapter = onCall(
           rand,
 
           tags: tagsClean,
+          
+          headerDisclaimer: headerDisclaimer ?? null,
+          footerDisclaimer: footerDisclaimer ?? null,
+
           chapterCount: 1,
           totalWordCount: wordCount,
           totalCharCount: charCount,

@@ -11,6 +11,8 @@ interface SaveChapterRequest {
   // Optional chapter metadata
   chapterTitle?: string | null;
   chapterSummary?: string | null;
+  headerDisclaimer?: string | null;
+  footerDisclaimer?: string | null;
 
   contentJSON: unknown;
   wordCount: number;
@@ -56,6 +58,8 @@ interface ChapterDoc {
 ---------------------------------------------- */
 
 const BODY_CHAR_LIMIT = 150000;
+
+const DISCLAIMER_MAX = 1000;
 
 // Chapter count constraints (abuse protection)
 const CHAPTERS_MAX = 500;
@@ -168,6 +172,8 @@ export const saveChapter = onCall<SaveChapterRequest>(
       charCount,
       storyTitle,
       storyDescription,
+      headerDisclaimer,
+      footerDisclaimer,
       tags,
       dropCap,
     } = data;
@@ -378,7 +384,8 @@ export const saveChapter = onCall<SaveChapterRequest>(
       if (chapterNumber === 1) {
         // If any story-meta key is present, enforce full set (prevents partial/abusive updates)
         const anyMetaProvided =
-          storyTitle !== undefined || storyDescription !== undefined || tags !== undefined;
+          storyTitle !== undefined || storyDescription !== undefined || tags !== undefined ||
+          headerDisclaimer !== undefined || footerDisclaimer !== undefined; 
 
         if (anyMetaProvided) {
           // Title
@@ -416,6 +423,18 @@ export const saveChapter = onCall<SaveChapterRequest>(
               `Description must be between ${STORY_DESC_MIN} and ${STORY_DESC_MAX} characters.`
             );
           }
+
+          //Disclaimers
+          const normHeader = normalizeOptionalString(headerDisclaimer ?? null);
+          if (normHeader && normHeader.length > DISCLAIMER_MAX) {
+            throw new HttpsError('invalid-argument', `Header disclaimer must be at most ${DISCLAIMER_MAX} characters.`);
+          }
+          const normFooter = normalizeOptionalString(footerDisclaimer ?? null);
+          if (normFooter && normFooter.length > DISCLAIMER_MAX) {
+            throw new HttpsError('invalid-argument', `Footer disclaimer must be at most ${DISCLAIMER_MAX} characters.`);
+          }
+          storyUpdate.headerDisclaimer = normHeader;
+          storyUpdate.footerDisclaimer = normFooter;
 
           // Tags
           const cleanTags = cleanTagsStrict(tags);
