@@ -82,6 +82,8 @@ const STORY_DESC_MAX = 500;
 const CHAPTER_TITLE_MAX = 80;
 const CHAPTER_SUMMARY_MAX = 500;
 
+const DISCLAIMER_MAX = 1000;
+
 // Chapter body constraints
 const BODY_MIN_WORDS = 50;
 
@@ -271,6 +273,12 @@ function EditStoryPage() {
       // chapter meta (optional)
       chapterTitle: chapterEditQuery.data?.chapterTitle ?? '',
       chapterSummary: chapterEditQuery.data?.chapterSummary ?? '',
+      headerDisclaimer: typeof (story as any).headerDisclaimer === 'string'
+        ? (story as any).headerDisclaimer
+        : '',
+      footerDisclaimer: typeof (story as any).footerDisclaimer === 'string'
+        ? (story as any).footerDisclaimer
+        : '',
     },
 
     validate: {
@@ -327,6 +335,23 @@ function EditStoryPage() {
           return `Chapter summary must be at most ${CHAPTER_SUMMARY_MAX} characters (or leave blank).`;
         }
         return null;
+      },
+
+      headerDisclaimer: (value) => {
+        if (!storyFieldsEditable) return null;
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return null;
+        return v.length > DISCLAIMER_MAX
+          ? `Header disclaimer must be at most ${DISCLAIMER_MAX} characters`
+          : null;
+      },
+      footerDisclaimer: (value) => {
+        if (!storyFieldsEditable) return null;
+        const v = normalizeSpaces(value ?? '');
+        if (!v) return null;
+        return v.length > DISCLAIMER_MAX
+          ? `Footer disclaimer must be at most ${DISCLAIMER_MAX} characters`
+          : null;
       },
     },
   });
@@ -405,6 +430,8 @@ function EditStoryPage() {
         payload.storyTitle = normalizedStoryTitle;
         payload.storyDescription = normalizedStoryDesc;
         payload.tags = cleanedTags;
+        payload.headerDisclaimer = normalizeOptional(values.headerDisclaimer) ?? null;
+        payload.footerDisclaimer = normalizeOptional(values.footerDisclaimer) ?? null;
       }
 
       const res = await saveChapterCallable(payload);
@@ -480,7 +507,7 @@ function EditStoryPage() {
             <Text size="sm" c="dimmed">
               {safeChapter === 1
                 ? 'This updates the main story metadata and Chapter 1 content.'
-                : 'Title, description, and tags are only editable in Chapter 1.'}
+                : 'Title, description, disclaimers and tags are only editable in Chapter 1.'}
             </Text>
 
 
@@ -532,6 +559,27 @@ function EditStoryPage() {
                   {form.errors.tags}
                 </Text>
               )}
+              <Divider />
+              <Title order={5}>Disclaimers (optional)</Title>
+              <Text size="sm" c="dimmed">
+                Appear in a highlighted box at the start and/or end of every chapter.
+              </Text>
+              <Textarea
+                label="Header disclaimer"
+                minRows={2}
+                maxLength={DISCLAIMER_MAX}
+                description={`Shown above every chapter. ${(form.values.headerDisclaimer ?? '').length}/${DISCLAIMER_MAX} characters`}
+                placeholder="e.g. All characters in this story are fictional adults aged 18 or over."
+                {...form.getInputProps('headerDisclaimer')}
+              />
+              <Textarea
+                label="Footer disclaimer"
+                minRows={2}
+                maxLength={DISCLAIMER_MAX}
+                description={`Shown below every chapter. ${(form.values.footerDisclaimer ?? '').length}/${DISCLAIMER_MAX} characters`}
+                placeholder="e.g. This is a work of fiction."
+                {...form.getInputProps('footerDisclaimer')}
+              />
             </Stack>
           </Paper>
         )}

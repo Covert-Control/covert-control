@@ -54,6 +54,8 @@ export const Route = createFileRoute('/stories/$storyId')({
         username: d?.username ?? 'Anonymous',
         createdAt,
         updatedAt,
+        footerDisclaimer: typeof d?.footerDisclaimer === 'string' ? d.footerDisclaimer.trim() : null,
+        headerDisclaimer: typeof d?.headerDisclaimer === 'string' ? d.headerDisclaimer.trim() : null,
         viewCount: d?.viewCount ?? 0,
         likesCount: d?.likesCount ?? 0,
         tags: Array.isArray(d?.tags) ? d.tags : [],

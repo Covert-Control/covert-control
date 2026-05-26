@@ -216,6 +216,13 @@ function StoryDetailPage() {
 
   const updatedAt = toDate((story as any).updatedAt);
 
+  const headerDisclaimer = typeof (story as any).headerDisclaimer === 'string'
+    ? (story as any).headerDisclaimer.trim()
+    : null;
+  const footerDisclaimer = typeof (story as any).footerDisclaimer === 'string'
+    ? (story as any).footerDisclaimer.trim()
+    : null;
+
   const [deleting, setDeleting] = useState(false);
 
   const [deletingChapter, setDeletingChapter] =
@@ -511,6 +518,13 @@ function StoryDetailPage() {
   const dropCapEnabled =
     chapterQuery.data?.dropCap === true;
 
+  const disclaimerStyle = {
+    background: 'rgba(251, 191, 36, 0.08)',
+    borderLeft: '3px solid rgba(251, 191, 36, 0.45)',
+    borderRadius: '0 4px 4px 0',
+    padding: '10px 14px',
+  } as const;
+
   return (
     <>
       <style>{`
@@ -674,6 +688,13 @@ function StoryDetailPage() {
                   color: 'inherit',
                 }}
               >
+                {headerDisclaimer && (
+                  <Box mb="lg" style={disclaimerStyle}>
+                    <Text size="sm" c="inherit" style={{ fontStyle: 'italic', opacity: 0.9 }}>
+                      {headerDisclaimer}
+                    </Text>
+                  </Box>
+                )}
                 <Box mb="lg">
                   <Title
                     order={3}
@@ -721,6 +742,14 @@ function StoryDetailPage() {
                       : ''
                   }`}
                 />
+                {footerDisclaimer && (
+                  <Box mt="lg" style={disclaimerStyle}>
+                    <Text size="sm" c="inherit" style={{ fontStyle: 'italic', opacity: 0.9 }}>
+                      {footerDisclaimer}
+                    </Text>
+                  </Box>
+                )}
+                
               </Box>
             )}
           </Paper>
