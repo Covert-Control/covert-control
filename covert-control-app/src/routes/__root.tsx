@@ -115,7 +115,7 @@ function RootComponent() {
           },
         }}
         footer={{ height: 40, collapsed: effectiveReaderMode }}
-        padding={effectiveReaderMode ? 0 : 'md'}
+        padding={effectiveReaderMode ? 0 : { base: 'xs', sm: 'md' }}
       >
         <AppShell.Header>
           <Group h="100%" px="md" justify="space-between">

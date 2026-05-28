@@ -529,7 +529,6 @@ function StoryDetailPage() {
     <>
       <style>{`
         .story-content {
-          max-width: 70ch;
           margin: 0 auto;
           hyphens: auto;
         }
@@ -545,10 +544,9 @@ function StoryDetailPage() {
         .story-content.dropcap p:first-of-type::first-letter {
           float: left;
           font-weight: 700;
-          font-size: 3.4em;
+          font-size: 5em;
           line-height: 0.9;
           padding-right: 0.12em;
-          padding-top: 0.06em;
         }
       `}</style>
 
@@ -576,7 +574,7 @@ function StoryDetailPage() {
       >
         <Container
           size="sm"
-          px="sm"
+          px={{ base: 0, sm: 'sm' }}
           style={{
             maxWidth: readerMode
               ? rem(900)
@@ -646,7 +644,7 @@ function StoryDetailPage() {
 
           <Paper
             radius={readerMode ? 0 : 'lg'}
-            p={readerMode ? 'xl' : 'md'}
+            p={readerMode ? { base: 'sm', sm: 'xl' } : { base: 'xs', sm: 'md' }}
             mt={readerMode ? 0 : 'md'}
             withBorder={
               !readerMode &&

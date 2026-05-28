@@ -131,3 +131,10 @@
     height: 18px;
   }
 }
+
+@media (max-width: 48rem) {
+  :global(.mantine-AppShell-main) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}

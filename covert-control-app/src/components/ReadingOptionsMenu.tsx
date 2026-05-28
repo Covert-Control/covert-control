@@ -1,3 +1,4 @@
+//ReadingOptionsMenu.tsx
 import { Menu, Button, Tooltip, Text, SimpleGrid, Stack, SegmentedControl } from '@mantine/core';
 import { BookmarkCheck, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
@@ -90,7 +91,7 @@ const FONT_FAMILY_MAP: Record<string, string> = {
 const READING_WIDTH_MAP: Record<string, string> = {
   narrow: '55ch',
   md: '70ch',
-  wide: '85ch',
+  wide: '100%',
 };
 
 export interface ReadingStyleValues {
