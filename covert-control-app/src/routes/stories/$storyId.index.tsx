@@ -626,9 +626,7 @@ function StoryDetailPage() {
                 })
               }
               readingMenu={
-                <ReadingOptionsMenu
-                  onChange={setReadingStyles}
-                />
+                <ReadingOptionsMenu onChange={setReadingStyles} currentValues={readingStyles} />
               }
               reportButton={
                 !isOwnStory ? (

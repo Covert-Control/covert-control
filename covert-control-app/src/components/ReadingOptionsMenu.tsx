@@ -95,12 +95,17 @@ const READING_WIDTH_MAP: Record<string, string> = {
 };
 
 export interface ReadingStyleValues {
-  activePreset: ReadingPreset;
+  // Raw selection keys — used by the menu to show current selections
   readingPresetKey: ReadingPresetKey;
+  fontSizeKey: 'sm' | 'md' | 'lg' | 'xl';
+  fontFamilyKey: 'sans' | 'serif' | 'mono';
+  readingWidthKey: 'narrow' | 'md' | 'wide';
+  textAlign: 'justify' | 'left';
+  // Computed CSS values — used by the reader for rendering
+  activePreset: ReadingPreset;
   fontFamilyCss: string;
   fontSizeCss: string;
   lineHeight: number;
-  textAlign: 'justify' | 'left';
   readingWidthCss: string;
 }
 
@@ -121,49 +126,29 @@ export function getDefaultReadingStyle(
   const readingWidth = prefs?.readingWidth ?? DEFAULT_READING_PREFERENCES.readingWidth;
 
   return {
-    activePreset: READING_PRESETS[preset],
     readingPresetKey: preset,
+    fontSizeKey: fontSize as 'sm' | 'md' | 'lg' | 'xl',
+    fontFamilyKey: fontFamily as 'sans' | 'serif' | 'mono',
+    readingWidthKey: readingWidth as 'narrow' | 'md' | 'wide',
+    textAlign,
+    activePreset: READING_PRESETS[preset],
     fontFamilyCss: FONT_FAMILY_MAP[fontFamily],
     fontSizeCss: FONT_SIZE_MAP[fontSize],
     lineHeight: LINE_HEIGHT_MAP[fontSize],
-    textAlign,
     readingWidthCss: READING_WIDTH_MAP[readingWidth],
   };
 }
 
 interface ReadingOptionsMenuProps {
   onChange: (values: ReadingStyleValues) => void;
+  currentValues: ReadingStyleValues; // 👈 parent is now the source of truth
 }
 
-export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
+export function ReadingOptionsMenu({ onChange, currentValues }: ReadingOptionsMenuProps) {
   const user = useAuthStore((s) => s.user);
-  const storedPrefs = useAuthStore((s) => s.readingPreferences);
   const setStoredPrefs = useAuthStore((s) => s.setReadingPreferences);
-
-  // Hierarchy for initial state: Firestore → localStorage → defaults
-  const localPrefs = loadLocalReadingPreferences();
-  const effectivePrefs = storedPrefs ?? localPrefs;
-
-  const [fontSize, setFontSizeState] = useState<'sm' | 'md' | 'lg' | 'xl'>(
-    (effectivePrefs?.fontSize ?? DEFAULT_READING_PREFERENCES.fontSize) as 'sm' | 'md' | 'lg' | 'xl'
-  );
-  const [fontFamily, setFontFamilyState] = useState<'sans' | 'serif' | 'mono'>(
-    (effectivePrefs?.fontFamily ?? DEFAULT_READING_PREFERENCES.fontFamily) as 'sans' | 'serif' | 'mono'
-  );
-  const [readingPreset, setReadingPresetState] = useState<ReadingPresetKey>(
-    (effectivePrefs?.preset ?? DEFAULT_READING_PREFERENCES.preset) as ReadingPresetKey
-  );
-  const [textAlign, setTextAlignState] = useState<'justify' | 'left'>(
-    (effectivePrefs?.textAlign ?? DEFAULT_READING_PREFERENCES.textAlign) as 'justify' | 'left'
-  );
-  const [readingWidth, setReadingWidthState] = useState<'narrow' | 'md' | 'wide'>(
-    (effectivePrefs?.readingWidth ?? DEFAULT_READING_PREFERENCES.readingWidth) as 'narrow' | 'md' | 'wide'
-  );
   const [savingPrefs, setSavingPrefs] = useState(false);
 
-  // Single place where all current values are assembled and broadcast.
-  // Persists to localStorage here so every change is automatically cached,
-  // regardless of whether the user clicks "Save Preferences".
   function emit(overrides: Partial<{
     preset: ReadingPresetKey;
     fontFamily: string;
@@ -171,23 +156,25 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
     textAlign: 'justify' | 'left';
     readingWidth: string;
   }> = {}) {
-    const p = overrides.preset ?? readingPreset;
-    const ff = overrides.fontFamily ?? fontFamily;
-    const fs = overrides.fontSize ?? fontSize;
-    const ta = overrides.textAlign ?? textAlign;
-    const rw = overrides.readingWidth ?? readingWidth;
+    const p = (overrides.preset ?? currentValues.readingPresetKey) as ReadingPresetKey;
+    const ff = overrides.fontFamily ?? currentValues.fontFamilyKey;
+    const fs = overrides.fontSize ?? currentValues.fontSizeKey;
+    const ta = overrides.textAlign ?? currentValues.textAlign;
+    const rw = overrides.readingWidth ?? currentValues.readingWidthKey;
 
     onChange({
-      activePreset: READING_PRESETS[p],
       readingPresetKey: p,
+      fontSizeKey: fs as 'sm' | 'md' | 'lg' | 'xl',
+      fontFamilyKey: ff as 'sans' | 'serif' | 'mono',
+      readingWidthKey: rw as 'narrow' | 'md' | 'wide',
+      textAlign: ta,
+      activePreset: READING_PRESETS[p],
       fontFamilyCss: FONT_FAMILY_MAP[ff],
       fontSizeCss: FONT_SIZE_MAP[fs],
       lineHeight: LINE_HEIGHT_MAP[fs],
-      textAlign: ta,
       readingWidthCss: READING_WIDTH_MAP[rw],
     });
 
-    // Always persist locally — works for both guests and logged-in users
     saveLocalReadingPreferences({
       preset: p,
       fontSize: fs as ReadingPreferences['fontSize'],
@@ -197,46 +184,22 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
     });
   }
 
-  function setFontSize(v: 'sm' | 'md' | 'lg' | 'xl') {
-    setFontSizeState(v);
-    emit({ fontSize: v });
-  }
-
-  function setFontFamily(v: 'sans' | 'serif' | 'mono') {
-    setFontFamilyState(v);
-    emit({ fontFamily: v });
-  }
-
-  function setTextAlign(v: 'justify' | 'left') {
-    setTextAlignState(v);
-    emit({ textAlign: v });
-  }
-
-  function setReadingWidth(v: 'narrow' | 'md' | 'wide') {
-    setReadingWidthState(v);
-    emit({ readingWidth: v });
-  }
-
   function applyPreset(key: ReadingPresetKey) {
-    setReadingPresetState(key);
     const suggested = READING_PRESETS[key].suggestedFont;
-    const newFontFamily = suggested ?? fontFamily;
-    if (suggested) setFontFamilyState(suggested);
+    const newFontFamily = suggested ?? currentValues.fontFamilyKey;
     emit({ preset: key, fontFamily: newFontFamily });
   }
 
-  // "Save Preferences" only does the Firestore write + store update.
-  // localStorage is already up to date from emit().
   async function handleSavePreferences() {
     if (!user) return;
     setSavingPrefs(true);
     try {
       const prefs: ReadingPreferences = {
-        preset: readingPreset,
-        fontSize,
-        fontFamily,
-        textAlign,
-        readingWidth,
+        preset: currentValues.readingPresetKey,
+        fontSize: currentValues.fontSizeKey,
+        fontFamily: currentValues.fontFamilyKey,
+        textAlign: currentValues.textAlign,
+        readingWidth: currentValues.readingWidthKey,
       };
       await saveReadingPreferencesCallable(prefs);
       setStoredPrefs(prefs);
@@ -263,12 +226,7 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
     <Menu withArrow shadow="md" position="bottom-end">
       <Menu.Target>
         <Tooltip label="Reading options" withArrow position="bottom">
-          <Button
-            variant="subtle"
-            size="xs"
-            radius="md"
-            leftSection={<SlidersHorizontal size={14} />}
-          >
+          <Button variant="subtle" size="xs" radius="md" leftSection={<SlidersHorizontal size={14} />}>
             Display
           </Button>
         </Tooltip>
@@ -284,7 +242,7 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
                 <Button
                   key={key}
                   size="xs"
-                  variant={readingPreset === key ? 'filled' : 'light'}
+                  variant={currentValues.readingPresetKey === key ? 'filled' : 'light'}
                   onClick={() => applyPreset(key as ReadingPresetKey)}
                 >
                   {preset.label}
@@ -296,10 +254,9 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
           <div>
             <Text size="xs" fw={700} mb={4}>Text Size</Text>
             <SegmentedControl
-              fullWidth
-              size="xs"
-              value={fontSize}
-              onChange={(v) => setFontSize(v as 'sm' | 'md' | 'lg' | 'xl')}
+              fullWidth size="xs"
+              value={currentValues.fontSizeKey}
+              onChange={(v) => emit({ fontSize: v })}
               data={[
                 { label: 'S', value: 'sm' },
                 { label: 'M', value: 'md' },
@@ -312,10 +269,9 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
           <div>
             <Text size="xs" fw={700} mb={4}>Font</Text>
             <SegmentedControl
-              fullWidth
-              size="xs"
-              value={fontFamily}
-              onChange={(v) => setFontFamily(v as 'sans' | 'serif' | 'mono')}
+              fullWidth size="xs"
+              value={currentValues.fontFamilyKey}
+              onChange={(v) => emit({ fontFamily: v })}
               data={[
                 { label: 'Sans', value: 'sans' },
                 { label: 'Serif', value: 'serif' },
@@ -327,10 +283,9 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
           <div>
             <Text size="xs" fw={700} mb={4}>Align</Text>
             <SegmentedControl
-              fullWidth
-              size="xs"
-              value={textAlign}
-              onChange={(v) => setTextAlign(v as 'justify' | 'left')}
+              fullWidth size="xs"
+              value={currentValues.textAlign}
+              onChange={(v) => emit({ textAlign: v as 'justify' | 'left' })}
               data={[
                 { label: 'Justify', value: 'justify' },
                 { label: 'Left', value: 'left' },
@@ -341,10 +296,9 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
           <div>
             <Text size="xs" fw={700} mb={4}>Width</Text>
             <SegmentedControl
-              fullWidth
-              size="xs"
-              value={readingWidth}
-              onChange={(v) => setReadingWidth(v as 'narrow' | 'md' | 'wide')}
+              fullWidth size="xs"
+              value={currentValues.readingWidthKey}
+              onChange={(v) => emit({ readingWidth: v })}
               data={[
                 { label: 'Narrow', value: 'narrow' },
                 { label: 'Medium', value: 'md' },
@@ -355,8 +309,7 @@ export function ReadingOptionsMenu({ onChange }: ReadingOptionsMenuProps) {
 
           {user && (
             <Button
-              fullWidth
-              size="xs"
+              fullWidth size="xs"
               onClick={handleSavePreferences}
               loading={savingPrefs}
               leftSection={<BookmarkCheck size={14} />}
