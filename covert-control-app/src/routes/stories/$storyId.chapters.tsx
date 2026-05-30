@@ -477,5 +477,3 @@ function StoryChaptersPage() {
     </Box>
   );
 }
-
-export default StoryChaptersPage;

@@ -691,5 +691,3 @@ function EditStoryPage() {
     </form>
   );
 }
-
-export default EditStoryPage;

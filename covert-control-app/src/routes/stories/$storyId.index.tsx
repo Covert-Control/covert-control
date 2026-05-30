@@ -838,5 +838,3 @@ function StoryDetailPage() {
     </>
   );
 }
-
-export default StoryDetailPage;
