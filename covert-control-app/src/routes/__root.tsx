@@ -50,6 +50,7 @@ function RootComponent() {
 
   React.useEffect(() => {
     closeMobile();
+    document.title = 'Covert Control';
   }, [pathname, closeMobile]);
 
   const Boot = <AuthBootListener />;
