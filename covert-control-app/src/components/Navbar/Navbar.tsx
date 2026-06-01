@@ -29,7 +29,6 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const readerMode = useUiStore((s) => s.readerMode);
-  
 
   const theme = useMantineTheme();
   const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`);

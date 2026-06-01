@@ -18,13 +18,13 @@ export function useAuthListener() {
   // Listen for login/logout and hydrate profile + admin flag
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
-      // ✅ Start/stop favorites listener immediately on auth change
-      if (fbUser) startFavoritesListener(fbUser.uid);
-      else stopFavoritesListener();
-
       try {
         if (fbUser) {
+          // 1. Reload the user FIRST to ensure token synchronization
           await fbUser.reload();
+
+          // 2. NOW safely spin up your Firestore synchronization listeners
+          startFavoritesListener(fbUser.uid);
 
           let isAdmin = false;
           try {
@@ -42,7 +42,6 @@ export function useAuthListener() {
             const snap = await getDoc(doc(db, 'users', fbUser.uid));
             if (snap.exists()) {
               const data = snap.data() as any;
-
               username = (data?.username ?? data?.displayName ?? null) as string | null;
 
               profileData = {
@@ -58,7 +57,6 @@ export function useAuthListener() {
               if (data?.readingPreferences) {
                 setReadingPreferences(data.readingPreferences);
               }
-
             } else {
               isProfileComplete = false;
             }
@@ -79,22 +77,18 @@ export function useAuthListener() {
 
           setIsAdmin(isAdmin);
         } else {
+          // If there is no user, cleanly stop the listener
+          stopFavoritesListener();
           clearAuth();
           setIsAdmin(false);
         }
       } catch (e) {
         console.error('Auth state refresh failed:', e);
 
+        // Clean fallback configuration on catastrophic failure
+        stopFavoritesListener(); 
         if (fbUser) {
-          setAuthState(
-            fbUser,
-            false,
-            fbUser.uid,
-            null,
-            fbUser.email ?? null,
-            null,
-            fbUser.emailVerified
-          );
+          setAuthState(fbUser, false, fbUser.uid, null, fbUser.email ?? null, null, fbUser.emailVerified);
           setIsAdmin(false);
         } else {
           clearAuth();
@@ -105,7 +99,7 @@ export function useAuthListener() {
 
     return () => {
       unsub();
-      stopFavoritesListener(); // ✅ ensure Firestore listener is cleaned up if hook unmounts
+      stopFavoritesListener();
     };
   }, [setAuthState, clearAuth, setIsAdmin, setReadingPreferences]);
 

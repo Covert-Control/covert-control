@@ -18,7 +18,6 @@ import { Route as StoriesStoryIdIndexRouteImport } from './routes/stories/$story
 import { Route as StoriesStoryIdEditRouteImport } from './routes/stories/$storyId.edit'
 import { Route as StoriesStoryIdChaptersRouteImport } from './routes/stories/$storyId.chapters'
 
-const YourSubmissionsLazyRouteImport = createFileRoute('/your-submissions')()
 const SubmitLazyRouteImport = createFileRoute('/submit')()
 const StoriesLazyRouteImport = createFileRoute('/stories')()
 const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
@@ -26,7 +25,6 @@ const FavoritesLazyRouteImport = createFileRoute('/favorites')()
 const FaqLazyRouteImport = createFileRoute('/faq')()
 const AuthorsLazyRouteImport = createFileRoute('/authors')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
-const AboutLazyRouteImport = createFileRoute('/about')()
 const IndexLazyRouteImport = createFileRoute('/')()
 const StoriesWeeklynewLazyRouteImport = createFileRoute('/stories/weeklynew')()
 const StoriesRandomLazyRouteImport = createFileRoute('/stories/random')()
@@ -34,13 +32,6 @@ const AuthorsAuthorIdLazyRouteImport = createFileRoute('/authors/$authorId')()
 const AdminReportsLazyRouteImport = createFileRoute('/admin/reports')()
 const AdminNewsLazyRouteImport = createFileRoute('/admin/news')()
 
-const YourSubmissionsLazyRoute = YourSubmissionsLazyRouteImport.update({
-  id: '/your-submissions',
-  path: '/your-submissions',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() =>
-  import('./routes/your-submissions.lazy').then((d) => d.Route),
-)
 const SubmitLazyRoute = SubmitLazyRouteImport.update({
   id: '/submit',
   path: '/submit',
@@ -78,11 +69,6 @@ const AccountSettingsLazyRoute = AccountSettingsLazyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/account-settings.lazy').then((d) => d.Route),
 )
-const AboutLazyRoute = AboutLazyRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/about.lazy').then((d) => d.Route))
 const AuthenticationRoute = AuthenticationRouteImport.update({
   id: '/authentication',
   path: '/authentication',
@@ -158,7 +144,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
   '/advanced-search': typeof AdvancedSearchRoute
   '/authentication': typeof AuthenticationRoute
-  '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
@@ -166,7 +151,6 @@ export interface FileRoutesByFullPath {
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
-  '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
   '/admin/news': typeof AdminNewsLazyRoute
   '/admin/reports': typeof AdminReportsLazyRoute
@@ -181,7 +165,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
   '/advanced-search': typeof AdvancedSearchRoute
   '/authentication': typeof AuthenticationRoute
-  '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
@@ -189,7 +172,6 @@ export interface FileRoutesByTo {
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
-  '/your-submissions': typeof YourSubmissionsLazyRoute
   '/admin/news': typeof AdminNewsLazyRoute
   '/admin/reports': typeof AdminReportsLazyRoute
   '/authors/$authorId': typeof AuthorsAuthorIdLazyRoute
@@ -204,7 +186,6 @@ export interface FileRoutesById {
   '/': typeof IndexLazyRoute
   '/advanced-search': typeof AdvancedSearchRoute
   '/authentication': typeof AuthenticationRoute
-  '/about': typeof AboutLazyRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
   '/faq': typeof FaqLazyRoute
@@ -212,7 +193,6 @@ export interface FileRoutesById {
   '/nothing-found': typeof NothingFoundLazyRoute
   '/stories': typeof StoriesLazyRouteWithChildren
   '/submit': typeof SubmitLazyRoute
-  '/your-submissions': typeof YourSubmissionsLazyRoute
   '/stories/$storyId': typeof StoriesStoryIdRouteWithChildren
   '/admin/news': typeof AdminNewsLazyRoute
   '/admin/reports': typeof AdminReportsLazyRoute
@@ -229,7 +209,6 @@ export interface FileRouteTypes {
     | '/'
     | '/advanced-search'
     | '/authentication'
-    | '/about'
     | '/account-settings'
     | '/authors'
     | '/faq'
@@ -237,7 +216,6 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
-    | '/your-submissions'
     | '/stories/$storyId'
     | '/admin/news'
     | '/admin/reports'
@@ -252,7 +230,6 @@ export interface FileRouteTypes {
     | '/'
     | '/advanced-search'
     | '/authentication'
-    | '/about'
     | '/account-settings'
     | '/authors'
     | '/faq'
@@ -260,7 +237,6 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
-    | '/your-submissions'
     | '/admin/news'
     | '/admin/reports'
     | '/authors/$authorId'
@@ -274,7 +250,6 @@ export interface FileRouteTypes {
     | '/'
     | '/advanced-search'
     | '/authentication'
-    | '/about'
     | '/account-settings'
     | '/authors'
     | '/faq'
@@ -282,7 +257,6 @@ export interface FileRouteTypes {
     | '/nothing-found'
     | '/stories'
     | '/submit'
-    | '/your-submissions'
     | '/stories/$storyId'
     | '/admin/news'
     | '/admin/reports'
@@ -298,7 +272,6 @@ export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
   AdvancedSearchRoute: typeof AdvancedSearchRoute
   AuthenticationRoute: typeof AuthenticationRoute
-  AboutLazyRoute: typeof AboutLazyRoute
   AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
   FaqLazyRoute: typeof FaqLazyRoute
@@ -306,20 +279,12 @@ export interface RootRouteChildren {
   NothingFoundLazyRoute: typeof NothingFoundLazyRoute
   StoriesLazyRoute: typeof StoriesLazyRouteWithChildren
   SubmitLazyRoute: typeof SubmitLazyRoute
-  YourSubmissionsLazyRoute: typeof YourSubmissionsLazyRoute
   AdminNewsLazyRoute: typeof AdminNewsLazyRoute
   AdminReportsLazyRoute: typeof AdminReportsLazyRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/your-submissions': {
-      id: '/your-submissions'
-      path: '/your-submissions'
-      fullPath: '/your-submissions'
-      preLoaderRoute: typeof YourSubmissionsLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/submit': {
       id: '/submit'
       path: '/submit'
@@ -367,13 +332,6 @@ declare module '@tanstack/react-router' {
       path: '/account-settings'
       fullPath: '/account-settings'
       preLoaderRoute: typeof AccountSettingsLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/authentication': {
@@ -511,7 +469,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
   AdvancedSearchRoute: AdvancedSearchRoute,
   AuthenticationRoute: AuthenticationRoute,
-  AboutLazyRoute: AboutLazyRoute,
   AccountSettingsLazyRoute: AccountSettingsLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
   FaqLazyRoute: FaqLazyRoute,
@@ -519,7 +476,6 @@ const rootRouteChildren: RootRouteChildren = {
   NothingFoundLazyRoute: NothingFoundLazyRoute,
   StoriesLazyRoute: StoriesLazyRouteWithChildren,
   SubmitLazyRoute: SubmitLazyRoute,
-  YourSubmissionsLazyRoute: YourSubmissionsLazyRoute,
   AdminNewsLazyRoute: AdminNewsLazyRoute,
   AdminReportsLazyRoute: AdminReportsLazyRoute,
 }

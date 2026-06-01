@@ -9,7 +9,7 @@ import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firest
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-const COOLDOWN_MS = 1500;
+const COOLDOWN_MS = 1000;
 
 type LikeButtonProps = {
   storyId: string;
@@ -86,12 +86,17 @@ export default function LikeButton({
         if (mounted) setIsLiked(false);
         return;
       }
-      const likeSnap = await getDoc(doc(db, 'users', uid, 'likes', storyId));
-      if (mounted) setIsLiked(likeSnap.exists());
+      try {                                                 
+        const likeSnap = await getDoc(doc(db, 'users', uid, 'likes', storyId));
+        if (mounted) setIsLiked(likeSnap.exists());
+      } catch (e: any) {                                   
+        if (mounted) setIsLiked(false);
+        if (e?.code !== 'permission-denied') {           
+          console.error('Failed to check like status', e);
+        }
+      }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [uid, storyId, isOwnStory]);
 
   const likedFill   = 'var(--mantine-color-blue-5)';   // hand fill when liked

@@ -19,7 +19,6 @@ import { useAgeGate } from '../hooks/useAgeGate';
 import { AgeGateScreen } from '../components/AgeGateScreen';
 import { EmailVerificationBanner } from '../components/VerifyEmailBanner.tsx';
 
-
 export const Route = createRootRoute({
   component: RootComponent,
 });
@@ -32,9 +31,9 @@ function RootComponent() {
 
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
 
-  const { user, isProfileComplete, loading, isEmailVerified, email } = useAuthStore();
-
-  const EmailVerified = console.log("User:", user?.uid, "EmailVerified?:", isEmailVerified, "Email:", email);
+  const user = useAuthStore((s) => s.user);
+  const isProfileComplete = useAuthStore((s) => s.isProfileComplete);
+  const loading = useAuthStore((s) => s.loading);
 
   // ✅ Age gate (Zustand-backed hook)
   const uid = user?.uid ?? null;
@@ -101,7 +100,6 @@ function RootComponent() {
   // 4) ✅ Normal app shell
   return (
     <>
-      {EmailVerified}
       
       {Boot}
       <AppShell
@@ -156,7 +154,7 @@ function RootComponent() {
                 <img
                   src={SiteLogo}
                   alt="Covert Control"
-                  style={{ height: 60, width: 'auto', display: 'block' }}
+                  style={{ height: 40, width: 'auto', display: 'block' }}
                 />
               </Box>
             </Group>
