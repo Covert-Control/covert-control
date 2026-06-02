@@ -2,7 +2,6 @@
 import { ActionIcon, Tooltip, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ThumbsUp } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore';
 import { db } from '../config/firebase';
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
@@ -179,8 +178,6 @@ export default function LikeButton({
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <Tooltip label={tooltipLabel} withArrow>
         <ActionIcon
-          component={motion.button}
-          whileTap={{ scale: canToggle ? 0.9 : 1 }}
           onClick={handleClick}
           aria-pressed={isLiked}
           aria-disabled={!canToggle || busy}
@@ -192,15 +189,25 @@ export default function LikeButton({
             width: 26,
             opacity: !uid || isOwnStory ? 0.85 : 1,
             cursor: isOwnStory ? 'not-allowed' : 'pointer',
+            transition: 'transform 0.1s ease',        // 👈 replaces whileTap
           }}
-          // disabled for busy or own story; NOT disabled for !uid so click shows login notice
+          onMouseDown={(e) => {
+            if (canToggle) e.currentTarget.style.transform = 'scale(0.9)';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
           disabled={busy || isOwnStory}
         >
-          <motion.span
-            initial={false}
-            animate={{ scale: isLiked && !isOwnStory ? 1.12 : 1 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-            style={{ display: 'inline-flex' }}
+          <span
+            style={{
+              display: 'inline-flex',
+              transform: isLiked && !isOwnStory ? 'scale(1.12)' : 'scale(1)',
+              transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)', // spring-like
+            }}
           >
             <span
               style={{
@@ -228,7 +235,7 @@ export default function LikeButton({
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
             </span>
-          </motion.span>
+          </span>
         </ActionIcon>
       </Tooltip>
 

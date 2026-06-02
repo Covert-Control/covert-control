@@ -741,23 +741,6 @@ export function TipTap2() {
             </Stack>
             <Group>
             {showSubmitFeaturedWarning && (
-              // <Group gap={6} wrap="wrap" align="center">
-              //   <Badge variant="light" color="yellow">
-              //     Recommended tags missing
-              //   </Badge>
-              //   <Button
-              //     size="xs"
-              //     variant="subtle"
-              //     onClick={() => {
-              //       document.getElementById('field-tags')?.scrollIntoView({
-              //         behavior: 'smooth',
-              //         block: 'center',
-              //       });
-              //     }}
-              //   >
-              //     Add now
-              //   </Button>
-              // </Group>
 
             <Paper
               p="md"
@@ -798,6 +781,7 @@ export function TipTap2() {
                 <Button
                   color="yellow"
                   variant="filled"
+                  c="dark"
                   radius="md"
                   onClick={() => {
                     document.getElementById('field-tags')?.scrollIntoView({
