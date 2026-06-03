@@ -293,9 +293,33 @@ function HomePage() {
         {/* Hero */}
         <Paper radius="xl" p="lg" withBorder>
           <Stack gap="xs">
-            <Title order={1} style={{ letterSpacing: -0.5 }}>
-              Covert Control: Mind Control Erotica
-            </Title>
+          <Box hiddenFrom="sm">
+            <Text
+              ta="center"
+              fw={800}
+              size="2rem"
+              style={{
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                lineHeight: 1,
+              }}
+            >
+              COVERT CONTROL
+            </Text>
+
+            <Text
+              ta="center"
+              size="sm"
+              c="dimmed"
+              style={{
+                letterSpacing: '0.3em',
+                textTransform: 'uppercase',
+                marginTop: 4,
+              }}
+            >
+              EROTICA
+            </Text>
+          </Box>
             <Text c="dimmed">
               Discover stories, explore tags, and track your favorites. 
             </Text>

@@ -130,6 +130,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const u = auth.currentUser;
     if (!u) return false;
     await u.reload();
+
+    // 👇 ADD: if the current user changed while we were awaiting, abort
+    if (!auth.currentUser || auth.currentUser.uid !== u.uid) return false;
+
     const tokenResult = await u.getIdTokenResult(true);
     const verified = !!u.emailVerified;
     const isAdmin = !!tokenResult.claims.isAdmin;

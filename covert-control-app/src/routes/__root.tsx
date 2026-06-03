@@ -1,6 +1,6 @@
 // __root.tsx
 import * as React from 'react';
-import { AppShell, Burger, Group, Box, Loader, Center } from '@mantine/core';
+import { AppShell, Burger, Group, Box, Loader, Center, Text, } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, createRootRoute, useMatchRoute, Link, useRouterState } from '@tanstack/react-router';
 import SchemeToggleButton from '../components/SchemeToggleButton.tsx';
@@ -13,7 +13,6 @@ import { useAuthListener } from '../hooks/useAuthListener';
 import SiteLogo from '../assets/logo.png';
 import { AdminMailbox } from '../components/AdminMailbox';
 import { useUiStore } from '../stores/uiStore';
-import { AuthBootListener } from '../components/useAuthBootListener.tsx';
 import SiteFooter from '../components/SiteFooter';
 import { useAgeGate } from '../hooks/useAgeGate';
 import { AgeGateScreen } from '../components/AgeGateScreen';
@@ -52,13 +51,10 @@ function RootComponent() {
     document.title = 'Covert Control';
   }, [pathname, closeMobile]);
 
-  const Boot = <AuthBootListener />;
-
   // 1) Auth boot/loading (don’t render site content yet)
   if (loading) {
     return (
       <>
-        {Boot}
         <Center h="100vh">
           <Loader />
         </Center>
@@ -70,7 +66,6 @@ function RootComponent() {
   if (user && isProfileComplete === false) {
     return (
       <>
-        {Boot}
         <SetUsernamePage />
       </>
     );
@@ -80,7 +75,6 @@ function RootComponent() {
   if (!ageReady) {
     return (
       <>
-        {Boot}
         <Center h="100vh">
           <Loader />
         </Center>
@@ -91,7 +85,6 @@ function RootComponent() {
   if (!ageAccepted) {
     return (
       <>
-        {Boot}
         <AgeGateScreen onAccept={acceptAgeGate} />
       </>
     );
@@ -101,7 +94,6 @@ function RootComponent() {
   return (
     <>
       
-      {Boot}
       <AppShell
         zIndex={100}
         header={{ height: 60, collapsed: effectiveReaderMode }}
@@ -157,6 +149,31 @@ function RootComponent() {
                   style={{ height: 40, width: 'auto', display: 'block' }}
                 />
               </Box>
+
+              <Group gap={4} visibleFrom="sm">
+                <Text
+                  fw={800}
+                  size="lg"
+                  style={{
+                    letterSpacing: '0.15em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  COVERT CONTROL
+                </Text>
+
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  style={{
+                    letterSpacing: '0.3em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  EROTICA
+                </Text>
+              </Group>
+
             </Group>
 
             <Group>

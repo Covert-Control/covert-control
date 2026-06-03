@@ -1,18 +1,19 @@
-import { useRouter } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '../stores/authStore';
 
 export function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuthStore();
-  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const loading = useAuthStore((s) => s.loading);
+  const navigate = useNavigate();
 
-  if (loading) {
-    return <div>Loading...</div>; // Show loading indicator
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate({ to: '/authentication' });
+    }
+  }, [user, loading, navigate]);
 
-  if (!user) {
-    router.navigate({ to: '/authentication' });
-    return null;
-  }
-
-  return children;
+  if (loading) return <div>Loading...</div>;
+  if (!user) return null;
+  return <>{children}</>;
 }

@@ -17,11 +17,16 @@ export function useAuthListener() {
 
   // Listen for login/logout and hydrate profile + admin flag
   useEffect(() => {
+    let currentCallId = 0;
+
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      const callId = ++currentCallId;
       try {
         if (fbUser) {
           // 1. Reload the user FIRST to ensure token synchronization
           await fbUser.reload();
+
+          if (callId !== currentCallId) return;
 
           // 2. NOW safely spin up your Firestore synchronization listeners
           startFavoritesListener(fbUser.uid);
@@ -29,6 +34,7 @@ export function useAuthListener() {
           let isAdmin = false;
           try {
             const tokenResult = await getIdTokenResult(fbUser, true);
+            if (callId !== currentCallId) return;
             isAdmin = !!tokenResult.claims.isAdmin;
           } catch (e) {
             console.warn('Failed to load ID token claims:', e);
@@ -40,6 +46,9 @@ export function useAuthListener() {
 
           try {
             const snap = await getDoc(doc(db, 'users', fbUser.uid));
+
+            if (callId !== currentCallId) return;
+
             if (snap.exists()) {
               const data = snap.data() as any;
               username = (data?.username ?? data?.displayName ?? null) as string | null;
@@ -65,6 +74,8 @@ export function useAuthListener() {
             isProfileComplete = isProfileComplete ?? false;
           }
 
+          if (callId !== currentCallId) return;
+
           setAuthState(
             fbUser,
             isProfileComplete,
@@ -83,6 +94,7 @@ export function useAuthListener() {
           setIsAdmin(false);
         }
       } catch (e) {
+        if (callId !== currentCallId) return;
         console.error('Auth state refresh failed:', e);
 
         // Clean fallback configuration on catastrophic failure
@@ -98,6 +110,7 @@ export function useAuthListener() {
     });
 
     return () => {
+      currentCallId = Infinity;
       unsub();
       stopFavoritesListener();
     };

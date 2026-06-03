@@ -676,8 +676,7 @@ export function AuthenticationForm(props: PaperProps) {
               <br />
               <b>Ultimately, Covert Control reserves the right to remove any story or user account for any reason at any time.</b> For this reason, ensure that you keep personal copies of your stories at all times. Do not rely on the site as the sole host of your work.
             </Text>
-            <Text size="sm" mt="xs">
-              <b>2. Content Guidelines:</b>           
+            <Text size="sm" mt="xs"><b>2. Content Guidelines:</b></Text>         
               <List size="sm" spacing={6}>
                 <List.Item>Submissions should belong to a general theme of mind control, hypnosis, or psychological manipulation.</List.Item>
                 <List.Item>Stories featuring underage characters (under the age of 18) are strictly prohibited. If characters are described as "students" or are otherwise in situations where their age is ambiguous, it should be explicitly stated that they are at least 18 years of age. Posting content with underage characters will likely result in immediate ban and account deletion.</List.Item>
@@ -692,7 +691,6 @@ export function AuthenticationForm(props: PaperProps) {
                   Do not post another author's story. Any proven plagiarism will be removed.
                 </List.Item>
               </List>
-            </Text>
             <Text size="sm" mt="xs">
               <b>3. Understand that the site is currently in beta. Rules are subject to change at any time. Continued use of the site constitutes acceptance of these terms.</b>
             </Text>

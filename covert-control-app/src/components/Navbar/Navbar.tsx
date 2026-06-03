@@ -27,7 +27,6 @@ export type SiteNavbarProps = {
 
 export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobile, mobileOpened, }: SiteNavbarProps) {
   const user = useAuthStore((s) => s.user);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
   const readerMode = useUiStore((s) => s.readerMode);
 
   const theme = useMantineTheme();
@@ -36,7 +35,6 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
   const logOut = async () => {
     try {
       await signOut(auth);
-      clearAuth();
     } catch (err) {
       console.error(err);
     }

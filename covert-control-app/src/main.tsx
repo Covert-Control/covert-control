@@ -64,6 +64,12 @@ const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
   },
 });
 
+window.addEventListener('vite:preloadError', () => {
+  // Chunk load failed = stale cache after a new deployment
+  // Force a hard reload to fetch the new index.html and its correct chunks
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
