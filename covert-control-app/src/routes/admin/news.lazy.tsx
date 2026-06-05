@@ -157,7 +157,7 @@ function AdminNewsPage() {
     );
 
     return () => unsub();
-  }, [isAdmin, currentUser]);
+  }, [isAdmin, currentUser?.uid]);
 
   // Guards
   if (authLoading) {

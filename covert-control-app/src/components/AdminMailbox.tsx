@@ -39,7 +39,7 @@ export function AdminMailbox() {
     );
 
     return () => unsubscribe();
-  }, [isAdmin, user]);
+  }, [isAdmin, user?.uid]);
 
   // Never render anything for non-admins or logged-out users
   if (!isAdmin || !user) {

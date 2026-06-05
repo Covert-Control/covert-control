@@ -122,7 +122,7 @@ function AdminReportsPage() {
     );
 
     return () => unsubscribe();
-  }, [isAdmin, currentUser, filter]);
+  }, [isAdmin, currentUser?.uid, filter]);
 
   const openCount = useMemo(
     () => reports.filter((r) => r.status === 'open').length,

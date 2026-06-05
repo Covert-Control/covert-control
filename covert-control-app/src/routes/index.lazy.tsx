@@ -371,7 +371,7 @@ function HomePage() {
         </Paper>
 
         {/* Bento grid (quick utility tiles) */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 2 }} spacing="md">
           <Paper radius="xl" p="md" withBorder>
             <Stack gap={6}>
               <Group justify="space-between">
