@@ -194,6 +194,13 @@ function StoryDetailPage() {
     totalChapters
   );
 
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  }, [safeChapter]);
+
   const queryClient = useQueryClient();
 
   const isOwnStory = !!(

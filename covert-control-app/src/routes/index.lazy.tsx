@@ -320,9 +320,6 @@ function HomePage() {
               EROTICA
             </Text>
           </Box>
-            <Text c="dimmed">
-              Discover stories, explore tags, and track your favorites. 
-            </Text>
 
             <Group mt="sm" wrap="wrap" justify="center">
               <Button

@@ -388,9 +388,6 @@ export function AuthenticationForm(props: PaperProps) {
       const additionalUserInfo = getAdditionalUserInfo(result);
       const isNewUser = additionalUserInfo?.isNewUser;
 
-      console.log('Google Sign-in Result:', result);
-      console.log('Is New User:', isNewUser);
-
       if (user && user.uid) {
         if (isNewUser) {
           // brand new account -> force username modal

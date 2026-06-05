@@ -19,6 +19,13 @@ export const completeGoogleRegistration = onCall(async (req: CallableRequest) =>
     await assertEmailNotBanned(email);
 
     return await admin.firestore().runTransaction(async (tx) => {
+      const userRef = admin.firestore().doc(`users/${uid}`);
+      const userSnap = await tx.get(userRef);
+      if (userSnap.exists && userSnap.data()?.username) {
+        logger.warn(`User ${uid} already has username "${userSnap.data()?.username}" and attempted to set another.`);
+        throw new HttpsError('failed-precondition', 'You already have a username and cannot change it.');
+      }
+
       const nameRef = admin.firestore().doc(`usernames/${username_lc}`);
       const nameSnap = await tx.get(nameRef);
 
@@ -55,7 +62,6 @@ export const completeGoogleRegistration = onCall(async (req: CallableRequest) =>
         reservedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      const userRef = admin.firestore().doc(`users/${uid}`);
       tx.set(
         userRef,
         {
