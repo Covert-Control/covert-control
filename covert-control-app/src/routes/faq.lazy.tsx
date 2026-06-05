@@ -196,6 +196,12 @@ function FaqPage() {
           </Text>
 
           <Text size="sm">
+            Or join us on our <Anchor href="https://discord.gg/J2C84D4p9" underline="hover">
+              Discord
+            </Anchor>{' '}
+          </Text>
+
+          <Text size="sm">
             For reporting a story or a user, please use the <strong>Report</strong> button on the story instead of emailing.
             This helps keep reports organized and actionable.
           </Text>
@@ -213,8 +219,8 @@ function FaqPage() {
           </Text>
           <List size="sm" spacing={6}>
             <List.Item>Sharing the site with readers and writers who would enjoy it.</List.Item>
-            <List.Item>Submitting constructive feedback via email.</List.Item>
-            <List.Item>Reporting policy violations so the platform stays healthy.</List.Item>
+            <List.Item>Submitting constructive feedback via email or on Discord.</List.Item>
+            <List.Item>Reporting policy violations to keep the platform healthy.</List.Item>
           </List>
         </Section>
       </Stack>

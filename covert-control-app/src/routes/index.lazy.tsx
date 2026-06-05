@@ -333,15 +333,6 @@ function HomePage() {
 
               <Button
                 component={RouterLink}
-                to="/stories/random"
-                variant="light"
-                leftSection={<Dices size={16} />}
-              >
-                Random picks
-              </Button>
-
-              <Button
-                component={RouterLink}
                 to="/advanced-search"
                 variant="default"
                 leftSection={<Search size={16} />}
@@ -366,26 +357,21 @@ function HomePage() {
               >
                 Browse authors
               </Button>
+
+              <Button
+                component={RouterLink}
+                to="/stories/random"
+                variant="light"
+                leftSection={<Dices size={16} />}
+              >
+                Random picks
+              </Button>
             </Group>
           </Stack>
         </Paper>
 
         {/* Bento grid (quick utility tiles) */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-          <Paper radius="xl" p="md" withBorder>
-            <Stack gap={6}>
-              <Group justify="space-between">
-                <Text fw={600}>Start exploring</Text>
-              </Group>
-              <Text size="sm" c="dimmed">
-                Jump straight into the library. No account needed to read.
-              </Text>
-              <Button component={RouterLink} to="/stories" variant="light" size="sm" mt="xs">
-                View all stories
-              </Button>
-            </Stack>
-          </Paper>
-
           <Paper radius="xl" p="md" withBorder>
             <Stack gap={6}>
               <Group justify="space-between">

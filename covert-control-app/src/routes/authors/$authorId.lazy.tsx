@@ -376,7 +376,7 @@ function AuthorDetailPage() {
                 {(stories?.length || 0)} {stories && stories.length === 1 ? 'story' : 'stories'}
               </Badge>
               <Badge variant="outline" leftSection={<Eye size={14} />}>
-                {totalViews} total views
+                {totalViews} total story views
               </Badge>
               {author.banned && (
                 <Badge color="red" variant="filled">
