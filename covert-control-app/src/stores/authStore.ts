@@ -1,7 +1,6 @@
 //authStore.ts
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
-import { auth } from '../config/firebase.tsx';
 import type { ReadingPreferences } from '../config/firebase.tsx';
 
 export interface UserProfile {
@@ -55,7 +54,6 @@ interface AuthState {
   removeFavoriteLocal: (id: string) => void;
   resetFavorites: () => void;
 
-  refreshEmailVerification: () => Promise<boolean>;
   setIsAdmin: (value: boolean) => void;
   setReadingPreferences: (prefs: ReadingPreferences) => void;
 }
@@ -125,21 +123,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAdmin: false,
       readingPreferences: null,
     }),
-
-  refreshEmailVerification: async () => {
-    const u = auth.currentUser;
-    if (!u) return false;
-    await u.reload();
-
-    // 👇 ADD: if the current user changed while we were awaiting, abort
-    if (!auth.currentUser || auth.currentUser.uid !== u.uid) return false;
-
-    const tokenResult = await u.getIdTokenResult(true);
-    const verified = !!u.emailVerified;
-    const isAdmin = !!tokenResult.claims.isAdmin;
-    set({ user: u, isEmailVerified: verified, isAdmin });
-    return verified;
-  },
 
   setIsAdmin: (value) => set({ isAdmin: value }),
 

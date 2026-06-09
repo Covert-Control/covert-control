@@ -1,3 +1,4 @@
+//favorites.lazy.tsx
 import { createLazyFileRoute, Link } from '@tanstack/react-router';
 import { useQueries } from '@tanstack/react-query';
 import { doc, getDoc, FirestoreError } from 'firebase/firestore';

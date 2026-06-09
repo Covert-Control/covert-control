@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    /* ----------------- Helpers ----------------- */
+    function authed() { return request.auth != null; }
+    
+    function isAdmin() { return authed() && request.auth.token.isAdmin == true; }
+    
+    function isSelf(uid) { return authed() && request.auth.uid == uid; }
+    
+    function storyExists(storyId) {
+      return exists(/databases/$(database)/documents/stories/$(storyId));
+    }
+    
+    function isStoryOwner(storyId) {
+      return authed()
+        && get(/databases/$(database)/documents/stories/$(storyId)).data.ownerId
+           == request.auth.uid;
+    }
+    
+    function isVerified() {
+      return authed() && request.auth.token.email_verified == true;
+    }
+    
+    // Cooldown helper: allow if ts missing or older than N seconds
+    function cooldownPassed(ts, seconds) {
+      return ts == null || (request.time - ts) > duration.value(seconds, 's');
+    }
+    
+    // USERS:
+    match /users/{userId} {
+      allow read: if true;
+
+      // Only Cloud Functions/Admin SDK should write user profiles
+      allow create, update, delete: if false;
+    }
+    
+    // Anyone can read author list
+    match /authors_with_stories/{authorId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // STORIES:
+    match /stories/{storyId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.ownerId
+        && request.auth.token.email_verified == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username != null;
+
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.ownerId || isAdmin();
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.ownerId || isAdmin();
+        
+      match /chapters/{chapterId} {
+        allow read: if true;
+
+        allow create: if isStoryOwner(storyId);
+        allow update, delete: if isStoryOwner(storyId);
+      }
+    }
+    
+    //NEWS:
+    match /newsPosts/{postId} {
+      allow read: if resource.data.isPublished == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    
+    
+    //TAGS:
+    match /tags/{tagId} {
+      allow read: if true;
+    }
+    
+    //FAVORITES
+    match /users/{uid}/favorites/{storyId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      allow create, update: if isVerified()
+        && request.auth.uid == uid
+        && request.resource.data.storyId == storyId
+        && request.resource.data.keys().hasOnly(['storyId', 'createdAt'])
+        && exists(/databases/$(database)/documents/stories/$(storyId));
+
+      allow delete: if isVerified() && request.auth.uid == uid;
+    }
+
+    
+    //LIKES
+    match /users/{uid}/likes/{storyId} {
+      // Only the liker can read/write their like doc
+      allow read: if isSelf(uid);
+
+      // Create a like doc (first time or after an unlike)
+      allow create: if isVerified()
+        && isSelf(uid)
+        && request.resource.data.keys().hasOnly(['storyId', 'createdAt'])
+        && request.resource.data.storyId == storyId
+        && request.resource.data.createdAt == request.time
+        && storyExists(storyId);
+
+      // throttle unlikes — must keep the like for at least 5 seconds
+      allow delete: if isVerified()
+        && isSelf(uid)
+        && resource.data.storyId == storyId
+        && cooldownPassed(resource.data.createdAt, 1);
+
+      // No in-place updates for this model
+      allow update: if false;
+    }
+    
+    //REPORTS
+    match /reports/{reportId} {
+      // Anyone logged in can create a report
+      allow create: if authed()
+        && request.resource.data.reportedBy == request.auth.uid;
+
+      // Admins can see all reports
+      // Reporters can read their *own* reports (needed for duplicate check)
+      allow read: if isAdmin()
+        || (authed() && resource.data.reportedBy == request.auth.uid);
+
+      // Only admins can change or delete reports
+      allow update, delete: if isAdmin();
+    }
+    
+    //User_Roles
+    match /user_roles/{uid} {
+      // only Cloud Functions & console (admin) can touch this
+      allow read, write: if false;
+    }
+    
+    //banned_emails
+    match /banned_emails/{emailId} {
+      allow read, write: if isAdmin();
+    }
+
+  }
+}

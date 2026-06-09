@@ -5,13 +5,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.tsx';
 import { useAuthStore } from '../stores/authStore';
 import type { UserProfile } from '../stores/authStore';
-import { startFavoritesListener, stopFavoritesListener } from './favoritesSync';
-
+import { loadFavorites, clearFavorites } from './favoritesSync';
 
 export function useAuthListener() {
   const setAuthState = useAuthStore((s) => s.setAuthState);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const refreshEmailVerification = useAuthStore((s) => s.refreshEmailVerification);
   const setIsAdmin = useAuthStore((s) => s.setIsAdmin); 
   const setReadingPreferences = useAuthStore((s) => s.setReadingPreferences);
 
@@ -22,14 +20,15 @@ export function useAuthListener() {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       const callId = ++currentCallId;
       try {
+        console.log("We are refreshing auth state!")
         if (fbUser) {
           // 1. Reload the user FIRST to ensure token synchronization
           await fbUser.reload();
 
           if (callId !== currentCallId) return;
 
-          // 2. NOW safely spin up your Firestore synchronization listeners
-          startFavoritesListener(fbUser.uid);
+          await loadFavorites(fbUser.uid);
+          if (callId !== currentCallId) return;
 
           let isAdmin = false;
           try {
@@ -89,7 +88,7 @@ export function useAuthListener() {
           setIsAdmin(isAdmin);
         } else {
           // If there is no user, cleanly stop the listener
-          stopFavoritesListener();
+          clearFavorites();
           clearAuth();
           setIsAdmin(false);
         }
@@ -98,7 +97,7 @@ export function useAuthListener() {
         console.error('Auth state refresh failed:', e);
 
         // Clean fallback configuration on catastrophic failure
-        stopFavoritesListener(); 
+        clearFavorites();
         if (fbUser) {
           setAuthState(fbUser, false, fbUser.uid, null, fbUser.email ?? null, null, fbUser.emailVerified);
           setIsAdmin(false);
@@ -110,32 +109,11 @@ export function useAuthListener() {
     });
 
     return () => {
+      console.log("We are refreshing auth state!")
       currentCallId = Infinity;
       unsub();
-      stopFavoritesListener();
+      clearFavorites();
     };
   }, [setAuthState, clearAuth, setIsAdmin, setReadingPreferences]);
 
-
-  // On mount and when returning focus to the app, re-check (reload only)
-  useEffect(() => {
-    const run = () => {
-      refreshEmailVerification().catch((e) =>
-        console.warn('refreshEmailVerification failed', e)
-      );
-    };
-    run();
-
-    const onFocus = () => run();
-    const onVis = () => {
-      if (document.visibilityState === 'visible') run();
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [refreshEmailVerification]);
 }

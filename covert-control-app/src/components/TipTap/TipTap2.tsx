@@ -5,7 +5,7 @@ import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Button,
   TextInput,
@@ -333,6 +333,29 @@ export function TipTap2() {
       setCharCount(text.length);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const dom = editor.view.dom;
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      // Let default list indentation work inside lists
+      if (editor.isActive('listItem') || editor.isActive('bulletList') || editor.isActive('orderedList')) {
+        return;
+      }
+
+      e.preventDefault();
+      // Insert 4 spaces at the cursor position
+      editor.commands.insertContent('    ');
+    };
+
+    dom.addEventListener('keydown', handleTabKey);
+    return () => {
+      dom.removeEventListener('keydown', handleTabKey);
+    };
+  }, [editor]);
 
   const busy = submitting || checkingDuplicate;
 
