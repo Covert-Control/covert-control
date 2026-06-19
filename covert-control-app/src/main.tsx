@@ -1,5 +1,4 @@
 //main.tsx
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import '@mantine/core/styles.css';
@@ -14,9 +13,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './stores/authStore';
 import { loadLocalReadingPreferences } from './utils/readingPreferences';
 
-const queryClient = new QueryClient();
 const router = createRouter({ routeTree, defaultNotFoundComponent: () => <NothingFoundPage /> });
 const localPrefs = loadLocalReadingPreferences();
+
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,  
+      refetchOnWindowFocus: false, 
+      refetchOnMount: false,
+      retry: 1,                    
+    },
+  },
+});
 
 if (localPrefs) {
   useAuthStore.setState({
@@ -72,12 +82,10 @@ window.addEventListener('vite:preloadError', () => {
 });
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
       <Notifications position="bottom-right" />
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </MantineProvider>
-  </StrictMode>
 );

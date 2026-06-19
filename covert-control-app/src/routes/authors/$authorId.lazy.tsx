@@ -123,6 +123,7 @@ function AuthorDetailPage() {
     enabled: !!authorId,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
+      console.log('Fetching authorStories (authorId)', { authorId });
       if (!authorId) throw new Error('Author username is missing.');
       const usersCollectionRef = collection(db, 'users');
       const userQuery = query(usersCollectionRef, where('username', '==', authorId));
@@ -144,6 +145,7 @@ function AuthorDetailPage() {
     enabled: !!authorUid,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
+      console.log('Fetching user profile (authorId)', { authorUid });
       if (!authorUid) return null;
       const snap = await getDoc(doc(db, 'users', authorUid));
       if (!snap.exists()) return null;
@@ -181,8 +183,13 @@ function AuthorDetailPage() {
   } = useQuery<Story[]>({
     queryKey: ['authorStories', authorUid],
     enabled: !!authorUid,
-    staleTime: 1000 * 60 * 1,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     queryFn: async () => {
+      console.log('Fetching stories for author (authorId)', { authorUid });
       if (!authorUid) return [];
       const storiesCollectionRef = collection(db, 'stories');
       const q = query(storiesCollectionRef, where('ownerId', '==', authorUid));

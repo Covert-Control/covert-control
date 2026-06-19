@@ -1,3 +1,4 @@
+//FAQ.lazy.tsx
 import { createLazyFileRoute } from '@tanstack/react-router';
 import {
   Anchor,

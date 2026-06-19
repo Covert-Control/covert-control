@@ -34,6 +34,7 @@ import {
 } from '@mantine/core';
 import { Search } from 'lucide-react';
 import { AuthorCard, AuthorWithStory } from '../components/AuthorCard';
+import { useState } from 'react';
 
 export const Route = createLazyFileRoute('/authors')({
   component: AuthorsListComponent,
@@ -100,9 +101,24 @@ function AuthorsListComponent() {
   // What the user is *typing* vs what we actually *query* with
   const [searchInput, setSearchInput] = React.useState('');
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [lastSearchTime, setLastSearchTime] = useState(0);
+  const now = Date.now();
 
   const handleSearchApply = () => {
-    setSearchTerm(searchInput.trim());
+    if (now - lastSearchTime < 3000) {
+      return;
+    }
+
+    setLastSearchTime(now);
+
+    const term = searchInput.trim();
+
+    if (term.length > 0 && term.length < 3) {
+      alert('Please enter at least 3 characters.');
+      return;
+    }
+
+    setSearchTerm(term);
   };
 
   const handleSearchKeyDown = (
@@ -125,11 +141,22 @@ function AuthorsListComponent() {
   } = useInfiniteQuery({
     queryKey: ['authorsWithStories', { sort, search: searchTerm }],
     queryFn: async (context) => {
+      console.log('[Authors] Query start', {
+        sort,
+        searchTerm,
+        pageCursor: !!context.pageParam,
+      });
       const pageParam =
         (context.pageParam as QueryDocumentSnapshot<DocumentData> | null) ?? null;
 
       const q = buildAuthorQuery(authorsRef, sort, searchTerm, pageParam);
       const snapshot = await getDocs(q);
+
+      console.log('[Authors] Query result', {
+        docsReturned: snapshot.size,
+        sort,
+        searchTerm,
+      });
 
       const authors: AuthorWithStory[] = snapshot.docs.map((doc) => {
         const data = doc.data() as any;

@@ -35,6 +35,7 @@ import { useAuthStore } from '../../stores/authStore';
 
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 
+console.log('AdminNewsPage module loaded');
 // If your TipTap CSS lives here: src/routes/stories/tiptap.css
 // import '../stories/tiptap.css';
 
@@ -58,6 +59,7 @@ interface NewsPost {
 const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
 function AdminNewsPage() {
+  console.log('AdminNewsPage rendered');
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const authLoading = useAuthStore((s) => s.loading);
   const currentUser = useAuthStore((s) => s.user);
@@ -118,9 +120,16 @@ function AdminNewsPage() {
     setError(null);
 
     const q = query(collection(db, 'newsPosts'), orderBy('createdAt', 'desc'));
+    console.log('AdminNewsPage: subscribing to newsPosts', {
+      time: new Date().toISOString(),
+    });
     const unsub = onSnapshot(
       q,
       (snap) => {
+        console.log('AdminNewsPage: snapshot received', {
+          docs: snap.size,
+          time: new Date().toISOString(),
+        });
         const items: NewsPost[] = snap.docs.map((d) => {
           const data = d.data() as any;
           return {
@@ -156,7 +165,13 @@ function AdminNewsPage() {
       }
     );
 
-    return () => unsub();
+    return () => {
+      console.log('AdminNewsPage: unsubscribing from newsPosts', {
+        time: new Date().toISOString(),
+      });
+
+      unsub();
+    };
   }, [isAdmin, currentUser?.uid]);
 
   // Guards

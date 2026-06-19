@@ -84,6 +84,9 @@ interface ChapterRow {
 ---------------------------------------------- */
 
 async function fetchChaptersForList(storyId: string): Promise<ChapterRow[]> {
+  console.log('[FIRESTORE] fetchChaptersForList (storyId.chapters.tsx)', {
+    storyId,
+  });
   const colRef = collection(db, 'stories', storyId, 'chapters');
   const q = query(colRef, orderBy('index', 'asc'));
   const snap = await getDocs(q);
@@ -166,7 +169,11 @@ function StoryChaptersPage() {
     queryKey: ['storyChaptersList', storyId],
     queryFn: () => fetchChaptersForList(storyId),
     enabled: !!storyId,
-    staleTime: 0,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   function goToChapter(chapterIndex: number) {

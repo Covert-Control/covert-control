@@ -87,9 +87,18 @@ function AdminReportsPage() {
         ? query(baseRef, where('status', '==', 'open'), orderBy('createdAt', 'desc'))
         : query(baseRef, orderBy('createdAt', 'desc'));
 
+
+    console.log('Reports listener attached', {
+      filter,
+      time: new Date().toISOString(),
+    });
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        console.log('Reports snapshot received', {
+          docs: snapshot.size,
+          time: new Date().toISOString(),
+        });
         const items: Report[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data() as any;
           return {

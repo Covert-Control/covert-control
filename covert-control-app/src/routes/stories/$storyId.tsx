@@ -24,6 +24,7 @@ export const Route = createFileRoute('/stories/$storyId')({
   },
 
   loader: async ({ params }) => {
+    console.log('Story loader (storyId.tsx', { storyId: params.storyId, time: new Date().toISOString() });
     const ref = doc(db, 'stories', params.storyId);
     const snap = await getDoc(ref);
     if (!snap.exists()) throw new Error(`Story ${params.storyId} not found`);

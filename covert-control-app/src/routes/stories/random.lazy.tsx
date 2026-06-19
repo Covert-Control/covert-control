@@ -114,6 +114,9 @@ function RandomStoriesRoute() {
   const { data, isLoading, isError, error, isFetching } = useQuery<Story[]>({
     queryKey: ['randomStories', seed],
     queryFn: async () => {
+        console.log('Random query executing', {
+          time: new Date().toISOString(),
+        });
       const storiesRef = collection(db, 'stories');
 
       const qA = fsQuery(
@@ -145,9 +148,11 @@ function RandomStoriesRoute() {
       const seen = new Set(a.map((s) => s.id));
       return [...a, ...b.filter((s) => !seen.has(s.id))];
     },
-    staleTime: 0,
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: false,
+    gcTime: Infinity,
   });
 
   const rollAgain = () => {

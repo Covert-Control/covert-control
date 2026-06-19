@@ -1,5 +1,4 @@
 // src/routes/stories/$storyId.index.tsx
-
 import {
   createFileRoute,
   Link as RouterLink,
@@ -108,6 +107,7 @@ function toDate(value: PossibleDate): Date | undefined {
 ---------------------------------------------- */
 
 async function fetchChapterContent(storyId: string, chapter: number) {
+  console.log('fetchChapterContent (storyId.index)', { storyId, chapter });
   const chapterRef = doc(db, 'stories', storyId, 'chapters', String(chapter));
 
   const snap = await getDoc(chapterRef);
@@ -135,6 +135,7 @@ async function fetchChapterContent(storyId: string, chapter: number) {
 async function fetchChapterMetaList(
   storyId: string
 ): Promise<ChapterMeta[]> {
+  console.log('fetchChapterMetaList (storyId.index)', { storyId });
   const chaptersRef = collection(db, 'stories', storyId, 'chapters');
 
   const q = query(chaptersRef, orderBy('index', 'asc'));
@@ -268,8 +269,11 @@ function StoryDetailPage() {
     queryKey: ['storyChapterMeta', storyId],
     queryFn: () => fetchChapterMetaList(storyId),
     enabled: !!storyId,
-    staleTime: 0,
-    gcTime: 1000 * 60 * 10,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const chapterList: ChapterMeta[] = useMemo(() => {
@@ -304,6 +308,10 @@ function StoryDetailPage() {
     const prev = safeChapter - 1;
 
     if (next <= totalChapters) {
+      console.log('prefetch next chapter', {
+        storyId,
+        chapter: next,
+      });
       queryClient.prefetchQuery({
         queryKey: ['storyChapter', storyId, next],
         queryFn: () =>
@@ -313,6 +321,11 @@ function StoryDetailPage() {
     }
 
     if (prev >= 1) {
+      console.log('prefetch previous chapter', {
+        storyId,
+        chapter: prev,
+      });
+
       queryClient.prefetchQuery({
         queryKey: ['storyChapter', storyId, prev],
         queryFn: () =>

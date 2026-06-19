@@ -105,6 +105,10 @@ function StoriesThisWeekRoute() {
   const storiesQuery = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }) => {
+      console.log('Weekly query executing', {
+        pageParam,
+        time: new Date().toISOString(),
+      });
       const startTs = Timestamp.fromDate(start);
       const endTs = Timestamp.fromDate(end);
 
@@ -163,6 +167,11 @@ function StoriesThisWeekRoute() {
       if (lastPage.stories.length < PAGE_SIZE) return undefined;
       return lastPage.lastDoc;
     },
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const allStories = React.useMemo(

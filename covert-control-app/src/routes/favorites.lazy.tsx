@@ -69,9 +69,18 @@ function RouteComponent() {
   const storyQueries = useQueries({
     queries: (favoriteIds ?? []).map((storyId) => ({
       queryKey: ['story', storyId],
-      enabled: !!uid && favoritesLoaded,
-      staleTime: 1000 * 60 * 5,
+      enabled: (() => {
+        const e = !!uid && favoritesLoaded;
+        console.log('[FAVORITES QUERY ENABLED]', storyId, e);
+        return e;
+      })(),
+      staleTime: Infinity,
+      gcTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
       queryFn: async () => {
+        console.log('[FAVORITES READ] getDoc stories/', storyId);
         const snap = await getDoc(doc(db, 'stories', storyId));
         if (!snap.exists()) return null;
 
@@ -96,6 +105,12 @@ function RouteComponent() {
   });
 
   const stories = useMemo(() => {
+    console.log('[FAVORITES MERGE] storyQueries:', storyQueries.map(q => ({
+      id: q.data?.id,
+      isLoading: q.isLoading,
+      isFetched: q.isFetched
+    })));
+
     if (!favoriteIds?.length) return [];
 
     const byId = new Map<string, Story>();

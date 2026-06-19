@@ -124,6 +124,7 @@ function plainifyForCallable<T>(value: T): T {
 ---------------------------------------------- */
 
 async function fetchChapterForEdit(storyId: string, chapterNum: number) {
+  console.log('fetchChapterForEdit (storyId.edit.tsx)', { storyId, chapterNum });
   const ref = doc(db, 'stories', storyId, 'chapters', String(chapterNum));
   const snap = await getDoc(ref);
 
@@ -196,11 +197,20 @@ function EditStoryPage() {
     Load chapter doc (or null if new)
   ---------------------------------------------- */
 
+  console.log('[RENDER] EditStoryPage', {
+    storyId,
+    safeChapter,
+  });
+
   const chapterEditQuery = useQuery({
     queryKey: ['storyChapterEdit', storyId, safeChapter],
     queryFn: () => fetchChapterForEdit(storyId, safeChapter),
     enabled: !!storyId && !!safeChapter,
-    staleTime: 0,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const isNewChapter =
@@ -234,6 +244,29 @@ function EditStoryPage() {
       setCharCount(text.length);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const dom = editor.view.dom;
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      // Let default list indentation work inside lists
+      if (editor.isActive('listItem') || editor.isActive('bulletList') || editor.isActive('orderedList')) {
+        return;
+      }
+
+      e.preventDefault();
+      // Insert 4 spaces at the cursor position
+      editor.commands.insertContent('    ');
+    };
+
+    dom.addEventListener('keydown', handleTabKey);
+    return () => {
+      dom.removeEventListener('keydown', handleTabKey);
+    };
+  }, [editor]);
 
   const parsedChapterContent = useMemo(() => {
     const raw = chapterEditQuery.data?.content ?? '';

@@ -159,6 +159,14 @@ function SearchPage() {
         fbLimit(10)
       );
       const snap = await getDocs(qy);
+      console.log(
+        '[AdvancedSearch] Loaded top tags:',
+        snap.size,
+        snap.docs.map((d) => ({
+          id: d.id,
+          count: d.data().count,
+        }))
+      );
       setTopTags(snap.docs.map((d) => (d.data() as any).name ?? d.id));
     })();
   }, []);
