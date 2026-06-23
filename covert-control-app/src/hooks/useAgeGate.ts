@@ -17,6 +17,13 @@ export function useAgeGate(uid: string | null) {
     [rememberedVersion, sessionVersion]
   );
 
+  console.log('[AGE GATE] Query state', {
+    uid,
+    hasHydrated,
+    localAccepted,
+    enabled: !!uid && hasHydrated && !localAccepted,
+  });
+
   // If not locally accepted and logged in, check user doc for ack version
   const serverAck = useQuery({
     queryKey: ['adultAck', uid, AGE_GATE_VERSION],
@@ -24,6 +31,7 @@ export function useAgeGate(uid: string | null) {
     staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const snap = await getDoc(doc(db, 'users', uid!));
+      console.log('[AGE GATE] Fetched user document:', snap.exists());
       if (!snap.exists()) return false;
       const d = snap.data() as any;
       return d.adultAcknowledgedVersion === AGE_GATE_VERSION;
@@ -50,6 +58,7 @@ export function useAgeGate(uid: string | null) {
 
     // If logged in, persist to Firestore so other devices skip the gate
     if (uid) {
+      console.log('[AGE GATE WRITE] Persisting acknowledgment');
       await setDoc(
         doc(db, 'users', uid),
         {

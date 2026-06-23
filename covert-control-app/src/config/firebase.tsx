@@ -1,19 +1,12 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 //import { getAnalytics } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider, connectAuthEmulator, } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, } from "firebase/firestore";
-import { getFunctions, httpsCallable, connectFunctionsEmulator, } from 'firebase/functions';
+import { getAuth, GoogleAuthProvider, } from "firebase/auth";
+import { getFirestore, } from "firebase/firestore";
+import { getFunctions, httpsCallable, } from 'firebase/functions';
 import type { HttpsCallable,  } from 'firebase/functions';
-import {
-  getStorage,
-  connectStorageEmulator,
-} from 'firebase/storage';
 
-import {
-  getDatabase,
-  connectDatabaseEmulator,
-} from 'firebase/database';
+
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -44,22 +37,12 @@ export const googleProvider = new GoogleAuthProvider();
     prompt: 'select_account', 
 });
 export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const database = getDatabase(app);
 export const incrementStoryViewCallable = httpsCallable(functions, 'incrementStoryView');
 export const registerUserCallable = httpsCallable(functions, 'registerUser'); 
 export const completeGoogleRegistrationCallable = httpsCallable(functions, 'completeGoogleRegistration');
 
 export const deleteMyAccountCallable: HttpsCallable<DeleteMyAccountInput, DeleteMyAccountOutput> =
   httpsCallable(functions, 'deleteMyAccount');
-
-if (window.location.hostname === 'localhost') {
-  connectAuthEmulator(auth, 'http://localhost:9099');
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  connectStorageEmulator(storage, 'localhost', 9199);
-  connectFunctionsEmulator(functions, 'localhost', 5001);
-  connectDatabaseEmulator(database, 'localhost', 9000);
-}
 
 type AdminDeleteAndBanUserInput = {
   targetUid: string;

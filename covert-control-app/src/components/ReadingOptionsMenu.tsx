@@ -201,6 +201,7 @@ export function ReadingOptionsMenu({ onChange, currentValues }: ReadingOptionsMe
         textAlign: currentValues.textAlign,
         readingWidth: currentValues.readingWidthKey,
       };
+      console.log('[READING PREFS] calling saveReadingPreferencesCallable');
       await saveReadingPreferencesCallable(prefs);
       setStoredPrefs(prefs);
       notifications.show({

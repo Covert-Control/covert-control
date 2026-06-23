@@ -117,8 +117,17 @@ export function TagPicker({
     staleTime: 60_000,
     gcTime: 5 * 60_000,
     queryFn: async () => {
+      console.count(
+        `[TAG PICKER READ] getDocs fired | search="${normalizedSearch}" limit=${suggestionLimit}`
+      );
+
       const s = normalizedSearch;
       if (!s) return [];
+
+      console.log('[TAG PICKER READ] executing Firestore query', {
+        normalizedSearch: s,
+        suggestionLimit,
+      });
 
       const tagsCol = collection(db, 'tags');
       const qy = fsQuery(
@@ -130,6 +139,7 @@ export function TagPicker({
       );
 
       const snap = await getDocs(qy);
+      console.log('[TAG PICKER READ] returned docs', snap.docs.length);
       const list: TagDoc[] = snap.docs.map((d) => {
         const doc = d.data() as any;
         const name = typeof doc.name === 'string' ? doc.name : d.id;

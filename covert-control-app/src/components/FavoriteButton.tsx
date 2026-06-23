@@ -3,7 +3,7 @@ import { ActionIcon, Tooltip } from '@mantine/core';
 import { Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore';
-import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useEffect, useRef, useState } from 'react';
 import { notifications } from '@mantine/notifications';
@@ -83,13 +83,16 @@ export default function FavoriteButton({ storyId }: Props) {
 
       if (isFav) {
         removeFavoriteLocal(storyId);
-        await deleteDoc(doc(db, 'users', uid, 'favorites', storyId));
+        await updateDoc(doc(db, 'users', uid), {
+          [`favorites.${storyId}`]: deleteField(),
+        });
+        console.log(`Unfavorited story ${storyId}`);
       } else {
         addFavoriteLocal(storyId);
-        await setDoc(doc(db, 'users', uid, 'favorites', storyId), {
-          storyId,
-          createdAt: serverTimestamp(),
+        await updateDoc(doc(db, 'users', uid), {
+          [`favorites.${storyId}`]: Date.now(),
         });
+        console.log(`Favorited story ${storyId}`);
       }
     } catch (err) {
       // Rollback based on what we attempted

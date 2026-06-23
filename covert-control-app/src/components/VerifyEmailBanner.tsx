@@ -1,3 +1,4 @@
+//VerifyEmailBanner.tsx
 import * as React from 'react';
 import { Alert, Button, Text, Stack, Group } from '@mantine/core';
 import { useAuthStore } from '../stores/authStore';
@@ -59,8 +60,10 @@ export function EmailVerificationBanner() {
       }
 
       // Optional but good if you later enforce auth on backend
+      console.log('[VERIFY EMAIL] Refreshing ID token');
       await currentUser.getIdToken(true);
 
+      console.log('[VERIFY EMAIL] Calling sendVerificationEmailCallable');
       await sendVerificationEmailCallable({
         email: currentUser.email,
       });

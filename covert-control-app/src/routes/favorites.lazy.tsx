@@ -62,28 +62,45 @@ function RouteComponent() {
 
   const favoritesLoaded = useAuthStore((s) => s.favoritesLoaded);
   const favoriteIds = useAuthStore((s) => s.favoriteIds);
+  const favoritesMap = useAuthStore((s) => s.favoritesMap);
   const favoriteCreatedAtById = useAuthStore((s) => s.favoriteCreatedAtById);
 
   const isMobile = useMediaQuery('(max-width: 48em)') ?? false;
 
+  const [queryIds, setQueryIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!favoritesLoaded) return;
+    setQueryIds((prev) => {
+      const prevSet = new Set(prev);
+      const toAdd = favoriteIds.filter((id) => !prevSet.has(id));
+      if (toAdd.length === 0) return prev; // stable reference, no re-render
+      return [...prev, ...toAdd];
+    });
+  }, [favoritesLoaded, favoriteIds]);
+
   const storyQueries = useQueries({
-    queries: (favoriteIds ?? []).map((storyId) => ({
+    queries: queryIds.map((storyId) => ({      // 👈 queryIds, not favoriteIds
       queryKey: ['story', storyId],
-      enabled: (() => {
-        const e = !!uid && favoritesLoaded;
-        console.log('[FAVORITES QUERY ENABLED]', storyId, e);
-        return e;
-      })(),
+      enabled: !!uid && favoritesLoaded,
       staleTime: Infinity,
       gcTime: Infinity,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
       queryFn: async () => {
-        console.log('[FAVORITES READ] getDoc stories/', storyId);
+        console.log(
+          '[Favorites] QUERY',
+          storyId,
+          'at',
+          new Date().toISOString()
+        );
         const snap = await getDoc(doc(db, 'stories', storyId));
+        console.log(
+          '[Favorites] QUERY COMPLETE',
+          storyId,
+          snap.exists()
+        );
         if (!snap.exists()) return null;
-
         const d = snap.data() as any;
         return {
           id: snap.id,
@@ -105,36 +122,27 @@ function RouteComponent() {
   });
 
   const stories = useMemo(() => {
-    console.log('[FAVORITES MERGE] storyQueries:', storyQueries.map(q => ({
-      id: q.data?.id,
-      isLoading: q.isLoading,
-      isFetched: q.isFetched
-    })));
-
-    if (!favoriteIds?.length) return [];
-
     const byId = new Map<string, Story>();
     storyQueries.forEach((q) => {
       if (q.data) byId.set(q.data.id, q.data);
     });
 
-    return favoriteIds
+    // Use favoriteIds for ordering (reflects current state),
+    // but only include stories still in favoritesMap
+    return favoriteIds                         // 👈 favoriteIds for order
+      .filter((id) => favoritesMap[id])        // 👈 favoritesMap to exclude removed
       .map((id) => {
         const story = byId.get(id);
         if (!story) return null;
-
-        return {
-          ...story,
-          favoritedAtMs: favoriteCreatedAtById[id] ?? 0,
-        };
+        return { ...story, favoritedAtMs: favoriteCreatedAtById[id] ?? 0 };
       })
       .filter(Boolean) as Story[];
-  }, [favoriteIds, storyQueries, favoriteCreatedAtById]);
+  }, [favoriteIds, favoritesMap, storyQueries, favoriteCreatedAtById]);
 
   const isLoading =
-    !!uid &&
-    (!favoritesLoaded ||
-      (favoriteIds.length > 0 && storyQueries.some((q) => q.isLoading)));
+      !!uid &&
+      (!favoritesLoaded ||
+        (queryIds.length > 0 && storyQueries.some((q) => q.isLoading)));
 
   const isError = storyQueries.some((q) => q.isError);
   const firstError = storyQueries.find((q) => q.isError)?.error as

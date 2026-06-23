@@ -160,6 +160,10 @@ function StoriesListComponent() {
   const storiesQuery = useInfiniteQuery({
     queryKey: ['storiesList', field, dir, normalizedAppliedQuickTags],
     queryFn: async ({ pageParam }) => {
+      console.count(
+        `[STORIES READ] getDocs fired | field=${field} dir=${dir} tags=${normalizedAppliedQuickTags.join(',') || '(none)'} pageParam=${pageParam ? pageParam.id : 'first'}`
+      );
+
       const constraints: QueryConstraint[] = [];
 
       if (normalizedAppliedQuickTags.length > 0) {
@@ -183,6 +187,11 @@ function StoriesListComponent() {
         : fsQuery(collection(db, 'stories'), ...constraints);
 
       const snap = await getDocs(q);
+
+      console.log('[STORIES READ] getDocs returned', {
+        docs: snap.docs.length,
+        queryKey: ['storiesList', field, dir, normalizedAppliedQuickTags],
+      });
 
       const stories = snap.docs.map(normalizeStory);
       const lastDoc = snap.docs.length ? snap.docs[snap.docs.length - 1] : undefined;
