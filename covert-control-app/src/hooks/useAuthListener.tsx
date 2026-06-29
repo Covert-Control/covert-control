@@ -41,7 +41,8 @@ export function useAuthListener() {
           let isProfileComplete: boolean | null = null;
           let favoriteItems: { id: string; createdAtMs: number }[] = [];
           let readingPreferences: any = null;
-
+          let likedStoryIds: string[] = [];
+          
           try {
             console.log('[AUTH READ] fetching user document');
             const snap = await getDoc(doc(db, 'users', fbUser.uid));
@@ -69,6 +70,9 @@ export function useAuthListener() {
               }));
               favoriteItems.sort((a, b) => b.createdAtMs - a.createdAtMs);
 
+              const rawLiked = data?.likedStories ?? {};
+              likedStoryIds = Object.keys(rawLiked); 
+
               if (data?.readingPreferences) {
                 readingPreferences = data.readingPreferences;
               }
@@ -93,6 +97,11 @@ export function useAuthListener() {
             profileData,
             isEmailVerified: !!fbUser.emailVerified,
             loading: false,
+            //Likes
+            likedStoriesMap: likedStoryIds.reduce<Record<string, true>>((acc, id) => {
+              acc[id] = true;
+              return acc;
+            }, {}),
             // Favorites (replaces setFavoritesData)
             favoritesLoaded: true,
             favoriteIds: favoriteItems.map((item) => item.id),

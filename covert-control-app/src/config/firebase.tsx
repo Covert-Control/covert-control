@@ -147,3 +147,8 @@ export const saveReadingPreferencesCallable: HttpsCallable<
   ReadingPreferences,
   { ok: true }
 > = httpsCallable(functions, 'saveReadingPreferences');
+
+export const toggleLikeCallable: HttpsCallable<
+  { storyId: string; liked: boolean },
+  { success: true }
+> = httpsCallable(functions, 'toggleLike');

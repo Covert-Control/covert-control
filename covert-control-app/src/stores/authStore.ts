@@ -30,6 +30,7 @@ interface AuthState {
   favoriteIds: string[];
   favoritesMap: Record<string, true>;
   favoriteCreatedAtById: Record<string, number>;
+  likedStoriesMap: Record<string, true>;
 
   isAdmin: boolean;
 
@@ -54,6 +55,9 @@ interface AuthState {
   removeFavoriteLocal: (id: string) => void;
   resetFavorites: () => void;
 
+  addLikeLocal: (id: string) => void;
+  removeLikeLocal: (id: string) => void;
+
   setIsAdmin: (value: boolean) => void;
   setReadingPreferences: (prefs: ReadingPreferences) => void;
 }
@@ -72,6 +76,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   favoriteIds: [],
   favoritesMap: {},
   favoriteCreatedAtById: {},
+
+  likedStoriesMap: {},
 
   isAdmin: false,
 
@@ -120,6 +126,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoriteIds: [],
       favoritesMap: {},
       favoriteCreatedAtById: {},
+      likedStoriesMap: {},
       isAdmin: false,
       readingPreferences: null,
     }),
@@ -175,6 +182,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesMap: {},
       favoriteCreatedAtById: {},
     }),
+
+  addLikeLocal: (id) => {
+    const { likedStoriesMap } = get();
+    if (likedStoriesMap[id]) return;
+    set({ likedStoriesMap: { ...likedStoriesMap, [id]: true } });
+  },
+
+  removeLikeLocal: (id) => {
+    const { likedStoriesMap } = get();
+    if (!likedStoriesMap[id]) return;
+    const { [id]: _, ...rest } = likedStoriesMap;
+    set({ likedStoriesMap: rest });
+  },
 
     setReadingPreferences: (prefs) => set({ readingPreferences: prefs }),
 }));

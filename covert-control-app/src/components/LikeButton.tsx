@@ -3,17 +3,16 @@ import { ActionIcon, Tooltip, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ThumbsUp } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
-import { db } from '../config/firebase';
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toggleLikeCallable } from '../config/firebase';
 
 const COOLDOWN_MS = 1000;
 
 type LikeButtonProps = {
   storyId: string;
-  ownerId?: string;          // story owner id
-  initialCount?: number;     // from story.likesCount
+  ownerId?: string;
+  initialCount?: number;
   compact?: boolean;
 };
 
@@ -24,22 +23,24 @@ export default function LikeButton({
   compact = false,
 }: LikeButtonProps) {
   const uid = useAuthStore((s) => s.user?.uid);
+  const isEmailVerified = useAuthStore((s) => s.isEmailVerified);
+  const isLiked = useAuthStore((s) => !!s.likedStoriesMap[storyId]); // 👈 from store, no getDoc
+  const addLikeLocal = useAuthStore((s) => s.addLikeLocal);           // 👈 selected from store
+  const removeLikeLocal = useAuthStore((s) => s.removeLikeLocal);     // 👈 selected from store
 
   const iconSize = 18;
-
   const queryClient = useQueryClient();
-
-  const isEmailVerified = useAuthStore((s) => s.isEmailVerified);
 
   const [busy, setBusy] = useState(false);
   const [count, setCount] = useState(initialCount);
-  const [isLiked, setIsLiked] = useState(false);
-  const cooldownUntilRef = useRef<number>(0); // no re-renders when it changes
+  const cooldownUntilRef = useRef<number>(0);
 
   const likeLabel = count === 1 ? 'like' : 'likes';
-
   const isOwnStory = !!uid && !!ownerId && uid === ownerId;
   const canToggle = !!uid && isEmailVerified && !isOwnStory;
+
+  // Keep local count in sync if parent passes a new value
+  useEffect(() => setCount(initialCount), [initialCount]);
 
   function bumpLikesInCache(delta: number) {
     const applyToStory = (s: any) => {
@@ -49,79 +50,31 @@ export default function LikeButton({
       return { ...s, likesCount: next };
     };
 
-    // 1) Update the single-story cache if you use ['story', storyId] anywhere
     queryClient.setQueryData(['story', storyId], (old: any) => applyToStory(old));
 
-    // 2) Update *any* cached lists that might contain this story
-    // This is safe: we only change objects with { id: storyId }.
     queryClient.setQueriesData({ predicate: () => true }, (old: any) => {
       if (!old) return old;
-
-      // Array of stories
       if (Array.isArray(old)) return old.map(applyToStory);
-
-      // Infinite query shape: { pages: [...] }
       if (old?.pages && Array.isArray(old.pages)) {
         return { ...old, pages: old.pages.map((p: any) => (Array.isArray(p) ? p.map(applyToStory) : p)) };
       }
-
-      // Common wrapper shapes: { data: [...] } or { items: [...] }
       if (Array.isArray(old.data)) return { ...old, data: old.data.map(applyToStory) };
       if (Array.isArray(old.items)) return { ...old, items: old.items.map(applyToStory) };
-
       return old;
     });
   }
-
-
-  // Keep local count in sync if parent passes a new value
-  useEffect(() => setCount(initialCount), [initialCount]);
-
-  // Check if current user has liked this story (skip if own story)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!uid || isOwnStory) {
-        if (mounted) setIsLiked(false);
-        return;
-      }
-      try {                                                 
-        const likeSnap = await getDoc(doc(db, 'users', uid, 'likes', storyId));
-        if (mounted) setIsLiked(likeSnap.exists());
-      } catch (e: any) {                                   
-        if (mounted) setIsLiked(false);
-        if (e?.code !== 'permission-denied') {           
-          console.error('Failed to check like status', e);
-        }
-      }
-    })();
-    return () => { mounted = false; };
-  }, [uid, storyId, isOwnStory]);
-
-  const likedFill   = 'var(--mantine-color-blue-5)';   // hand fill when liked
-  const likedStroke = 'var(--mantine-color-white)';    // outline/wrist when liked
-  const baseStroke  = 'var(--mantine-color-dimmed)';   // outline when unliked
 
   const tooltipLabel = !uid
     ? 'Log in to like'
     : !isEmailVerified
     ? 'Verify your email to like'
     : isOwnStory
-    ? "You can’t like your own story"
+    ? "You can't like your own story"
     : isLiked
     ? 'Unlike'
     : 'Like';
 
   const handleClick = async () => {
-    if (!isEmailVerified) {
-      notifications.show({
-        title: 'Email verification required',
-        message: 'Please verify your email to like stories.',
-        color: 'yellow',
-      });
-      return;
-    }
-
     if (!uid) {
       notifications.show({
         title: 'Login required',
@@ -131,12 +84,16 @@ export default function LikeButton({
       return;
     }
 
-    // Own story: no-op (tooltip already explains)
-    if (isOwnStory) {
+    if (!isEmailVerified) {
+      notifications.show({
+        title: 'Email verification required',
+        message: 'Please verify your email to like stories.',
+        color: 'yellow',
+      });
       return;
     }
 
-    if (!canToggle || busy || Date.now() < cooldownUntilRef.current) return;
+    if (isOwnStory || !canToggle || busy || Date.now() < cooldownUntilRef.current) return;
 
     setBusy(true);
     cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
@@ -144,34 +101,37 @@ export default function LikeButton({
     const prevLiked = isLiked;
     try {
       if (!prevLiked) {
-        // optimistic like
-        setIsLiked(true);
+        addLikeLocal(storyId);
         setCount((c) => c + 1);
         bumpLikesInCache(+1);
-        await setDoc(doc(db, 'users', uid, 'likes', storyId), {
-          storyId,
-          createdAt: serverTimestamp(),
-        });
+        await toggleLikeCallable({ storyId, liked: true });
       } else {
-        // optimistic unlike
-        setIsLiked(false);
+        removeLikeLocal(storyId);
         setCount((c) => Math.max(0, c - 1));
         bumpLikesInCache(-1);
-        await deleteDoc(doc(db, 'users', uid, 'likes', storyId));
+        await toggleLikeCallable({ storyId, liked: false });
       }
     } catch (e) {
-      // rollback
-      setIsLiked(prevLiked);
-      setCount((c) => (prevLiked ? c + 1 : Math.max(0, c - 1)));
-      bumpLikesInCache(prevLiked ? +1 : -1);
+      // Rollback optimistic update on failure
+      if (!prevLiked) {
+        removeLikeLocal(storyId);
+        setCount((c) => Math.max(0, c - 1));
+        bumpLikesInCache(-1);
+      } else {
+        addLikeLocal(storyId);
+        setCount((c) => c + 1);
+        bumpLikesInCache(+1);
+      }
       console.error('Like toggle failed', e);
     } finally {
-      setBusy(false);
+      setBusy(false); // 👈 always re-enable the button
     }
   };
 
-  // For own stories, we show the same outline as an unliked icon:
-  const fillColor = isLiked ? likedFill : 'none';
+  const likedFill   = 'var(--mantine-color-blue-5)';
+  const likedStroke = 'var(--mantine-color-white)';
+  const baseStroke  = 'var(--mantine-color-dimmed)';
+  const fillColor   = isLiked ? likedFill : 'none';
   const strokeColor = isLiked ? likedStroke : baseStroke;
 
   return (
@@ -182,14 +142,14 @@ export default function LikeButton({
           aria-pressed={isLiked}
           aria-disabled={!canToggle || busy}
           aria-label={isLiked ? 'Unlike' : 'Like'}
-          variant="transparent" // no circular outline
+          variant="transparent"
           style={{
             padding: 2,
             height: 26,
             width: 26,
             opacity: !uid || isOwnStory ? 0.85 : 1,
             cursor: isOwnStory ? 'not-allowed' : 'pointer',
-            transition: 'transform 0.1s ease',        // 👈 replaces whileTap
+            transition: 'transform 0.1s ease',
           }}
           onMouseDown={(e) => {
             if (canToggle) e.currentTarget.style.transform = 'scale(0.9)';
@@ -206,7 +166,7 @@ export default function LikeButton({
             style={{
               display: 'inline-flex',
               transform: isLiked && !isOwnStory ? 'scale(1.12)' : 'scale(1)',
-              transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)', // spring-like
+              transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
           >
             <span
@@ -217,14 +177,12 @@ export default function LikeButton({
                 display: 'inline-block',
               }}
             >
-              {/* Layer 1: fill only */}
               <ThumbsUp
                 size={iconSize}
                 stroke="none"
                 fill={fillColor}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
-              {/* Layer 2: stroke only */}
               <ThumbsUp
                 size={iconSize}
                 fill="none"

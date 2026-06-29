@@ -34,9 +34,7 @@ export { deleteMyAccount } from './deleteAccount.v1';
 /* ------------------------------------------------------------------ */
 /*  Like/Unlike Stories                                                 */
 /* ------------------------------------------------------------------ */
-export { likeCreated } from './likeStory';
-
-export { likeDeleted } from './likeStory';
+export { toggleLike } from './toggleLike';
 
 /* ------------------------------------------------------------------ */
 /*  Like/Unlike Stories                                                 */
