@@ -72,7 +72,12 @@ export const sendVerificationEmail = onCall(async (request) => {
   If you did not create a Covert Control account, you can ignore this email.
     `.trim(),
   });
-  } catch {
-    throw new HttpsError('internal', 'Failed to send verification email.');
+  } catch (error) {
+    console.error('sendVerificationEmail failed:', error);
+
+    throw new HttpsError(
+      'internal',
+      error instanceof Error ? error.message : 'Failed to send verification email.'
+    );
   }
 });

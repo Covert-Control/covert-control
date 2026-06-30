@@ -8,8 +8,6 @@ import type { UserProfile } from '../stores/authStore';
 
 export function useAuthListener() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  // Note: setAuthState, setIsAdmin, setReadingPreferences are no longer
-  // needed as selectors — they're replaced by the single setState below.
 
   useEffect(() => {
     let currentCallId = 0;
