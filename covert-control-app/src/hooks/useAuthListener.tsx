@@ -5,6 +5,11 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.tsx';
 import { useAuthStore } from '../stores/authStore';
 import type { UserProfile } from '../stores/authStore';
+import type {
+  BookmarksByStory,
+  BookmarkPlace,
+  BookmarkSection,
+} from '../types/bookmark';
 
 export function useAuthListener() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -40,6 +45,7 @@ export function useAuthListener() {
           let favoriteItems: { id: string; createdAtMs: number }[] = [];
           let readingPreferences: any = null;
           let likedStoryIds: string[] = [];
+          let bookmarks: BookmarksByStory = {};
           
           try {
             console.log('[AUTH READ] fetching user document');
@@ -69,7 +75,56 @@ export function useAuthListener() {
               favoriteItems.sort((a, b) => b.createdAtMs - a.createdAtMs);
 
               const rawLiked = data?.likedStories ?? {};
-              likedStoryIds = Object.keys(rawLiked); 
+              likedStoryIds = Object.keys(rawLiked);
+
+              // Bookmarks — map keyed by storyId, defensively normalized
+              const rawBookmarks = data?.bookmarks;
+              if (rawBookmarks && typeof rawBookmarks === 'object') {
+                for (const [sid, entry] of Object.entries(
+                  rawBookmarks as Record<string, any>
+                )) {
+                  if (!entry || typeof entry !== 'object') continue;
+
+                  const sections: BookmarkSection[] = Array.isArray(entry.sections)
+                    ? entry.sections
+                        .filter((s: any) => s && typeof s === 'object')
+                        .map((s: any) => ({
+                          chapter: Number(s.chapter) || 1,
+                          quote: typeof s.quote === 'string' ? s.quote : '',
+                          ...(typeof s.from === 'number' && typeof s.to === 'number'
+                            ? { from: s.from, to: s.to }
+                            : {}),
+                          ...(typeof s.paragraphIndex === 'number'
+                            ? { paragraphIndex: s.paragraphIndex }
+                            : {}),
+                          ...(typeof s.label === 'string' && s.label.trim()
+                            ? { label: s.label }
+                            : {}),
+                          createdAtMs: Number(s.createdAtMs) || 0,
+                        }))
+                    : [];
+
+                  const place: BookmarkPlace | undefined =
+                    entry.place && typeof entry.place === 'object'
+                      ? {
+                          chapter: Number(entry.place.chapter) || 1,
+                          quote:
+                            typeof entry.place.quote === 'string'
+                              ? entry.place.quote
+                              : '',
+                          ...(typeof entry.place.from === 'number' &&
+                          typeof entry.place.to === 'number'
+                            ? { from: entry.place.from, to: entry.place.to }
+                            : {}),
+                          ...(typeof entry.place.paragraphIndex === 'number'
+                            ? { paragraphIndex: entry.place.paragraphIndex }
+                            : {}),
+                        }
+                      : undefined;
+
+                  bookmarks[sid] = place ? { place, sections } : { sections };
+                }
+              }
 
               if (data?.readingPreferences) {
                 readingPreferences = data.readingPreferences;
@@ -114,6 +169,9 @@ export function useAuthListener() {
               },
               {}
             ),
+            // Bookmarks (hydrated once with the user doc — no extra reads)
+            bookmarksLoaded: true,
+            bookmarks,
             // Reading preferences (replaces setReadingPreferences)
             ...(readingPreferences ? { readingPreferences } : {}),
             // Admin flag (replaces setIsAdmin)

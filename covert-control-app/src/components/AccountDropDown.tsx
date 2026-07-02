@@ -1,6 +1,7 @@
 import {
   CircleUserRound,
   BookCopy,
+  Bookmark,
   HeartIcon,
   LogOut,
   SettingsIcon,
@@ -80,11 +81,18 @@ export function AccountDropDown() {
                 Your profile
               </Menu.Item>
 
-              <Menu.Item 
+              <Menu.Item
                 component={Link}
                 to={`/favorites/`}
                 leftSection={<HeartIcon size={16} color={theme.colors.red[6]} />}>
                 Favorite Stories
+              </Menu.Item>
+
+              <Menu.Item
+                component={Link}
+                to="/bookmarks"
+                leftSection={<Bookmark size={16} color={theme.colors.grape[5]} />}>
+                Bookmarks
               </Menu.Item>
 
               <Menu.Label>Settings</Menu.Label>

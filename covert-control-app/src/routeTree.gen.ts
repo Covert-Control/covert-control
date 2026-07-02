@@ -23,6 +23,7 @@ const StoriesLazyRouteImport = createFileRoute('/stories')()
 const NothingFoundLazyRouteImport = createFileRoute('/nothing-found')()
 const FavoritesLazyRouteImport = createFileRoute('/favorites')()
 const FaqLazyRouteImport = createFileRoute('/faq')()
+const BookmarksLazyRouteImport = createFileRoute('/bookmarks')()
 const AuthorsLazyRouteImport = createFileRoute('/authors')()
 const AccountSettingsLazyRouteImport = createFileRoute('/account-settings')()
 const IndexLazyRouteImport = createFileRoute('/')()
@@ -57,6 +58,11 @@ const FaqLazyRoute = FaqLazyRouteImport.update({
   path: '/faq',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/faq.lazy').then((d) => d.Route))
+const BookmarksLazyRoute = BookmarksLazyRouteImport.update({
+  id: '/bookmarks',
+  path: '/bookmarks',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/bookmarks.lazy').then((d) => d.Route))
 const AuthorsLazyRoute = AuthorsLazyRouteImport.update({
   id: '/authors',
   path: '/authors',
@@ -146,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/authentication': typeof AuthenticationRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
+  '/bookmarks': typeof BookmarksLazyRoute
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/authentication': typeof AuthenticationRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
+  '/bookmarks': typeof BookmarksLazyRoute
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/authentication': typeof AuthenticationRoute
   '/account-settings': typeof AccountSettingsLazyRoute
   '/authors': typeof AuthorsLazyRouteWithChildren
+  '/bookmarks': typeof BookmarksLazyRoute
   '/faq': typeof FaqLazyRoute
   '/favorites': typeof FavoritesLazyRoute
   '/nothing-found': typeof NothingFoundLazyRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/authentication'
     | '/account-settings'
     | '/authors'
+    | '/bookmarks'
     | '/faq'
     | '/favorites'
     | '/nothing-found'
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/authentication'
     | '/account-settings'
     | '/authors'
+    | '/bookmarks'
     | '/faq'
     | '/favorites'
     | '/nothing-found'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/authentication'
     | '/account-settings'
     | '/authors'
+    | '/bookmarks'
     | '/faq'
     | '/favorites'
     | '/nothing-found'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   AuthenticationRoute: typeof AuthenticationRoute
   AccountSettingsLazyRoute: typeof AccountSettingsLazyRoute
   AuthorsLazyRoute: typeof AuthorsLazyRouteWithChildren
+  BookmarksLazyRoute: typeof BookmarksLazyRoute
   FaqLazyRoute: typeof FaqLazyRoute
   FavoritesLazyRoute: typeof FavoritesLazyRoute
   NothingFoundLazyRoute: typeof NothingFoundLazyRoute
@@ -318,6 +331,13 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bookmarks': {
+      id: '/bookmarks'
+      path: '/bookmarks'
+      fullPath: '/bookmarks'
+      preLoaderRoute: typeof BookmarksLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/authors': {
@@ -471,6 +491,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticationRoute: AuthenticationRoute,
   AccountSettingsLazyRoute: AccountSettingsLazyRoute,
   AuthorsLazyRoute: AuthorsLazyRouteWithChildren,
+  BookmarksLazyRoute: BookmarksLazyRoute,
   FaqLazyRoute: FaqLazyRoute,
   FavoritesLazyRoute: FavoritesLazyRoute,
   NothingFoundLazyRoute: NothingFoundLazyRoute,

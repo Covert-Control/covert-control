@@ -70,6 +70,12 @@ import { ReportModal } from '../../components/ReportModal';
 
 import { StoryHeaderPanel } from '../../components/StoryHeaderPanel';
 
+import { ReaderBookmarkLayer } from '../../components/ReaderBookmarkLayer';
+
+import { scrollToAnchor } from '../../utils/bookmarkAnchor';
+
+import { resolveAnchor, revealEditorRange } from '../../utils/bookmarkEditor';
+
 export const Route = createFileRoute('/stories/$storyId/')({
   validateSearch: (search: Record<string, unknown>): { chapter?: number } => {
     const raw = (search as any)?.chapter;
@@ -368,6 +374,59 @@ function StoryDetailPage() {
     safeChapter,
   ]);
 
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll to a bookmark when arriving from the Bookmarks list. The list route
+  // hands off the target via sessionStorage so the URL stays clean.
+  useEffect(() => {
+    if (!chapterQuery.data) return;
+
+    const raw = sessionStorage.getItem('pendingBookmarkScroll');
+    if (!raw) return;
+
+    let payload:
+      | {
+          storyId: string;
+          chapter: number;
+          from?: number;
+          to?: number;
+          paragraphIndex?: number;
+          quote?: string;
+        }
+      | null = null;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      sessionStorage.removeItem('pendingBookmarkScroll');
+      return;
+    }
+
+    if (!payload || payload.storyId !== storyId) return;
+    // Wait until the correct chapter is mounted before consuming the handoff.
+    if (payload.chapter !== safeChapter) return;
+
+    sessionStorage.removeItem('pendingBookmarkScroll');
+
+    const target = payload;
+    const t = window.setTimeout(() => {
+      // Precise path: verify from/to against the quote, then reveal the exact
+      // characters. Falls back to the legacy block scroll for old bookmarks.
+      if (editor && target.from != null && target.to != null) {
+        const resolved = resolveAnchor(editor, {
+          from: target.from,
+          to: target.to,
+          quote: target.quote ?? '',
+        });
+        if (resolved) {
+          revealEditorRange(editor, resolved.from, resolved.to);
+          return;
+        }
+      }
+      scrollToAnchor(contentRef.current, target.paragraphIndex ?? 0, target.quote);
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [chapterQuery.data, storyId, safeChapter, editor]);
+
   const didTry = useRef(false);
 
   useEffect(() => {
@@ -619,6 +678,7 @@ function StoryDetailPage() {
               >
                 ← Back to all stories
               </Anchor>
+              
             </Group>
           )}
 
@@ -750,14 +810,28 @@ function StoryDetailPage() {
                   )}
                 </Box>
 
-                <EditorContent
-                  editor={editor}
-                  className={`story-content${
-                    dropCapEnabled
-                      ? ' dropcap'
-                      : ''
-                  }`}
-                />
+                <Box pos="relative" ref={contentRef}>
+                  <EditorContent
+                    editor={editor}
+                    className={`story-content${
+                      dropCapEnabled
+                        ? ' dropcap'
+                        : ''
+                    }`}
+                  />
+
+                  {user && (
+                    <ReaderBookmarkLayer
+                      storyId={storyId}
+                      chapter={safeChapter}
+                      contentRef={contentRef}
+                      editor={editor}
+                      recomputeKey={`${safeChapter}|${readerMode}|${readingStyles.fontSizeCss}|${readingStyles.readingWidthCss}|${
+                        chapterQuery.data?.content?.length ?? 0
+                      }`}
+                    />
+                  )}
+                </Box>
                 {footerDisclaimer && (
                   <Box mt="lg" style={disclaimerStyle}>
                     <Text size="sm" c="inherit" style={{ fontStyle: 'italic', opacity: 0.9 }}>

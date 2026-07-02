@@ -53,6 +53,7 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
         { label: 'Random', link: '/stories/random' },
         { label: 'Authors', link: '/authors' },
         ...(user ? [{ label: 'Favorites', link: '/favorites' }] : []),
+        ...(user ? [{ label: 'Bookmarks', link: '/bookmarks' }] : []),
       ],
     },
     { label: 'Submit Story', icon: PencilLine, link: '/submit' },

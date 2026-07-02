@@ -2,6 +2,11 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import type { ReadingPreferences } from '../config/firebase.tsx';
+import type {
+  BookmarksByStory,
+  BookmarkPlace,
+  BookmarkSection,
+} from '../types/bookmark';
 
 export interface UserProfile {
   aboutMe: string | null;
@@ -32,6 +37,9 @@ interface AuthState {
   favoriteCreatedAtById: Record<string, number>;
   likedStoriesMap: Record<string, true>;
 
+  bookmarksLoaded: boolean;
+  bookmarks: BookmarksByStory;
+
   isAdmin: boolean;
 
   readingPreferences: ReadingPreferences | null;
@@ -54,6 +62,14 @@ interface AuthState {
   addFavoriteLocal: (id: string, createdAtMs?: number) => void;
   removeFavoriteLocal: (id: string) => void;
   resetFavorites: () => void;
+
+  setBookmarksData: (bookmarks: BookmarksByStory) => void;
+  setPlaceLocal: (storyId: string, place: BookmarkPlace) => void;
+  removePlaceLocal: (storyId: string) => void;
+  addSectionLocal: (storyId: string, section: BookmarkSection) => void;
+  removeSectionLocal: (storyId: string, createdAtMs: number) => void;
+  renameSectionLocal: (storyId: string, createdAtMs: number, label: string) => void;
+  resetBookmarks: () => void;
 
   addLikeLocal: (id: string) => void;
   removeLikeLocal: (id: string) => void;
@@ -78,6 +94,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   favoriteCreatedAtById: {},
 
   likedStoriesMap: {},
+
+  bookmarksLoaded: false,
+  bookmarks: {},
 
   isAdmin: false,
 
@@ -127,6 +146,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesMap: {},
       favoriteCreatedAtById: {},
       likedStoriesMap: {},
+      bookmarksLoaded: false,
+      bookmarks: {},
       isAdmin: false,
       readingPreferences: null,
     }),
@@ -182,6 +203,85 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       favoritesMap: {},
       favoriteCreatedAtById: {},
     }),
+
+  setBookmarksData: (bookmarks) => set({ bookmarksLoaded: true, bookmarks }),
+
+  setPlaceLocal: (storyId, place) =>
+    set((state) => {
+      const existing = state.bookmarks[storyId] ?? { sections: [] };
+      return {
+        bookmarks: {
+          ...state.bookmarks,
+          [storyId]: { ...existing, place },
+        },
+      };
+    }),
+
+  removePlaceLocal: (storyId) =>
+    set((state) => {
+      const existing = state.bookmarks[storyId];
+      if (!existing?.place) return {};
+      return {
+        bookmarks: {
+          ...state.bookmarks,
+          [storyId]: { sections: existing.sections },
+        },
+      };
+    }),
+
+  addSectionLocal: (storyId, section) =>
+    set((state) => {
+      const existing = state.bookmarks[storyId] ?? { sections: [] };
+      if (existing.sections.some((s) => s.createdAtMs === section.createdAtMs)) {
+        return {};
+      }
+      return {
+        bookmarks: {
+          ...state.bookmarks,
+          [storyId]: {
+            ...existing,
+            sections: [...existing.sections, section],
+          },
+        },
+      };
+    }),
+
+  removeSectionLocal: (storyId, createdAtMs) =>
+    set((state) => {
+      const existing = state.bookmarks[storyId];
+      if (!existing) return {};
+      return {
+        bookmarks: {
+          ...state.bookmarks,
+          [storyId]: {
+            ...existing,
+            sections: existing.sections.filter((s) => s.createdAtMs !== createdAtMs),
+          },
+        },
+      };
+    }),
+
+  renameSectionLocal: (storyId, createdAtMs, label) =>
+    set((state) => {
+      const existing = state.bookmarks[storyId];
+      if (!existing) return {};
+      const trimmed = label.trim();
+      const sections = existing.sections.map((s) => {
+        if (s.createdAtMs !== createdAtMs) return s;
+        if (trimmed) return { ...s, label: trimmed };
+        const next = { ...s };
+        delete next.label;
+        return next;
+      });
+      return {
+        bookmarks: {
+          ...state.bookmarks,
+          [storyId]: { ...existing, sections },
+        },
+      };
+    }),
+
+  resetBookmarks: () => set({ bookmarksLoaded: false, bookmarks: {} }),
 
   addLikeLocal: (id) => {
     const { likedStoriesMap } = get();

@@ -3,7 +3,7 @@ import { ActionIcon } from '@mantine/core';
 
 export default function DiscordButton() {
   return (
-    <a href="https://discord.gg/J2C84D4p9">
+    <a href="google.com">
         <ActionIcon 
             variant="filled" 
             aria-label="Join Discord" 
