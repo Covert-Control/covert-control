@@ -179,23 +179,6 @@ function findQuoteInDoc(
   return { from, to: lastChar + 1 };
 }
 
-/** Vertical offset (px) of a doc position within a positioned container, or null. */
-export function markerTopForPos(
-  editor: Editor,
-  pos: number,
-  container: HTMLElement
-): number | null {
-  const size = editor.state.doc.content.size;
-  if (pos < 0 || pos > size) return null;
-  try {
-    const coords = editor.view.coordsAtPos(pos);
-    const cRect = container.getBoundingClientRect();
-    return coords.top - cRect.top;
-  } catch {
-    return null;
-  }
-}
-
 /** Scroll a resolved range into view and briefly highlight the exact characters. */
 export function revealEditorRange(
   editor: Editor,

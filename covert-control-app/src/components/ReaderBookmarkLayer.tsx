@@ -16,6 +16,7 @@ import {
   useState,
   type RefObject,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ActionIcon,
   Box,
@@ -33,13 +34,10 @@ import { notifications } from '@mantine/notifications';
 import { Bookmark, ChevronRight, Highlighter, Pencil, Trash2 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 
+import { useUiStore } from '../stores/uiStore';
 import { useBookmarks } from '../hooks/useBookmarks';
-import {
-  blockTopWithin,
-  findBlock,
-  getSelectionAnchor,
-} from '../utils/bookmarkAnchor';
-import { getEditorAnchorForRange, markerTopForPos } from '../utils/bookmarkEditor';
+import { findBlock, getSelectionAnchor } from '../utils/bookmarkAnchor';
+import { getEditorAnchorForRange } from '../utils/bookmarkEditor';
 import {
   sectionDisplayName,
   type BookmarkPlace,
@@ -83,6 +81,7 @@ export function ReaderBookmarkLayer({
   recomputeKey,
 }: Props) {
   const isMobile = useMediaQuery('(max-width: 48em)') ?? false;
+  const readerMode = useUiStore((s) => s.readerMode);
 
   const {
     place,
@@ -111,36 +110,51 @@ export function ReaderBookmarkLayer({
       return;
     }
 
-    // Precise placement via ProseMirror coords when we have from/to; otherwise
-    // (legacy bookmarks) fall back to locating the block in the DOM.
-    const topFor = (item: {
+    const cRect = container.getBoundingClientRect();
+    const scrollY = window.scrollY;
+
+    // Viewport top of a bookmark: precise via ProseMirror coords when we have
+    // from/to; otherwise (legacy bookmarks) locate the block in the DOM.
+    const viewportTopFor = (item: {
       from?: number;
       paragraphIndex?: number;
       quote: string;
     }): number | null => {
       if (editor && item.from != null) {
-        const t = markerTopForPos(editor, item.from, container);
-        if (t != null) return t;
+        const size = editor.state.doc.content.size;
+        if (item.from >= 0 && item.from <= size) {
+          try {
+            return editor.view.coordsAtPos(item.from).top;
+          } catch {
+            /* fall through to DOM */
+          }
+        }
       }
       const block = findBlock(container, item.paragraphIndex ?? -1, item.quote);
-      return blockTopWithin(container, block);
+      return block ? block.getBoundingClientRect().top : null;
     };
+
+    // Reader mode renders markers through a body portal in DOCUMENT coords, so
+    // they escape the clipped/centered layout and pin to the screen edge (and
+    // still scroll naturally). Otherwise they're absolute within the container.
+    const toTop = (vTop: number) =>
+      readerMode ? vTop + scrollY : vTop - cRect.top;
 
     const next: Marker[] = [];
 
     if (place && place.chapter === chapter) {
-      const top = topFor(place);
-      if (top != null) next.push({ kind: 'place', top });
+      const vTop = viewportTopFor(place);
+      if (vTop != null) next.push({ kind: 'place', top: toTop(vTop) });
     }
 
     for (const section of sections) {
       if (section.chapter !== chapter) continue;
-      const top = topFor(section);
-      if (top != null) next.push({ kind: 'section', top, section });
+      const vTop = viewportTopFor(section);
+      if (vTop != null) next.push({ kind: 'section', top: toTop(vTop), section });
     }
 
     setMarkers(next);
-  }, [contentRef, editor, place, sections, chapter]);
+  }, [contentRef, editor, place, sections, chapter, readerMode]);
 
   useLayoutEffect(() => {
     measure();
@@ -280,13 +294,13 @@ export function ReaderBookmarkLayer({
     setRenameTarget(null);
   };
 
-  const markerLeft = isMobile ? -10 : -18;
-
   return (
     <>
       <style>{`
         .bm-marker { opacity: 0.28; transition: opacity 0.15s ease; }
         .bm-marker:hover { opacity: 1; }
+        .bm-marker-tab { opacity: 0.5; transition: opacity 0.15s ease; }
+        .bm-marker-tab:active { opacity: 1; }
         @keyframes bmFlash {
           0% { background-color: rgba(190, 75, 219, 0.28); }
           100% { background-color: transparent; }
@@ -301,40 +315,78 @@ export function ReaderBookmarkLayer({
       {markers.map((m) => {
         const color = m.kind === 'place' ? PLACE_COLOR : SECTION_COLOR;
         const key = m.kind === 'place' ? 'place' : `s-${m.section.createdAtMs}`;
-        return (
+        const box = (
           <Box
             key={key}
-            style={{
-              position: 'absolute',
-              top: m.top,
-              left: markerLeft,
-              zIndex: 3,
-            }}
+            style={
+              readerMode
+                ? {
+                    // Portaled to <body> in document coords, pinned to the edge.
+                    position: 'absolute',
+                    top: m.top,
+                    left: isMobile ? 2 : 8,
+                    zIndex: 190,
+                  }
+                : {
+                    // Absolute within the content container, in the gutter.
+                    position: 'absolute',
+                    top: m.top,
+                    left: isMobile ? -12 : -18,
+                    zIndex: 3,
+                  }
+            }
           >
             <Menu position="right-start" shadow="md" width={220} withArrow>
               <Menu.Target>
-                <UnstyledButton
-                  className="bm-marker"
-                  aria-label={
-                    m.kind === 'place' ? 'Saved place' : 'Saved section'
-                  }
-                  style={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                >
-                  <Box
+                {isMobile ? (
+                  // Solid rounded tab hugging the left edge — visible + tappable
+                  // where a thin gutter bar would be clipped to a sliver.
+                  <UnstyledButton
+                    className="bm-marker-tab"
+                    aria-label={
+                      m.kind === 'place' ? 'Saved place' : 'Saved section'
+                    }
                     style={{
-                      width: 3,
-                      height: isMobile ? 18 : 22,
-                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      width: 17,
+                      height: 26,
+                      paddingRight: 2,
+                      borderRadius: '0 6px 6px 0',
                       background: color,
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.28)',
                     }}
-                  />
-                  {!isMobile &&
-                    (m.kind === 'place' ? (
+                  >
+                    {m.kind === 'place' ? (
+                      <Bookmark size={13} color="#fff" fill="#fff" />
+                    ) : (
+                      <ChevronRight size={14} color="#fff" strokeWidth={2.5} />
+                    )}
+                  </UnstyledButton>
+                ) : (
+                  <UnstyledButton
+                    className="bm-marker"
+                    aria-label={
+                      m.kind === 'place' ? 'Saved place' : 'Saved section'
+                    }
+                    style={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                  >
+                    <Box
+                      style={{
+                        width: 3,
+                        height: 22,
+                        borderRadius: 2,
+                        background: color,
+                      }}
+                    />
+                    {m.kind === 'place' ? (
                       <Bookmark size={13} color={color} fill={color} />
                     ) : (
                       <ChevronRight size={13} color={color} />
-                    ))}
-                </UnstyledButton>
+                    )}
+                  </UnstyledButton>
+                )}
               </Menu.Target>
               <Menu.Dropdown>
                 {m.kind === 'place' ? (
@@ -375,6 +427,8 @@ export function ReaderBookmarkLayer({
             </Menu>
           </Box>
         );
+
+        return readerMode ? createPortal(box, document.body, key) : box;
       })}
 
       {pending && (
