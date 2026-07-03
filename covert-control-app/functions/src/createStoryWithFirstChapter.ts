@@ -178,6 +178,8 @@ export const createStoryWithFirstChapter = onCall(
       'http://localhost:5173',
       'https://covert-control.web.app',
       'https://covert-control.firebaseapp.com',
+      'https://covert-control.com',
+      'https://www.covert-control.com',
     ],
   },
   async (

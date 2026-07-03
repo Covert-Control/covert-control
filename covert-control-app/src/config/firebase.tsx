@@ -5,6 +5,7 @@ import { getAuth, GoogleAuthProvider, } from "firebase/auth";
 import { getFirestore, } from "firebase/firestore";
 import { getFunctions, httpsCallable, } from 'firebase/functions';
 import type { HttpsCallable,  } from 'firebase/functions';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 
 // TODO: Add SDKs for Firebase products that you want to use
@@ -25,6 +26,31 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 //const analytics = getAnalytics(app);
+
+// ── App Check ────────────────────────────────────────────────────────────────
+// Verifies requests come from your genuine app (protects Firestore, Functions,
+// and Storage from bots/scraping/abuse). Once initialized, tokens attach
+// automatically to every Firebase SDK request — no per-call changes needed.
+//
+// Needs a reCAPTCHA v3 site key from the Firebase console (App Check). In dev we
+// enable a debug token (printed to the browser console on first load); register
+// it under App Check → Manage debug tokens so localhost can attest. Guarded so
+// the app runs fine before the key is configured.
+const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+if (appCheckSiteKey) {
+  if (import.meta.env.DEV) {
+    (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+} else if (import.meta.env.DEV) {
+  console.warn(
+    '[App Check] Disabled — set VITE_RECAPTCHA_SITE_KEY in .env.local to enable.'
+  );
+}
+
 // Initialize Firebase services
 export const functions = getFunctions(app, 'us-central1');
 
