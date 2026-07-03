@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { AppShell, ActionIcon, ScrollArea, useMantineTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 import { LinksGroup } from '../NavbarLinksGroup/NavbarLinksGroup';
 import { Link } from '@tanstack/react-router';
 import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-react';
@@ -35,6 +36,13 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
   const logOut = async () => {
     try {
       await signOut(auth);
+      notifications.show({
+        title: 'Signed out',
+        message: "You've been logged out.",
+        color: 'teal',
+        icon: <LogOut size={18} />,
+        autoClose: 4000,
+      });
     } catch (err) {
       console.error(err);
     }

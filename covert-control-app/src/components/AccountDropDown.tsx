@@ -7,6 +7,7 @@ import {
   SettingsIcon,
 } from 'lucide-react';
 import { ActionIcon, Group, Menu, Stack, Text, useMantineTheme } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useAuthStore } from '../stores/authStore';
 import { Link } from '@tanstack/react-router';
 import { auth } from '../config/firebase';
@@ -18,8 +19,15 @@ export function AccountDropDown() {
 
   const logOut = async () => {
       try {
-          await signOut(auth) 
+          await signOut(auth)
           clearAuth();
+          notifications.show({
+            title: 'Signed out',
+            message: "You've been logged out.",
+            color: 'teal',
+            icon: <LogOut size={18} />,
+            autoClose: 4000,
+          });
       } catch (err) {
           console.error(err);
       }
