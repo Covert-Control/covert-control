@@ -174,6 +174,7 @@ function normalizeOptionalField(
 export const createStoryWithFirstChapter = onCall(
   {
     region: 'us-central1',
+    enforceAppCheck: true,
     cors: [
       'http://localhost:5173',
       'https://covert-control.web.app',
