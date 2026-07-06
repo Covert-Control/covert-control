@@ -9,7 +9,6 @@ import { Route as StoryLayout } from './$storyId';
 import {
   ActionIcon,
   Anchor,
-  Badge,
   Box,
   Center,
   Container,
@@ -36,6 +35,7 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
 import LikeButton from '../../components/LikeButton';
+import { TagPill, sortTags } from '../../components/TagPill';
 
 /* ---------------------------------------------
    Route
@@ -161,7 +161,7 @@ function StoryChaptersPage() {
           .join(' | ')
       : undefined;
 
-  const allTags = Array.isArray(story.tags) ? story.tags : [];
+  const allTags = Array.isArray(story.tags) ? sortTags(story.tags) : [];
 
   const isOwnStory = !!user?.uid && user.uid === story.ownerId;
 
@@ -326,16 +326,7 @@ function StoryChaptersPage() {
             {allTags.length > 0 && (
               <Group gap={6} mt={4}>
                 {allTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    size="xs"
-                    radius="xl"
-                    variant="light"
-                    color="gray"
-                    style={{ textTransform: 'none' }}
-                  >
-                    {tag}
-                  </Badge>
+                  <TagPill key={tag} tag={tag} />
                 ))}
               </Group>
             )}
