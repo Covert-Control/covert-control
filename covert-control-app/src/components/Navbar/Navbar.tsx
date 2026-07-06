@@ -4,7 +4,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { LinksGroup } from '../NavbarLinksGroup/NavbarLinksGroup';
 import { Link } from '@tanstack/react-router';
-import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft } from 'lucide-react';
+import { LogOut, LogIn, PencilLine, Library, House, ArrowLeft, CircleHelp } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
@@ -65,6 +65,7 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
       ],
     },
     { label: 'Submit Story', icon: PencilLine, link: '/submit' },
+    { label: 'FAQ', icon: CircleHelp, link: '/faq' },
   ];
 
   const showCollapseButton =

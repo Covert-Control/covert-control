@@ -24,6 +24,7 @@ type SectionDef = {
 
 const SECTIONS: SectionDef[] = [
   { id: 'site-features', tocLabel: 'Site features', heading: 'Site features' },
+  { id: 'using-bookmarks', tocLabel: 'Using bookmarks', heading: 'Using bookmarks' },
   {
     id: 'content-terms-guidelines',
     tocLabel: 'Content Terms and Guidelines',
@@ -115,7 +116,55 @@ function FaqPage() {
             <List.Item>Reporting tools to flag content or user behavior that violates site rules.</List.Item>
             <List.Item>A favorites system so you can easily keep track of the stories you like.</List.Item>
             <List.Item>The ability to 'like' a story and track trending or popular stories.</List.Item>
+            <List.Item>A bookmark system to save your reading place and highlight favorite passages to jump back to.</List.Item>
           </List>
+        </Section>
+
+        <Divider />
+
+        <Section id="using-bookmarks" heading="Using bookmarks">
+          <Text size="sm">
+            Bookmarks let you save your spot in a story and mark favorite passages to return to later. There are two kinds:
+          </Text>
+
+          <List size="sm" spacing={6}>
+            <List.Item>
+              <strong>Your place</strong> — a single "resume reading" point per story. Saving a new one moves it.
+            </List.Item>
+            <List.Item>
+              <strong>Favorite sections</strong> — highlighted passages you can jump back to and re-read (up to 10 per story). You can give each one a name.
+            </List.Item>
+          </List>
+
+          <Text size="sm" fw={600}>
+            To save a bookmark:
+          </Text>
+          <List size="sm" spacing={6}>
+            <List.Item>While reading a story, select (highlight) some text at the spot you want to bookmark.</List.Item>
+            <List.Item>
+              A small toolbar appears just below your selection with two buttons: <strong>Save my place</strong> and <strong>Save section</strong>.
+            </List.Item>
+            <List.Item>Pick one — the bookmark is anchored to the exact passage you highlighted.</List.Item>
+          </List>
+
+          <Text size="sm" fw={600}>
+            Finding and managing them:
+          </Text>
+          <List size="sm" spacing={6}>
+            <List.Item>
+              Saved spots show a small marker in the left margin as you read. Click or tap a marker to rename or remove that bookmark. In reader mode, the markers pin to the left edge of the screen.
+            </List.Item>
+            <List.Item>
+              Open the <strong>Bookmarks</strong> page from the navigation menu (or your account menu) to see all of your bookmarks in one place, grouped by story.
+            </List.Item>
+            <List.Item>
+              Click a bookmark's title there to jump straight back to that story and scroll to the exact passage, which is briefly highlighted so it's easy to spot.
+            </List.Item>
+          </List>
+
+          <Text size="sm" c="dimmed">
+            You need to be signed in with a verified email to save bookmarks. They're stored on your account, so they stay with you across devices.
+          </Text>
         </Section>
 
         <Divider />
