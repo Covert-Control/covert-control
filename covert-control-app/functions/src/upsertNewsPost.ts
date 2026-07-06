@@ -28,7 +28,7 @@ function isPlainObject(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x);
 }
 
-export const upsertNewsPost = onCall(async (req: CallableRequest<UpsertNewsPostRequest>) => {
+export const upsertNewsPost = onCall({ enforceAppCheck: true }, async (req: CallableRequest<UpsertNewsPostRequest>) => {
   const auth = req.auth as CallableAuth | undefined;
 
   if (!auth) throw new HttpsError('unauthenticated', 'You must be signed in.');

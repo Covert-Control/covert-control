@@ -18,7 +18,7 @@ function getIsAdmin(auth: CallableAuth | undefined): boolean {
   return token?.admin === true || token?.isAdmin === true;
 }
 
-export const deleteNewsPost = onCall(async (req: CallableRequest<DeleteNewsPostRequest>) => {
+export const deleteNewsPost = onCall({ enforceAppCheck: true }, async (req: CallableRequest<DeleteNewsPostRequest>) => {
   const auth = req.auth as CallableAuth | undefined;
 
   if (!auth) throw new HttpsError('unauthenticated', 'You must be signed in.');

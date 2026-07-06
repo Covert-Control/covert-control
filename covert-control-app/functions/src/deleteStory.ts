@@ -35,7 +35,7 @@ async function commitBatches(
   await flush();
 }
 
-export const deleteStory = onCall<DeleteStoryInput>(async (request) => {
+export const deleteStory = onCall<DeleteStoryInput>({ enforceAppCheck: true }, async (request) => {
   const { auth, data } = request;
 
   if (!auth) {

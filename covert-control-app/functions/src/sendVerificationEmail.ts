@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { Resend } from 'resend';
 
-export const sendVerificationEmail = onCall(async (request) => {
+export const sendVerificationEmail = onCall({ enforceAppCheck: true }, async (request) => {
   const resend = new Resend(process.env.RESEND_API_KEY);
   
   const email = request.data.email as string;

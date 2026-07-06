@@ -32,7 +32,9 @@ function assertAdmin(context: functionsV1.https.CallableContext): string {
   return uid;
 }
 
-export const adminDeleteAndBanUser = functionsV1.https.onCall(
+export const adminDeleteAndBanUser = functionsV1
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(
   async (
     data: AdminDeleteAndBanUserInput,
     context: functionsV1.https.CallableContext

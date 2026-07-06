@@ -4,7 +4,7 @@ import { admin } from './lib/admin';
 import { assertEmailNotBanned } from './lib/bans';
 import { normalizeEmail, validatePassword, validateUsername } from './lib/validators';
 
-export const registerUser = onCall(async (req) => {
+export const registerUser = onCall({ enforceAppCheck: true }, async (req) => {
   const data = (req.data ?? {}) as Record<string, unknown>;
 
   const email = normalizeEmail(data.email);

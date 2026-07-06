@@ -20,7 +20,9 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-export const adminDeleteUser = functionsV1.https.onCall(
+export const adminDeleteUser = functionsV1
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(
   async (data: AdminDeleteUserInput, context): Promise<AdminDeleteUserOutput> => {
     // 1) Require auth
     if (!context.auth) {

@@ -4,7 +4,7 @@ import { admin } from './lib/admin';
 import { assertEmailNotBanned } from './lib/bans';
 import { validateUsername } from './lib/validators';
 
-export const completeGoogleRegistration = onCall(async (req: CallableRequest) => {
+export const completeGoogleRegistration = onCall({ enforceAppCheck: true }, async (req: CallableRequest) => {
   if (!req.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated to complete registration.');
   }

@@ -47,7 +47,7 @@ async function commitBatches(
   await flush();
 }
 
-export const deleteChapter = onCall<DeleteChapterInput>(async (request) => {
+export const deleteChapter = onCall<DeleteChapterInput>({ enforceAppCheck: true }, async (request) => {
   const { auth, data } = request;
 
   if (!auth) {

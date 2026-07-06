@@ -8,7 +8,9 @@ type DeleteMyAccountOutput = { ok: true };
 
 const MAX_AGE_SECONDS = 5 * 60;
 
-export const deleteMyAccount = functionsV1.https.onCall(
+export const deleteMyAccount = functionsV1
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(
   async (
     data: DeleteMyAccountInput,
     context: functionsV1.https.CallableContext

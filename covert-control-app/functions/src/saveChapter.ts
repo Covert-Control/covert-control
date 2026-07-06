@@ -151,7 +151,7 @@ function cleanTagsStrict(input: unknown): string[] {
 ---------------------------------------------- */
 
 export const saveChapter = onCall<SaveChapterRequest>(
-  { region: 'us-central1' },
+  { region: 'us-central1', enforceAppCheck: true },
   async (request): Promise<SaveChapterResponse> => {
     const { auth, data } = request;
 

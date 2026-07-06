@@ -125,7 +125,7 @@ function validateOther(vRaw: string): string {
   return v;
 }
 
-export const updatePublicProfile = onCall(async (req: CallableRequest) => {
+export const updatePublicProfile = onCall({ enforceAppCheck: true }, async (req: CallableRequest) => {
   if (!req.auth) {
     throw new HttpsError('unauthenticated', 'You must be signed in to update your profile.');
   }

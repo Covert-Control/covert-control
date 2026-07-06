@@ -7,7 +7,7 @@ const VALID_FONT_FAMILIES = ['sans', 'serif', 'mono'] as const;
 const VALID_TEXT_ALIGNS = ['justify', 'left'] as const;
 const VALID_READING_WIDTHS = ['narrow', 'md', 'wide'] as const;
 
-export const saveReadingPreferences = onCall(async (request) => {
+export const saveReadingPreferences = onCall({ enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Must be logged in.');
 

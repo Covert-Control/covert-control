@@ -16,7 +16,9 @@ type AdminClaims = {
   isAdmin?: boolean;
 };
 
-export const adminBanUser = functionsV1.https.onCall(
+export const adminBanUser = functionsV1
+  .runWith({ enforceAppCheck: true })
+  .https.onCall(
   async (data: AdminBanUserInput, context): Promise<AdminBanUserOutput> => {
     // 1) Auth check
     if (!context.auth) {

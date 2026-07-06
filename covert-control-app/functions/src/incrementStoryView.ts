@@ -2,7 +2,7 @@ import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https
 import * as logger from 'firebase-functions/logger';
 import { admin } from './lib/admin';
 
-export const incrementStoryView = onCall(async (req: CallableRequest) => {
+export const incrementStoryView = onCall({ enforceAppCheck: true }, async (req: CallableRequest) => {
   const data = (req.data ?? {}) as Record<string, unknown>;
   const storyId = data.storyId;
 

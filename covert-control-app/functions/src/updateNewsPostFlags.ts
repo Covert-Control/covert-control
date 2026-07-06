@@ -21,6 +21,7 @@ function getIsAdmin(auth: CallableAuth | undefined): boolean {
 }
 
 export const updateNewsPostFlags = onCall(
+  { enforceAppCheck: true },
   async (req: CallableRequest<UpdateNewsPostFlagsRequest>) => {
     const auth = req.auth as CallableAuth | undefined;
 
