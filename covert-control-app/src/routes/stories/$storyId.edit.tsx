@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from '@mantine/form';
+import { useDebouncedCallback } from '@mantine/hooks';
 
 import {
   Button,
@@ -30,7 +31,7 @@ import {
 import { notifications } from '@mantine/notifications';
 
 import { RichTextEditor } from '@mantine/tiptap';
-import { useEditor } from '@tiptap/react';
+import { useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -119,6 +120,12 @@ function normalizeOptional(s: unknown): string | null {
 function plainifyForCallable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
 }
+
+function getCounts(editor: Editor): { words: number; chars: number } {
+  const text = editor.getText();
+  const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+  return { words, chars: text.length };
+}
 /* ---------------------------------------------
   Chapter fetch (edit)
 ---------------------------------------------- */
@@ -197,11 +204,6 @@ function EditStoryPage() {
     Load chapter doc (or null if new)
   ---------------------------------------------- */
 
-  console.log('[RENDER] EditStoryPage', {
-    storyId,
-    safeChapter,
-  });
-
   const chapterEditQuery = useQuery({
     queryKey: ['storyChapterEdit', storyId, safeChapter],
     queryFn: () => fetchChapterForEdit(storyId, safeChapter),
@@ -233,15 +235,21 @@ function EditStoryPage() {
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
 
+  // Debounced so the live counter doesn't re-extract the full document text on
+  // every keystroke (only matters on very large chapters). Submit recomputes
+  // exact counts from the editor, so a slightly-stale display can't corrupt a save.
+  const debouncedRecount = useDebouncedCallback((ed: Editor) => {
+    const { words, chars } = getCounts(ed);
+    setWordCount(words);
+    setCharCount(chars);
+  }, 200);
+
   const editor = useEditor({
     extensions,
     content: '',
     autofocus: true,
     onUpdate: ({ editor }) => {
-      const text = editor.getText();
-      const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
-      setWordCount(words);
-      setCharCount(text.length);
+      debouncedRecount(editor);
     },
   });
 
@@ -282,10 +290,9 @@ function EditStoryPage() {
 
     editor.commands.setContent(parsedChapterContent);
 
-    const text = editor.getText();
-    const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+    const { words, chars } = getCounts(editor);
     setWordCount(words);
-    setCharCount(text.length);
+    setCharCount(chars);
   }, [editor, parsedChapterContent, safeChapter]);
 
   /* ---------------------------------------------
@@ -410,6 +417,10 @@ function EditStoryPage() {
 
   const onSubmit = form.onSubmit(async (values) => {
     if (!editor || !storyId) return;
+
+    // The live counter is debounced, so recompute exact counts straight from the
+    // editor at submit time — validation and the saved payload must be precise.
+    const { words: wordCount, chars: charCount } = getCounts(editor);
 
     // Body validations (match TipTap2)
     if (wordCount === 0) {

@@ -62,11 +62,13 @@ function buildAuthorQuery(
   const constraints: any[] = [];
 
   if (hasSearch) {
-    // Simple "starts with" search on username.
-    // If you later add a `usernameLowercase` field, swap to that here.
-    constraints.push(orderBy('username'));
-    constraints.push(startAt(trimmedSearch));
-    constraints.push(endAt(trimmedSearch + '\uf8ff'));
+    // Case-insensitive "starts with" search against the lowercase username field.
+    // orderBy on a single field + a range is served by Firestore's automatic
+    // single-field index, so no composite index is required.
+    const searchLc = trimmedSearch.toLowerCase();
+    constraints.push(orderBy('username_lc'));
+    constraints.push(startAt(searchLc));
+    constraints.push(endAt(searchLc + '\uf8ff'));
   } else {
     switch (sort) {
       case 'stories':
@@ -141,11 +143,6 @@ function AuthorsListComponent() {
   } = useInfiniteQuery({
     queryKey: ['authorsWithStories', { sort, search: searchTerm }],
     queryFn: async (context) => {
-      console.log('[Authors] Query start', {
-        sort,
-        searchTerm,
-        pageCursor: !!context.pageParam,
-      });
       const pageParam =
         (context.pageParam as QueryDocumentSnapshot<DocumentData> | null) ?? null;
 
@@ -186,6 +183,11 @@ function AuthorsListComponent() {
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.lastVisible : undefined,
     staleTime: 1000 * 60 * 10,
+    // Only fetch the full authors list when we're actually on the /authors list.
+    // On a child profile (/authors/$authorId), this parent still mounts to render
+    // the Outlet, but there's no reason to load the list — avoids wasted reads on
+    // refresh / direct navigation to a profile.
+    enabled: isAtAuthorsBase,
   });
 
   if (!isAtAuthorsBase) {

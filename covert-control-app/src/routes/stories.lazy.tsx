@@ -160,9 +160,6 @@ function StoriesListComponent() {
   const storiesQuery = useInfiniteQuery({
     queryKey: ['storiesList', field, dir, normalizedAppliedQuickTags],
     queryFn: async ({ pageParam }) => {
-      console.count(
-        `[STORIES READ] getDocs fired | field=${field} dir=${dir} tags=${normalizedAppliedQuickTags.join(',') || '(none)'} pageParam=${pageParam ? pageParam.id : 'first'}`
-      );
 
       const constraints: QueryConstraint[] = [];
 
@@ -205,6 +202,10 @@ function StoriesListComponent() {
       return lastPage.lastDoc;
     },
     staleTime: 1000 * 60 * 5,
+    // Only fetch the list when actually on /stories. This parent still mounts to
+    // render the Outlet for /stories/$storyId, but the list isn't needed there —
+    // avoids a wasted 20-doc read on every individual story view / refresh.
+    enabled: isCurrentlyAtStoriesBase,
   });
 
   const allStories = React.useMemo(

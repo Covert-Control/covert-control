@@ -40,14 +40,7 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useUiStore } from '../../stores/uiStore';
 
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  orderBy,
-} from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 import { notifications } from '@mantine/notifications';
 
@@ -132,49 +125,6 @@ async function fetchChapterContent(storyId: string, chapter: number) {
     chapterSummary: d?.chapterSummary ?? '',
     dropCap: typeof d?.dropCap === 'boolean' ? d.dropCap : false,
   };
-}
-
-/* ---------------------------------------------
-   Chapter metadata list
----------------------------------------------- */
-
-async function fetchChapterMetaList(
-  storyId: string
-): Promise<ChapterMeta[]> {
-  console.log('fetchChapterMetaList (storyId.index)', { storyId });
-  const chaptersRef = collection(db, 'stories', storyId, 'chapters');
-
-  const q = query(chaptersRef, orderBy('index', 'asc'));
-
-  const snap = await getDocs(q);
-
-  return snap.docs.map((docSnap) => {
-    const d = docSnap.data() as any;
-
-    const idxFromId = Number(docSnap.id);
-
-    const index =
-      typeof d?.index === 'number' && Number.isFinite(d.index)
-        ? d.index
-        : Number.isFinite(idxFromId)
-        ? idxFromId
-        : 1;
-
-    const createdAt = toDate(d?.createdAt ?? null) ?? null;
-    const updatedAt = toDate(d?.updatedAt ?? null) ?? null;
-
-    return {
-      index,
-      title: d?.chapterTitle ?? d?.title ?? `Chapter ${index}`,
-      wordCount:
-        typeof d?.wordCount === 'number' &&
-        Number.isFinite(d.wordCount)
-          ? d.wordCount
-          : null,
-      createdAt,
-      updatedAt,
-    };
-  });
 }
 
 /* ---------------------------------------------
@@ -267,76 +217,64 @@ function StoryDetailPage() {
     queryFn: () =>
       fetchChapterContent(storyId, safeChapter),
     enabled: !!storyId && !!safeChapter,
-    staleTime: 1000 * 60 * 10,
-    gcTime: 1000 * 60 * 60,
-  });
-
-  const chapterMetaQuery = useQuery({
-    queryKey: ['storyChapterMeta', storyId],
-    queryFn: () => fetchChapterMetaList(storyId),
-    enabled: !!storyId,
+    // Chapter content is immutable while reading, so once a chapter is loaded we
+    // never re-read it — revisiting any already-viewed chapter is served from
+    // cache with zero Firestore reads. Cache is held for 24h (people leave tabs
+    // open); a full page refresh is the escape hatch to pick up author edits.
     staleTime: Infinity,
-    gcTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
   });
 
   const chapterList: ChapterMeta[] = useMemo(() => {
-    if (
-      chapterMetaQuery.data &&
-      chapterMetaQuery.data.length > 0
-    ) {
-      return chapterMetaQuery.data;
-    }
+    const stored = (story as any).chapters as
+      | { index: number; title: string | null; wordCount: number }[]
+      | undefined;
 
-    return Array.from(
-      { length: totalChapters },
-      (_, i) => {
-        const index = i + 1;
-
-        return {
-          index,
-          title: `Chapter ${index}`,
-          wordCount: null,
+    // Use the per-chapter metadata stored on the story doc (no chapter reads).
+    // Fall back to a numbers-only list if it's absent or out of sync — e.g. a
+    // story created before this field existed.
+    if (Array.isArray(stored) && stored.length === totalChapters) {
+      return [...stored]
+        .sort((a, b) => a.index - b.index)
+        .map((c) => ({
+          index: c.index,
+          title: c.title,
+          wordCount: c.wordCount,
           createdAt: null,
           updatedAt: null,
-        };
-      }
-    );
-  }, [chapterMetaQuery.data, totalChapters]);
+        }));
+    }
+
+    return Array.from({ length: totalChapters }, (_, i) => {
+      const index = i + 1;
+      return {
+        index,
+        title: `Chapter ${index}`,
+        wordCount: null,
+        createdAt: null,
+        updatedAt: null,
+      };
+    });
+  }, [story, totalChapters]);
 
   useEffect(() => {
     if (!storyId) return;
 
+    // Prefetch only the NEXT chapter — forward reading is the common case, and
+    // the read would happen anyway when the reader advances, so this just makes
+    // the page-turn instant without adding reads. (Previous-chapter prefetch was
+    // dropped: it's usually already in cache or never revisited = wasted reads.)
     const next = safeChapter + 1;
 
-    const prev = safeChapter - 1;
-
     if (next <= totalChapters) {
-      console.log('prefetch next chapter', {
-        storyId,
-        chapter: next,
-      });
       queryClient.prefetchQuery({
         queryKey: ['storyChapter', storyId, next],
-        queryFn: () =>
-          fetchChapterContent(storyId, next),
-        staleTime: 1000 * 60 * 10,
-      });
-    }
-
-    if (prev >= 1) {
-      console.log('prefetch previous chapter', {
-        storyId,
-        chapter: prev,
-      });
-
-      queryClient.prefetchQuery({
-        queryKey: ['storyChapter', storyId, prev],
-        queryFn: () =>
-          fetchChapterContent(storyId, prev),
-        staleTime: 1000 * 60 * 10,
+        queryFn: () => fetchChapterContent(storyId, next),
+        staleTime: Infinity,
+        gcTime: 1000 * 60 * 60 * 24,
       });
     }
   }, [

@@ -61,6 +61,10 @@ export const Route = createFileRoute('/stories/$storyId')({
         likesCount: d?.likesCount ?? 0,
         tags: Array.isArray(d?.tags) ? d.tags : [],
         chapterCount,
+        // Per-chapter index (title + wordCount) for the reader's chapter selector.
+        chapters: Array.isArray(d?.chapters)
+          ? (d.chapters as { index: number; title: string | null; wordCount: number }[])
+          : undefined,
       },
     };
   },

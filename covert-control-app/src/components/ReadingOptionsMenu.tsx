@@ -1,5 +1,5 @@
 //ReadingOptionsMenu.tsx
-import { Menu, Button, Tooltip, Text, SimpleGrid, Stack, SegmentedControl } from '@mantine/core';
+import { Menu, Button, Tooltip, Text, SimpleGrid, Stack, SegmentedControl, Divider } from '@mantine/core';
 import { BookmarkCheck, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -236,6 +236,21 @@ export function ReadingOptionsMenu({ onChange, currentValues }: ReadingOptionsMe
       <Menu.Dropdown p="sm" w={260}>
         <Stack gap="sm">
 
+          {user && (
+            <>
+              <Button
+                fullWidth
+                size="xs"
+                onClick={handleSavePreferences}
+                loading={savingPrefs}
+                leftSection={<BookmarkCheck size={14} />}
+              >
+                Save Preferences
+              </Button>
+              <Divider />
+            </>
+          )}
+
           <div>
             <Text size="xs" fw={700} mb={4}>Theme</Text>
             <SimpleGrid cols={2} spacing={6}>
@@ -307,17 +322,6 @@ export function ReadingOptionsMenu({ onChange, currentValues }: ReadingOptionsMe
               ]}
             />
           </div>
-
-          {user && (
-            <Button
-              fullWidth size="xs"
-              onClick={handleSavePreferences}
-              loading={savingPrefs}
-              leftSection={<BookmarkCheck size={14} />}
-            >
-              Save Preferences
-            </Button>
-          )}
 
         </Stack>
       </Menu.Dropdown>

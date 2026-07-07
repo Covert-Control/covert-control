@@ -79,16 +79,31 @@ export const deleteStory = onCall<DeleteStoryInput>({ enforceAppCheck: true }, a
 
   if (ownerId) {
     const authorRef = db.collection('authors_with_stories').doc(ownerId);
-    ops.push((batch) => {
-      batch.set(
-        authorRef,
-        {
-          storyCount: FieldValue.increment(-1),
-          lastStoryDate: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-    });
+    const authorSnap = await authorRef.get();
+
+    if (authorSnap.exists) {
+      const currentCount =
+        (authorSnap.data()?.storyCount as number | undefined) ?? 0;
+
+      if (currentCount <= 1) {
+        // This was the author's last story — remove their entry entirely so
+        // they don't linger in the authors list/search showing 0 stories.
+        ops.push((batch) => {
+          batch.delete(authorRef);
+        });
+      } else {
+        ops.push((batch) => {
+          batch.set(
+            authorRef,
+            {
+              storyCount: FieldValue.increment(-1),
+              lastStoryDate: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+        });
+      }
+    }
   }
 
   ops.push((batch) => {

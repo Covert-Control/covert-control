@@ -33,12 +33,19 @@ interface SaveChapterResponse {
   isNewChapter: boolean;
 }
 
+interface ChapterMetaEntry {
+  index: number;
+  title: string | null;
+  wordCount: number;
+}
+
 interface StoryDoc {
   ownerId: string;
   chapterCount?: number;
   totalWordCount?: number;
   totalCharCount?: number;
   lastChapterPublishedAt?: Timestamp;
+  chapters?: ChapterMetaEntry[];
 }
 
 interface ChapterDoc {
@@ -451,6 +458,16 @@ export const saveChapter = onCall<SaveChapterRequest>(
           storyUpdate.tags = cleanTags;
         }
       }
+
+      // Keep the story-doc chapter index in sync (title + wordCount per chapter)
+      // so the reader builds its selector without reading every chapter subdoc.
+      const existingChapters = Array.isArray(storyData.chapters)
+        ? storyData.chapters
+        : [];
+      storyUpdate.chapters = existingChapters
+        .filter((c) => c.index !== chapterNumber)
+        .concat({ index: chapterNumber, title: normalizedChapterTitle, wordCount })
+        .sort((a, b) => a.index - b.index);
 
       tx.update(storyRef, storyUpdate);
 

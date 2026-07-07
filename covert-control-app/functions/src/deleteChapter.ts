@@ -6,9 +6,16 @@ type DeleteChapterInput = {
   chapter: number;
 };
 
+interface ChapterMetaEntry {
+  index: number;
+  title: string | null;
+  wordCount: number;
+}
+
 interface StoryDocData {
   ownerId?: string;
   chapterCount?: number;
+  chapters?: ChapterMetaEntry[];
 }
 
 interface ChapterDocData {
@@ -157,10 +164,24 @@ export const deleteChapter = onCall<DeleteChapterInput>({ enforceAppCheck: true 
     });
   }
 
+  // Transform the story-doc chapter index to match the shift: drop the deleted
+  // chapter and slide everything above it down one. Pure arithmetic on the
+  // existing array — no chapter reads needed.
+  const existingChapters = Array.isArray(storyData?.chapters)
+    ? storyData.chapters
+    : [];
+  const nextChapters = existingChapters
+    .filter((c) => c.index !== chapterNum)
+    .map((c) => (c.index > chapterNum ? { ...c, index: c.index - 1 } : c))
+    .sort((a, b) => a.index - b.index);
+
   deleteOps.push((batch) => {
     batch.update(storyRef, {
       chapterCount: chapterCount - 1,
       updatedAt: FieldValue.serverTimestamp(),
+      // Only rewrite the array if the story actually has one (older stories may
+      // not; the client falls back to a numbers-only list in that case).
+      ...(existingChapters.length ? { chapters: nextChapters } : {}),
     });
   });
 

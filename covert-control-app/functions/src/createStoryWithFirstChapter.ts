@@ -343,6 +343,10 @@ export const createStoryWithFirstChapter = onCall(
           chapterCount: 1,
           totalWordCount: wordCount,
           totalCharCount: charCount,
+
+          // Per-chapter index (title + wordCount) so the reader can build its
+          // chapter selector without reading every chapter subdoc.
+          chapters: [{ index: 1, title: chapterTitle ?? null, wordCount }],
         });
 
         tx.set(chapter1Ref, {
@@ -363,6 +367,7 @@ export const createStoryWithFirstChapter = onCall(
           authorDocRef,
           {
             username: safeUsername,
+            username_lc: safeUsername.toLowerCase(),
             storyCount: FieldValue.increment(1),
             lastStoryTitle: normalizedTitle,
             lastStoryDate: now,
