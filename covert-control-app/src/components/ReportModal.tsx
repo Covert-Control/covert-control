@@ -82,6 +82,7 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
         limit(1)
       );
       const existingSnap = await getDocs(existingQ);
+      console.log('[REPORT READ] duplicate-check getDocs —', existingSnap.size, 'docs read');
 
       if (!existingSnap.empty) {
         const msg =
@@ -97,6 +98,7 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
         return;
       }
 
+      console.log('[REPORT WRITE] addDoc report', story.id);
       await addDoc(reportsRef, {
         storyId: story.id,
         storyTitle: story.title ?? '',

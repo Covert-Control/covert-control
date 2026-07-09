@@ -88,18 +88,8 @@ function RouteComponent() {
       refetchOnMount: false,
       refetchOnReconnect: false,
       queryFn: async () => {
-        console.log(
-          '[Favorites] QUERY',
-          storyId,
-          'at',
-          new Date().toISOString()
-        );
         const snap = await getDoc(doc(db, 'stories', storyId));
-        console.log(
-          '[Favorites] QUERY COMPLETE',
-          storyId,
-          snap.exists()
-        );
+        console.log('[FAVORITES READ] story getDoc', storyId);
         if (!snap.exists()) return null;
         const d = snap.data() as any;
         return {

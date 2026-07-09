@@ -8,6 +8,7 @@ import '@mantine/tiptap/styles.css';
 import { NothingFoundPage } from './components/NothingFoundPage/NothingFoundPage';
 import { Notifications } from '@mantine/notifications';
 import '@mantine/notifications/styles.css';
+import { ModalsProvider } from '@mantine/modals';
 import '@mantine/dates/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './stores/authStore';
@@ -84,8 +85,10 @@ window.addEventListener('vite:preloadError', () => {
 createRoot(document.getElementById('root')!).render(
     <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={cssVariablesResolver}>
       <Notifications position="bottom-right" />
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <ModalsProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </ModalsProvider>
     </MantineProvider>
 );

@@ -84,12 +84,10 @@ interface ChapterRow {
 ---------------------------------------------- */
 
 async function fetchChaptersForList(storyId: string): Promise<ChapterRow[]> {
-  console.log('[FIRESTORE] fetchChaptersForList (storyId.chapters.tsx)', {
-    storyId,
-  });
   const colRef = collection(db, 'stories', storyId, 'chapters');
   const q = query(colRef, orderBy('index', 'asc'));
   const snap = await getDocs(q);
+  console.log('[CHAPTERS READ] fetchChaptersForList getDocs —', snap.size, 'docs read');
 
   return snap.docs.map((docSnap) => {
     const d = docSnap.data() as any;

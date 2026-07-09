@@ -28,7 +28,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import type { UserProfile } from '../stores/authStore';
 import {
   getAuth,
-  getIdTokenResult,
   signOut,
   verifyBeforeUpdateEmail,
   reauthenticateWithCredential,
@@ -40,17 +39,7 @@ import { deleteMyAccountCallable } from '../config/firebase';
 import { ReauthModal } from '../components/ReauthModal';
 import { auth, googleProvider } from '../config/firebase.tsx';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-
-async function isRecentLogin(thresholdSeconds = 5 * 60): Promise<boolean> {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  if (!user) return false;
-
-  const res = await getIdTokenResult(user, /* forceRefresh */ true);
-  const authTimeSec = Math.floor(new Date(res.authTime).getTime() / 1000);
-  const nowSec = Math.floor(Date.now() / 1000);
-  return nowSec - authTimeSec <= thresholdSeconds;
-}
+import { isRecentLogin } from '../utils/isRecentLogin';
 
 /* ------------------------------------------------------------------ */
 /*  Public profile constraints (frontend)                              */
@@ -258,6 +247,7 @@ export function AccountSettingsForm() {
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
+      console.log('[SETTINGS READ] userProfile getDoc', user!.uid);
       const snap = await getDoc(doc(db, 'users', user!.uid));
       return (snap.data() as Partial<UserProfile>) ?? {};
     },
@@ -337,6 +327,7 @@ export function AccountSettingsForm() {
     if (!u) return;
     setChangeLoading(true);
     try {
+      console.log('[AUTH] reauthenticate (email change)');
       if (providerIds.includes('password')) {
         const email = u.email ?? '';
         const cred = EmailAuthProvider.credential(email, reauthPassword);
@@ -372,6 +363,7 @@ export function AccountSettingsForm() {
       if (!user) throw new Error('User not authenticated.');
 
       // Server validates + writes. We still validate client-side for UX.
+      console.log('[PROFILE WRITE] updatePublicProfile');
       const res = await updatePublicProfileCallable(values);
       return (res.data?.profile ?? {}) as Partial<UserProfile>;
     },
@@ -415,10 +407,12 @@ export function AccountSettingsForm() {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
+      console.log('[ACCOUNT] deleteMyAccount');
       const res = await deleteMyAccountCallable({ reason: 'user requested' });
       return res.data;
     },
     onSuccess: async () => {
+      console.log('[AUTH] signOut (account deleted)');
       await signOut(getAuth());
       notifications.show({
         title: 'Account Deleted',

@@ -16,6 +16,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { modals } from '@mantine/modals';
 import { AlertTriangle, Pin, PinOff, Trash2 } from 'lucide-react';
 
 import { RichTextEditor } from '@mantine/tiptap';
@@ -278,17 +279,30 @@ function AdminNewsPage() {
     }
   }
 
-  async function deletePost(p: NewsPost) {
-    const ok = window.confirm(`Delete this news post?\n\n${p.title}\n\nThis cannot be undone.`);
-    if (!ok) return;
-
-    try {
-      await deleteNewsPostCallable({ postId: p.id });
-      if (editingId === p.id) resetToNew();
-    } catch (err) {
-      console.error(err);
-      alert('Failed to delete news post.');
-    }
+  function deletePost(p: NewsPost) {
+    modals.openConfirmModal({
+      title: 'Delete news post',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Delete this news post? <b>{p.title}</b>
+          <br />
+          <br />
+          This cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: 'Delete post', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          await deleteNewsPostCallable({ postId: p.id });
+          if (editingId === p.id) resetToNew();
+        } catch (err) {
+          console.error(err);
+          alert('Failed to delete news post.');
+        }
+      },
+    });
   }
 
   return (

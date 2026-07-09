@@ -104,11 +104,13 @@ export default function LikeButton({
         addLikeLocal(storyId);
         setCount((c) => c + 1);
         bumpLikesInCache(+1);
+        console.log('[LIKE WRITE] toggleLike', storyId, 'liked=true');
         await toggleLikeCallable({ storyId, liked: true });
       } else {
         removeLikeLocal(storyId);
         setCount((c) => Math.max(0, c - 1));
         bumpLikesInCache(-1);
+        console.log('[LIKE WRITE] toggleLike', storyId, 'liked=false');
         await toggleLikeCallable({ storyId, liked: false });
       }
     } catch (e) {

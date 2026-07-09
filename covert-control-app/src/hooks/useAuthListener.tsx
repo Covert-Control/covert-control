@@ -20,8 +20,7 @@ export function useAuthListener() {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       const callId = ++currentCallId;
 
-      console.count('[AUTH] onAuthStateChanged fired');
-      console.log('[AUTH] user:', fbUser?.uid ?? null);
+      console.log('[AUTH] onAuthStateChanged fired — user:', fbUser?.uid ?? null);
 
       try {
         if (fbUser) {

@@ -255,6 +255,7 @@ export function AuthenticationForm(props: PaperProps) {
     try {
       // Optional: add a continue URL if you want to bring users back to your site:
       // await sendPasswordResetEmail(auth, email, { url: `${window.location.origin}/authentication` });
+      console.log('[AUTH] sendPasswordResetEmail');
       await sendPasswordResetEmail(auth, email);
 
       // Best practice: generic success message
@@ -327,6 +328,7 @@ export function AuthenticationForm(props: PaperProps) {
 
     try {
       // 1. Call backend to create account + Firestore doc
+      console.log('[ACCOUNT] registerUser');
       const registerResult = await registerUserCallable({
         email: form.getValues().email,
         password: form.getValues().password,
@@ -334,6 +336,7 @@ export function AuthenticationForm(props: PaperProps) {
       });
 
       // 2. Immediately sign them in
+      console.log('[AUTH] signInWithEmailAndPassword (post-register)');
       const signInCredential = await signInWithEmailAndPassword(
         auth,
         form.getValues().email,
@@ -351,6 +354,7 @@ export function AuthenticationForm(props: PaperProps) {
 
       setLoadingMessage('Sending verification email...');
 
+      console.log('[VERIFY EMAIL] sendVerificationEmail (post-register)');
       await sendVerificationEmailCallable({
         email: signedInUser.email,
       });
@@ -382,7 +386,8 @@ export function AuthenticationForm(props: PaperProps) {
   // GOOGLE SIGN-IN
   const signInWithGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      console.log('[AUTH] signInWithPopup (Google)');
+    const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
       const additionalUserInfo = getAdditionalUserInfo(result);
@@ -506,6 +511,7 @@ export function AuthenticationForm(props: PaperProps) {
     setLoadingMessage('Signing you in...');
 
     try {
+      console.log('[AUTH] signInWithEmailAndPassword (login)');
       await signInWithEmailAndPassword(
         auth,
         form.getValues().email,

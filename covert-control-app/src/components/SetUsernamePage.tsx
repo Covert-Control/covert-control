@@ -124,13 +124,16 @@ export function SetUsernamePage() {
 
     try {
       if (user) {
+        console.log('[ACCOUNT] deleteMyAccount (cancel registration)');
         await deleteMyAccountCallable();
+        console.log('[AUTH] signOut (cancel registration)');
         await auth.signOut();
       }
     } catch (err: any) {
       console.error('Cancel registration deletion failed:', err);
 
       try {
+        console.log('[AUTH] signOut (cancel registration fallback)');
         await auth.signOut();
       } catch {}
 
@@ -188,6 +191,7 @@ export function SetUsernamePage() {
     setSubmitting(true);
 
     try {
+      console.log('[ACCOUNT] completeGoogleRegistration');
       await completeGoogleRegistrationCallable({ username: trimmedUsername });
 
       notifications.show({

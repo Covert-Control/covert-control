@@ -19,6 +19,7 @@ export function AccountDropDown() {
 
   const logOut = async () => {
       try {
+          console.log('[AUTH] signOut (AccountDropDown)');
           await signOut(auth)
           clearAuth();
           notifications.show({

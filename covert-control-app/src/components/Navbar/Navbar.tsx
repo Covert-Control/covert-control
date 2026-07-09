@@ -35,6 +35,7 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
 
   const logOut = async () => {
     try {
+      console.log('[AUTH] signOut (Navbar)');
       await signOut(auth);
       notifications.show({
         title: 'Signed out',

@@ -114,9 +114,6 @@ function RandomStoriesRoute() {
   const { data, isLoading, isError, error, isFetching } = useQuery<Story[]>({
     queryKey: ['randomStories', seed],
     queryFn: async () => {
-        console.log('Random query executing', {
-          time: new Date().toISOString(),
-        });
       const storiesRef = collection(db, 'stories');
 
       const qA = fsQuery(
@@ -128,6 +125,7 @@ function RandomStoriesRoute() {
       );
 
       const snapA = await getDocs(qA);
+      console.log('[RANDOM READ] getDocs A —', snapA.size, 'docs read');
       const a = snapA.docs.map(normalizeStoryDoc);
 
       if (a.length >= TAKE) return a;
@@ -143,6 +141,7 @@ function RandomStoriesRoute() {
       );
 
       const snapB = await getDocs(qB);
+      console.log('[RANDOM READ] getDocs B —', snapB.size, 'docs read');
       const b = snapB.docs.map(normalizeStoryDoc);
 
       const seen = new Set(a.map((s) => s.id));

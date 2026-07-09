@@ -43,6 +43,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { doc, getDoc } from 'firebase/firestore';
 
 import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -106,7 +107,7 @@ function toDate(value: PossibleDate): Date | undefined {
 ---------------------------------------------- */
 
 async function fetchChapterContent(storyId: string, chapter: number) {
-  console.log('fetchChapterContent (storyId.index)', { storyId, chapter });
+  console.log('[CHAPTER READ] fetchChapterContent getDoc', storyId, 'ch', chapter);
   const chapterRef = doc(db, 'stories', storyId, 'chapters', String(chapter));
 
   const snap = await getDoc(chapterRef);
@@ -376,6 +377,7 @@ function StoryDetailPage() {
 
     didTry.current = true;
 
+    console.log('[VIEW WRITE] incrementStoryView', storyId);
     incrementStoryViewCallable({ storyId })
       .then(() => sessionStorage.setItem(key, '1'))
       .catch((e) =>
@@ -391,18 +393,32 @@ function StoryDetailPage() {
     });
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!storyId || !isOwnStory) return;
 
-    const ok = window.confirm(
-      'Delete this story and all chapters? This cannot be undone.'
-    );
+    modals.openConfirmModal({
+      title: 'Delete story',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Delete this story and all chapters? This cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: 'Delete story', cancel: 'Cancel' },
+      confirmProps: { color: 'red.8' },
+      onConfirm: () => {
+        void performDelete();
+      },
+    });
+  }
 
-    if (!ok) return;
+  async function performDelete() {
+    if (!storyId) return;
 
     setDeleting(true);
 
     try {
+      console.log('[STORY WRITE] deleteStory', storyId);
       await deleteStoryCallable({ storyId });
 
       notifications.show({
@@ -431,24 +447,32 @@ function StoryDetailPage() {
     }
   }
 
-  async function handleDeleteChapter() {
-    if (
-      !storyId ||
-      !isOwnStory ||
-      safeChapter < 2
-    ) {
-      return;
-    }
+  function handleDeleteChapter() {
+    if (!storyId || !isOwnStory || safeChapter < 2) return;
 
-    const ok = window.confirm(
-      `Delete Chapter ${safeChapter}? Later chapters will shift down.`
-    );
+    modals.openConfirmModal({
+      title: `Delete Chapter ${safeChapter}`,
+      centered: true,
+      children: (
+        <Text size="sm">
+          Delete Chapter {safeChapter}? Later chapters will shift down.
+        </Text>
+      ),
+      labels: { confirm: 'Delete chapter', cancel: 'Cancel' },
+      confirmProps: { color: 'red.8' },
+      onConfirm: () => {
+        void performDeleteChapter();
+      },
+    });
+  }
 
-    if (!ok) return;
+  async function performDeleteChapter() {
+    if (!storyId || safeChapter < 2) return;
 
     setDeletingChapter(true);
 
     try {
+      console.log('[CHAPTER WRITE] deleteChapter', storyId, 'ch', safeChapter);
       const res = await deleteChapterCallable({
         storyId,
         chapter: safeChapter,

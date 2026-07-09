@@ -16,6 +16,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { AlertTriangle, Trash2 } from 'lucide-react';
+import { modals } from '@mantine/modals';
 
 import { db, deleteStoryCallable } from '../../config/firebase';
 import { useAuthStore } from '../../stores/authStore';
@@ -184,50 +185,69 @@ function AdminReportsPage() {
     }
   }
 
-  async function handleDeleteStory(report: Report) {
+  function handleDeleteStory(report: Report) {
     if (!currentUser) return;
+    const adminUid = currentUser.uid;
 
-    const confirmDelete = window.confirm(
-      `Delete this story?\n\nTitle: ${report.storyTitle}\nThis will remove the story for all readers.`
-    );
-    if (!confirmDelete) return;
+    modals.openConfirmModal({
+      title: 'Delete story',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Delete this story? <b>{report.storyTitle}</b>
+          <br />
+          <br />
+          This will remove the story for all readers.
+        </Text>
+      ),
+      labels: { confirm: 'Delete story', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          // ❗ Use the Cloud Function so chapters + authors_with_stories are updated
+          await deleteStoryCallable({ storyId: report.storyId });
 
-    try {
-      // ❗ Use the Cloud Function so chapters + authors_with_stories are updated
-      await deleteStoryCallable({ storyId: report.storyId });
-
-      // Then mark this report as resolved
-      const reportRef = doc(db, 'reports', report.id);
-      await updateDoc(reportRef, {
-        status: 'action_taken',
-        resolution: 'story_deleted',
-        handledAt: serverTimestamp(),
-        handledBy: currentUser.uid,
-      });
-
-      // (Optional) You can also remove the report from local state here
-      // so the UI updates immediately.
-    } catch (err) {
-      console.error('Failed to delete story / update report', err);
-      alert('Failed to delete story. Check console for details.');
-    }
+          // Then mark this report as resolved
+          const reportRef = doc(db, 'reports', report.id);
+          await updateDoc(reportRef, {
+            status: 'action_taken',
+            resolution: 'story_deleted',
+            handledAt: serverTimestamp(),
+            handledBy: adminUid,
+          });
+        } catch (err) {
+          console.error('Failed to delete story / update report', err);
+          alert('Failed to delete story. Check console for details.');
+        }
+      },
+    });
   }
 
 
-  async function handleDeleteReport(report: Report) {
+  function handleDeleteReport(report: Report) {
     if (!currentUser) return;
-    const confirmRemove = window.confirm(
-      'Remove this report from the moderation list? This action cannot be undone.'
-    );
-    if (!confirmRemove) return;
 
-    try {
-      const reportRef = doc(db, 'reports', report.id);
-      await deleteDoc(reportRef);
-    } catch (err) {
-      console.error('Failed to delete report', err);
-      alert('Failed to delete report. Check console for details.');
-    }
+    modals.openConfirmModal({
+      title: 'Remove report',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Remove this report from the moderation list? This action cannot be
+          undone.
+        </Text>
+      ),
+      labels: { confirm: 'Remove report', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          const reportRef = doc(db, 'reports', report.id);
+          await deleteDoc(reportRef);
+        } catch (err) {
+          console.error('Failed to delete report', err);
+          alert('Failed to delete report. Check console for details.');
+        }
+      },
+    });
   }
 
   return (

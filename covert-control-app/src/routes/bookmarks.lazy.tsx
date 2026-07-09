@@ -99,6 +99,7 @@ function RouteComponent() {
       refetchOnMount: false,
       refetchOnReconnect: false,
       queryFn: async () => {
+        console.log('[BOOKMARKS READ] story getDoc', storyId);
         const snap = await getDoc(doc(db, 'stories', storyId));
         if (!snap.exists()) return null;
         const d = snap.data() as any;

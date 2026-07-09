@@ -99,6 +99,7 @@ async function fetchPublishedNews(): Promise<NewsPost[]> {
 
   try {
     const snap = await getDocs(qPrimary);
+    console.log('[HOME READ] newsPosts getDocs (primary) —', snap.size, 'docs read');
     const items = sortNewsForDisplay(normalizeNewsDocs(snap));
     writeCachedNews(items);
     return items;
@@ -114,6 +115,7 @@ async function fetchPublishedNews(): Promise<NewsPost[]> {
     try {
       const qFallback = fsQuery(ref, where('isPublished', '==', true), limit(10));
       const snap2 = await getDocs(qFallback);
+      console.log('[HOME READ] newsPosts getDocs (fallback) —', snap2.size, 'docs read');
       const items = sortNewsForDisplay(normalizeNewsDocs(snap2));
       writeCachedNews(items);
       return items;

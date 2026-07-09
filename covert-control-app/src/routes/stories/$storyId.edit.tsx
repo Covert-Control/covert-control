@@ -131,7 +131,7 @@ function getCounts(editor: Editor): { words: number; chars: number } {
 ---------------------------------------------- */
 
 async function fetchChapterForEdit(storyId: string, chapterNum: number) {
-  console.log('fetchChapterForEdit (storyId.edit.tsx)', { storyId, chapterNum });
+  console.log('[CHAPTER READ] fetchChapterForEdit getDoc', storyId, 'ch', chapterNum);
   const ref = doc(db, 'stories', storyId, 'chapters', String(chapterNum));
   const snap = await getDoc(ref);
 
@@ -478,6 +478,7 @@ function EditStoryPage() {
         payload.footerDisclaimer = normalizeOptional(values.footerDisclaimer) ?? null;
       }
 
+      console.log('[CHAPTER WRITE] saveChapter', payload?.storyId ?? '(new story)');
       const res = await saveChapterCallable(payload);
       const data = res.data as {
         storyId: string;

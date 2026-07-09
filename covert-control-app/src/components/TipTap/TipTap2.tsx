@@ -426,6 +426,7 @@ export function TipTap2() {
         chapterSummary: normalizedChapterSummary,
       };
 
+      console.log('[STORY WRITE] createStoryWithFirstChapter');
       const res = await createStoryWithFirstChapterCallable(payload);
 
       const data = res.data as { storyId?: string };
@@ -512,6 +513,11 @@ export function TipTap2() {
         getDocs(qLc),
         getDocs(qExact),
       ]);
+      console.log(
+        '[SUBMIT READ] duplicate-title getDocs —',
+        snapLc.size + snapExact.size,
+        'docs read'
+      );
       const duplicateFound = !snapLc.empty || !snapExact.empty;
 
       if (duplicateFound) {

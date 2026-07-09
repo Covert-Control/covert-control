@@ -36,6 +36,7 @@ export function ReauthModal({
     setError(null);
     try {
       const cred = EmailAuthProvider.credential(user.email, password);
+      console.log('[AUTH] reauthenticateWithCredential (ReauthModal)');
       await reauthenticateWithCredential(user, cred);
       onSuccess();
       onClose();
@@ -50,6 +51,7 @@ export function ReauthModal({
     setPending(true);
     setError(null);
     try {
+      console.log('[AUTH] reauthenticateWithPopup (ReauthModal)');
       await reauthenticateWithPopup(user, new GoogleAuthProvider());
       onSuccess();
       onClose();

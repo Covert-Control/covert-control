@@ -8,6 +8,14 @@ type StorySearch = {
 };
 
 export const Route = createFileRoute('/stories/$storyId')({
+  // The story doc (title, disclaimers, chapter index, counts) is identical
+  // across chapters, so cache the loader result and reuse it when the reader
+  // switches chapters (a ?chapter navigation on this same route) instead of
+  // re-reading it every time. Default router staleTime is 0, which re-runs the
+  // loader — and its getDoc — on every navigation. Mirrors the chapter-content
+  // caching: authors hard-refresh to see their own edits.
+  staleTime: Infinity,
+  gcTime: 1000 * 60 * 60 * 24, // keep 24h so revisits within a session are free
   validateSearch: (search: Record<string, unknown>): StorySearch => {
     const raw = (search as any).chapter;
 
@@ -24,7 +32,7 @@ export const Route = createFileRoute('/stories/$storyId')({
   },
 
   loader: async ({ params }) => {
-    console.log('Story loader (storyId.tsx', { storyId: params.storyId, time: new Date().toISOString() });
+    console.log('[STORY READ] loader getDoc', params.storyId);
     const ref = doc(db, 'stories', params.storyId);
     const snap = await getDoc(ref);
     if (!snap.exists()) throw new Error(`Story ${params.storyId} not found`);

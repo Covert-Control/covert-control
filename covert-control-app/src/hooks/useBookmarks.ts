@@ -84,6 +84,7 @@ export function useBookmarks(storyId: string) {
       setBusy(true);
       setPlaceLocal(storyId, next);
       try {
+        console.log('[BOOKMARK WRITE] savePlace', storyId);
         await updateDoc(doc(db, 'users', id), {
           [`bookmarks.${storyId}.place`]: next,
         });
@@ -116,6 +117,7 @@ export function useBookmarks(storyId: string) {
     setBusy(true);
     removePlaceLocal(storyId);
     try {
+      console.log('[BOOKMARK WRITE] clearPlace', storyId);
       await updateDoc(doc(db, 'users', id), {
         [`bookmarks.${storyId}.place`]: deleteField(),
       });
@@ -148,6 +150,7 @@ export function useBookmarks(storyId: string) {
       setBusy(true);
       addSectionLocal(storyId, section);
       try {
+        console.log('[BOOKMARK WRITE] addSection', storyId);
         await updateDoc(doc(db, 'users', id), {
           [`bookmarks.${storyId}.sections`]: currentSections(storyId),
         });
@@ -182,6 +185,7 @@ export function useBookmarks(storyId: string) {
       setBusy(true);
       removeSectionLocal(storyId, createdAtMs);
       try {
+        console.log('[BOOKMARK WRITE] removeSection', storyId);
         await updateDoc(doc(db, 'users', id), {
           [`bookmarks.${storyId}.sections`]: currentSections(storyId),
         });
@@ -217,6 +221,7 @@ export function useBookmarks(storyId: string) {
       setBusy(true);
       renameSectionLocal(storyId, createdAtMs, label);
       try {
+        console.log('[BOOKMARK WRITE] renameSection', storyId);
         await updateDoc(doc(db, 'users', id), {
           [`bookmarks.${storyId}.sections`]: currentSections(storyId),
         });

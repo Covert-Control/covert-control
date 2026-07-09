@@ -105,10 +105,6 @@ function StoriesThisWeekRoute() {
   const storiesQuery = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }) => {
-      console.log('Weekly query executing', {
-        pageParam,
-        time: new Date().toISOString(),
-      });
       const startTs = Timestamp.fromDate(start);
       const endTs = Timestamp.fromDate(end);
 
@@ -128,6 +124,7 @@ function StoriesThisWeekRoute() {
         : fsQuery(collection(db, 'stories'), ...baseConstraints);
 
       const snap = await getDocs(q);
+      console.log('[WEEKLY READ] getDocs —', snap.size, 'docs read');
 
       const stories = snap.docs.map((doc) => {
         const data = doc.data() as any;
