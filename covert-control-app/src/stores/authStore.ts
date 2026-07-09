@@ -64,6 +64,10 @@ interface AuthState {
   resetFavorites: () => void;
 
   setBookmarksData: (bookmarks: BookmarksByStory) => void;
+  setBookmarkMetaLocal: (
+    storyId: string,
+    meta: { title?: string; username?: string }
+  ) => void;
   setPlaceLocal: (storyId: string, place: BookmarkPlace) => void;
   removePlaceLocal: (storyId: string) => void;
   addSectionLocal: (storyId: string, section: BookmarkSection) => void;
@@ -206,6 +210,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setBookmarksData: (bookmarks) => set({ bookmarksLoaded: true, bookmarks }),
 
+  setBookmarkMetaLocal: (storyId, meta) =>
+    set((state) => {
+      const existing = state.bookmarks[storyId] ?? { sections: [] };
+      const nextTitle = meta.title ?? existing.title;
+      const nextUsername = meta.username ?? existing.username;
+      // No-op if nothing changed, to avoid a needless re-render.
+      if (nextTitle === existing.title && nextUsername === existing.username) {
+        return {};
+      }
+      return {
+        bookmarks: {
+          ...state.bookmarks,
+          [storyId]: { ...existing, title: nextTitle, username: nextUsername },
+        },
+      };
+    }),
+
   setPlaceLocal: (storyId, place) =>
     set((state) => {
       const existing = state.bookmarks[storyId] ?? { sections: [] };
@@ -221,10 +242,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set((state) => {
       const existing = state.bookmarks[storyId];
       if (!existing?.place) return {};
+      // Drop only `place`; keep sections + denormalized title/username.
+      const { place: _place, ...rest } = existing;
       return {
         bookmarks: {
           ...state.bookmarks,
-          [storyId]: { sections: existing.sections },
+          [storyId]: rest,
         },
       };
     }),

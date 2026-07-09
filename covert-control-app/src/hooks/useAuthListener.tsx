@@ -121,7 +121,17 @@ export function useAuthListener() {
                         }
                       : undefined;
 
-                  bookmarks[sid] = place ? { place, sections } : { sections };
+                  const bmTitle =
+                    typeof entry.title === 'string' ? entry.title : undefined;
+                  const bmUsername =
+                    typeof entry.username === 'string' ? entry.username : undefined;
+
+                  bookmarks[sid] = {
+                    ...(bmTitle !== undefined ? { title: bmTitle } : {}),
+                    ...(bmUsername !== undefined ? { username: bmUsername } : {}),
+                    ...(place ? { place } : {}),
+                    sections,
+                  };
                 }
               }
 

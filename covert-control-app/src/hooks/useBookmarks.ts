@@ -28,7 +28,15 @@ type NewSection = Omit<BookmarkSection, 'createdAtMs'>;
  * reads). Writes are optimistic: update local state first, persist to the user
  * doc, and roll back the local change if the write fails. Mirrors FavoriteButton.
  */
-export function useBookmarks(storyId: string) {
+export function useBookmarks(
+  storyId: string,
+  meta?: { title?: string; username?: string }
+) {
+  // Destructure to primitives so the write callbacks depend on stable values
+  // rather than the (often inline) meta object's identity.
+  const metaTitle = meta?.title;
+  const metaUsername = meta?.username;
+
   const uid = useAuthStore((s) => s.user?.uid);
   const isEmailVerified = useAuthStore((s) => s.isEmailVerified);
   const bookmarksLoaded = useAuthStore((s) => s.bookmarksLoaded);
@@ -36,6 +44,7 @@ export function useBookmarks(storyId: string) {
   // bookmarks change, so edits to other stories don't re-render consumers.
   const entry = useAuthStore((s) => s.bookmarks[storyId]) ?? EMPTY;
 
+  const setBookmarkMetaLocal = useAuthStore((s) => s.setBookmarkMetaLocal);
   const setPlaceLocal = useAuthStore((s) => s.setPlaceLocal);
   const removePlaceLocal = useAuthStore((s) => s.removePlaceLocal);
   const addSectionLocal = useAuthStore((s) => s.addSectionLocal);
@@ -83,10 +92,15 @@ export function useBookmarks(storyId: string) {
       cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
       setBusy(true);
       setPlaceLocal(storyId, next);
+      setBookmarkMetaLocal(storyId, { title: metaTitle, username: metaUsername });
       try {
         console.log('[BOOKMARK WRITE] savePlace', storyId);
         await updateDoc(doc(db, 'users', id), {
           [`bookmarks.${storyId}.place`]: next,
+          ...(metaTitle != null ? { [`bookmarks.${storyId}.title`]: metaTitle } : {}),
+          ...(metaUsername != null
+            ? { [`bookmarks.${storyId}.username`]: metaUsername }
+            : {}),
         });
         return true;
       } catch (e) {
@@ -103,7 +117,16 @@ export function useBookmarks(storyId: string) {
         setBusy(false);
       }
     },
-    [storyId, busy, requireAuth, setPlaceLocal, removePlaceLocal]
+    [
+      storyId,
+      busy,
+      requireAuth,
+      setPlaceLocal,
+      removePlaceLocal,
+      setBookmarkMetaLocal,
+      metaTitle,
+      metaUsername,
+    ]
   );
 
   const clearPlace = useCallback(async () => {
@@ -149,10 +172,15 @@ export function useBookmarks(storyId: string) {
       cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
       setBusy(true);
       addSectionLocal(storyId, section);
+      setBookmarkMetaLocal(storyId, { title: metaTitle, username: metaUsername });
       try {
         console.log('[BOOKMARK WRITE] addSection', storyId);
         await updateDoc(doc(db, 'users', id), {
           [`bookmarks.${storyId}.sections`]: currentSections(storyId),
+          ...(metaTitle != null ? { [`bookmarks.${storyId}.title`]: metaTitle } : {}),
+          ...(metaUsername != null
+            ? { [`bookmarks.${storyId}.username`]: metaUsername }
+            : {}),
         });
         return true;
       } catch (e) {
@@ -168,7 +196,16 @@ export function useBookmarks(storyId: string) {
         setBusy(false);
       }
     },
-    [storyId, busy, requireAuth, addSectionLocal, removeSectionLocal]
+    [
+      storyId,
+      busy,
+      requireAuth,
+      addSectionLocal,
+      removeSectionLocal,
+      setBookmarkMetaLocal,
+      metaTitle,
+      metaUsername,
+    ]
   );
 
   const removeSection = useCallback(

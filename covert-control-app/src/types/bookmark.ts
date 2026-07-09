@@ -49,6 +49,11 @@ export interface BookmarkSection {
  * Everything stored for one story under `users/{uid}.bookmarks[storyId]`.
  */
 export interface StoryBookmarks {
+  // Denormalized story metadata (title + author username) so the /bookmarks
+  // list renders straight from this map with zero per-story reads. Written when
+  // a bookmark is saved; may be absent on bookmarks created before this scheme.
+  title?: string;
+  username?: string;
   place?: BookmarkPlace;
   sections: BookmarkSection[];
 }

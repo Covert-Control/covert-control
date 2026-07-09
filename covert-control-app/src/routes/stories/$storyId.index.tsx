@@ -785,6 +785,8 @@ function StoryDetailPage() {
                   {user && (
                     <ReaderBookmarkLayer
                       storyId={storyId}
+                      storyTitle={story.title}
+                      storyUsername={story.username}
                       chapter={safeChapter}
                       contentRef={contentRef}
                       editor={editor}

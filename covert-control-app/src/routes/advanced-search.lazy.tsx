@@ -55,6 +55,43 @@ const INDEX_NAME = import.meta.env.VITE_ALGOLIA_INDEX_STORIES!;
 const HITS_PER_PAGE = 10;
 const BASIC_TAGS = ['md', 'fd', 'mf', 'mm', 'ff'] as const;
 
+// ── Top-tags suggestion cache (localStorage, 24h TTL) ──────────────────────
+// The top tags are just search-idea suggestions and change slowly, so we cache
+// them to avoid re-reading 10 tag docs on every visit. Mirrors the homepage
+// news cache pattern in index.lazy.tsx.
+const TOP_TAGS_CACHE_KEY = 'cc:top-tags:v1';
+const TOP_TAGS_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+
+function readCachedTopTags(): string[] | null {
+  try {
+    const raw = window.localStorage.getItem(TOP_TAGS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: number; tags?: unknown };
+    if (
+      typeof parsed?.savedAt !== 'number' ||
+      Date.now() - parsed.savedAt > TOP_TAGS_TTL_MS ||
+      !Array.isArray(parsed.tags)
+    ) {
+      return null;
+    }
+    const tags = parsed.tags.filter((t): t is string => typeof t === 'string');
+    return tags.length ? tags : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedTopTags(tags: string[]) {
+  try {
+    window.localStorage.setItem(
+      TOP_TAGS_CACHE_KEY,
+      JSON.stringify({ savedAt: Date.now(), tags })
+    );
+  } catch {
+    // ignore storage failures (private mode, quota, etc.)
+  }
+}
+
 type SortKey =
   | 'relevance'
   | 'title_asc'
@@ -150,8 +187,15 @@ function SearchPage() {
   // sort state
   const [sort, setSort] = useState<SortKey>('relevance');
 
-  // one-time load of top tags from Firestore
+  // one-time load of top tags — served from localStorage (24h TTL) when fresh,
+  // otherwise fetched once and cached. Avoids 10 tag reads on every visit.
   useEffect(() => {
+    const cached = readCachedTopTags();
+    if (cached) {
+      setTopTags(cached);
+      return; // 0 reads
+    }
+
     (async () => {
       const qy = fsQuery(
         collection(db, 'tags'),
@@ -160,7 +204,9 @@ function SearchPage() {
       );
       const snap = await getDocs(qy);
       console.log('[SEARCH READ] top-tags getDocs —', snap.size, 'docs read');
-      setTopTags(snap.docs.map((d) => (d.data() as any).name ?? d.id));
+      const names = snap.docs.map((d) => (d.data() as any).name ?? d.id);
+      setTopTags(names);
+      writeCachedTopTags(names);
     })();
   }, []);
 

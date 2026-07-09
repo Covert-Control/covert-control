@@ -46,6 +46,9 @@ import {
 
 type Props = {
   storyId: string;
+  // Denormalized into the bookmark on save so the /bookmarks page needs no read.
+  storyTitle?: string;
+  storyUsername?: string;
   chapter: number;
   contentRef: RefObject<HTMLDivElement | null>;
   // The read-only Tiptap editor for the current chapter. Used to capture precise
@@ -75,6 +78,8 @@ const SECTION_COLOR = 'var(--mantine-color-grape-5)';
 
 export function ReaderBookmarkLayer({
   storyId,
+  storyTitle,
+  storyUsername,
   chapter,
   contentRef,
   editor,
@@ -93,7 +98,7 @@ export function ReaderBookmarkLayer({
     addSection,
     removeSection,
     renameSection,
-  } = useBookmarks(storyId);
+  } = useBookmarks(storyId, { title: storyTitle, username: storyUsername });
 
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [pending, setPending] = useState<PendingSelection | null>(null);

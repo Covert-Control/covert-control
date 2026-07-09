@@ -1,8 +1,5 @@
 // bookmarks.lazy.tsx
 import { createLazyFileRoute, Link } from '@tanstack/react-router';
-import { useQueries } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
 import { useAuthStore } from '../stores/authStore';
 import { useBookmarks } from '../hooks/useBookmarks';
 import {
@@ -86,50 +83,21 @@ function RouteComponent() {
     [bookmarks]
   );
 
-  // Reuse the same ['story', id] cache the Favorites route uses (forever-cached),
-  // so a story already loaded elsewhere costs zero extra reads. Same full shape
-  // to avoid clobbering that cache with a partial object.
-  const storyQueries = useQueries({
-    queries: storyIds.map((storyId) => ({
-      queryKey: ['story', storyId],
-      enabled: !!uid && bookmarksLoaded,
-      staleTime: Infinity,
-      gcTime: Infinity,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      queryFn: async () => {
-        console.log('[BOOKMARKS READ] story getDoc', storyId);
-        const snap = await getDoc(doc(db, 'stories', storyId));
-        if (!snap.exists()) return null;
-        const d = snap.data() as any;
-        return {
-          id: snap.id,
-          title: d.title,
-          description: d.description,
-          content: d.content,
-          ownerId: d.ownerId,
-          username: d.username || 'Unknown',
-          viewCount: d.viewCount || 0,
-          likesCount: d.likesCount ?? 0,
-          chapterCount: d.chapterCount ?? 1,
-          createdAt: d.createdAt?.toDate?.(),
-          updatedAt: d.updatedAt?.toDate?.(),
-          lastChapterPublishedAt: d.lastChapterPublishedAt?.toDate?.(),
-          tags: Array.isArray(d.tags) ? d.tags : [],
-        };
-      },
-    })),
-  });
-
+  // Story title + author are denormalized onto each bookmark entry (written at
+  // save time), so the list renders straight from the already-hydrated map with
+  // zero per-story reads.
   const metaById = useMemo(() => {
     const m = new Map<string, StoryMeta>();
-    storyQueries.forEach((q) => {
-      const data = q.data as any;
-      if (data) m.set(data.id, { id: data.id, title: data.title, username: data.username });
-    });
+    for (const id of storyIds) {
+      const b = bookmarks[id];
+      m.set(id, {
+        id,
+        title: b?.title ?? 'Story',
+        username: b?.username ?? 'Unknown',
+      });
+    }
     return m;
-  }, [storyQueries]);
+  }, [storyIds, bookmarks]);
 
   const totalCount = useMemo(
     () =>
@@ -156,9 +124,7 @@ function RouteComponent() {
     );
   }
 
-  const isLoading =
-    !bookmarksLoaded ||
-    (storyIds.length > 0 && storyQueries.some((q) => q.isLoading));
+  const isLoading = !bookmarksLoaded;
 
   if (isLoading) {
     return (
