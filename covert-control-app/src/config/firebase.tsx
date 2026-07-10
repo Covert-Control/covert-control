@@ -178,3 +178,8 @@ export const toggleLikeCallable: HttpsCallable<
   { storyId: string; liked: boolean },
   { success: true }
 > = httpsCallable(functions, 'toggleLike');
+
+export const submitReportCallable: HttpsCallable<
+  { storyId: string; reason: string; comment?: string },
+  { ok: true }
+> = httpsCallable(functions, 'submitReport');

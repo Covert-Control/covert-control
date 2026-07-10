@@ -85,3 +85,8 @@ export { sendVerificationEmail } from './sendVerificationEmail';
 /*  Reading Preferences                                          */
 /* ------------------------------------------------------------------ */
 export { saveReadingPreferences } from './savePreferences';
+
+/* ------------------------------------------------------------------ */
+/*  Reports                                                     */
+/* ------------------------------------------------------------------ */
+export { submitReport } from './submitReport';

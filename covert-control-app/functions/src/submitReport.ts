@@ -25,7 +25,7 @@ type SubmitReportInput = {
 };
 
 // Must match the client radio options in ReportModal.tsx.
-const REASONS = ['nsfw', 'harassment', 'violence', 'spam', 'other'] as const;
+const REASONS = ['tags', 'plagiarism', 'underage', 'spam', 'other'] as const;
 
 const MAX_COMMENT_LENGTH = 500;
 

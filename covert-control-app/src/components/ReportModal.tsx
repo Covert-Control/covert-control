@@ -10,21 +10,37 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { Flag } from 'lucide-react';
-import { useState } from 'react';
-import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  where,
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { useEffect, useState } from 'react';
+import { submitReportCallable } from '../config/firebase';
 import { useAuthStore } from '../stores/authStore';
 import { notifications } from '@mantine/notifications';
 
 const MAX_REPORT_COMMENT_LENGTH = 500;
+
+// Mirror the server-side per-user cooldown (submitReport.ts
+// MIN_SECONDS_BETWEEN_REPORTS) on the client so the Submit button reflects it
+// rather than letting the user hit a confusing backend rejection. localStorage
+// keeps it consistent across stories (each story mounts its own ReportModal)
+// and page reloads. UX only — the server stays the real enforcer.
+const REPORT_COOLDOWN_MS = 60_000;
+const LAST_REPORT_KEY = 'cc:last-report-at';
+
+function readLastReportAt(): number {
+  try {
+    const n = Number(localStorage.getItem(LAST_REPORT_KEY) ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeLastReportAt(ms: number) {
+  try {
+    localStorage.setItem(LAST_REPORT_KEY, String(ms));
+  } catch {
+    // ignore storage failures (private mode, quota)
+  }
+}
 
 interface ReportModalProps {
   storyId: string;
@@ -45,6 +61,28 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Client mirror of the server cooldown, seeded from the last report time.
+  const [cooldownUntil, setCooldownUntil] = useState(() => {
+    const last = readLastReportAt();
+    return last ? last + REPORT_COOLDOWN_MS : 0;
+  });
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const id = window.setInterval(() => {
+      setNowTick(Date.now());
+      if (Date.now() >= cooldownUntil) window.clearInterval(id);
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [cooldownUntil]);
+
+  const cooldownRemainingSec = Math.max(
+    0,
+    Math.ceil((cooldownUntil - nowTick) / 1000)
+  );
+  const cooldownActive = cooldownRemainingSec > 0;
 
   const disabled = !canReport || !user;
 
@@ -74,46 +112,16 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
     setError(null);
 
     try {
-      const reportsRef = collection(db, 'reports');
-      const existingQ = query(
-        reportsRef,
-        where('storyId', '==', story.id),
-        where('reportedBy', '==', user.uid),
-        limit(1)
-      );
-      const existingSnap = await getDocs(existingQ);
-      console.log('[REPORT READ] duplicate-check getDocs —', existingSnap.size, 'docs read');
-
-      if (!existingSnap.empty) {
-        const msg =
-          'You have already reported this story. Thank you for your feedback.';
-        setError(msg);
-        notifications.show({
-          title: 'Already reported',
-          message: msg,
-          color: 'blue',
-          position: 'bottom-center',
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      console.log('[REPORT WRITE] addDoc report', story.id);
-      await addDoc(reportsRef, {
+      console.log('[REPORT WRITE] submitReport', story.id);
+      await submitReportCallable({
         storyId: story.id,
-        storyTitle: story.title ?? '',
-        storyOwnerId: story.ownerId,
-        storyOwnerUsername: story.username ?? null,
-        reportedBy: user.uid,
-        reporterEmail: user.email ?? null,
-        reporterDisplayName: user.displayName ?? null,
         reason,
-        comment: comment.trim() || null,
-        status: 'open',
-        createdAt: serverTimestamp(),
-        handledAt: null,
-        handledBy: null,
+        comment: comment.trim() || undefined,
       });
+
+      const submittedAt = Date.now();
+      writeLastReportAt(submittedAt);
+      setCooldownUntil(submittedAt + REPORT_COOLDOWN_MS);
 
       setOpen(false);
       setReason('');
@@ -125,15 +133,37 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
         color: 'green',
         position: 'bottom-center',
       });
-    } catch (err) {
-      console.error('Failed to submit report', err);
-      const msg =
-        'Something went wrong while submitting the report. Please try again.';
+    } catch (err: any) {
+      const code: string = err?.code ?? '';
+      let title = 'Report failed';
+      let color = 'red';
+      let msg: string;
+
+      if (code === 'functions/already-exists') {
+        title = 'Already reported';
+        color = 'blue';
+        msg = 'You have already reported this story. Thank you for your feedback.';
+      } else if (code === 'functions/resource-exhausted') {
+        // Server sends the specific cooldown / daily-cap message.
+        title = 'Slow down';
+        color = 'yellow';
+        msg =
+          err?.message ??
+          'You are reporting too frequently. Please try again later.';
+      } else if (code === 'functions/failed-precondition') {
+        msg = err?.message ?? "You can't report this story.";
+      } else if (code === 'functions/unauthenticated') {
+        msg = 'You must be logged in to report a story.';
+      } else {
+        console.error('Failed to submit report', err);
+        msg = 'Something went wrong while submitting the report. Please try again.';
+      }
+
       setError(msg);
       notifications.show({
-        title: 'Report failed',
+        title,
         message: msg,
-        color: 'red',
+        color,
         position: 'bottom-center',
       });
     } finally {
@@ -188,9 +218,9 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
 
           <Radio.Group value={reason} onChange={setReason} label="Reason" required>
             <Stack gap={4} mt="xs">
-              <Radio value="nsfw" label="NSFW / sexual content" />
-              <Radio value="harassment" label="Harassment or hate speech" />
-              <Radio value="violence" label="Graphic violence or gore" />
+              <Radio value="tags" label="Improper/lack of tags" />
+              <Radio value="plagiarism" label="Plagiarised content" />
+              <Radio value="underage" label="Underage characters" />
               <Radio value="spam" label="Spam or scam" />
               <Radio value="other" label="Other" />
             </Stack>
@@ -212,6 +242,12 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
             </Text>
           )}
 
+          {cooldownActive && (
+            <Text size="xs" c="dimmed">
+              You can submit another report in {cooldownRemainingSec}s.
+            </Text>
+          )}
+
           <Group justify="flex-end" mt="sm">
             <Button
               variant="default"
@@ -224,8 +260,12 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} loading={submitting}>
-              Submit report
+            <Button
+              onClick={handleSubmit}
+              loading={submitting}
+              disabled={cooldownActive}
+            >
+              {cooldownActive ? `Wait ${cooldownRemainingSec}s` : 'Submit report'}
             </Button>
           </Group>
         </Stack>
