@@ -1,9 +1,8 @@
 // functions/src/upsertNewsPost.ts
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import type { DocumentData } from 'firebase-admin/firestore';
-
-const db = getFirestore();
+import { db } from './lib/db';
 
 type CallableAuth = {
   uid: string;

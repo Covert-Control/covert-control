@@ -1,8 +1,7 @@
 // functions/src/updateNewsPostFlags.ts
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
-import { getFirestore, FieldValue, type DocumentData } from 'firebase-admin/firestore';
-
-const db = getFirestore();
+import { FieldValue, type DocumentData } from 'firebase-admin/firestore';
+import { db } from './lib/db';
 
 type CallableAuth = {
   uid: string;

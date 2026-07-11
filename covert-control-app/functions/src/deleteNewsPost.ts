@@ -1,8 +1,6 @@
 // functions/src/deleteNewsPost.ts
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
-
-const db = getFirestore();
+import { db } from './lib/db';
 
 type CallableAuth = {
   uid: string;
