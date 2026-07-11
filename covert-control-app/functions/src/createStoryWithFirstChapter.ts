@@ -5,6 +5,7 @@ import {
 } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { randomInt } from 'crypto';
+import { incrementTags } from './lib/tags';
 
 const db = getFirestore();
 
@@ -381,6 +382,15 @@ export const createStoryWithFirstChapter = onCall(
         'internal',
         'Failed to create story. Please try again later.'
       );
+    }
+
+    // Maintain tag counts inline (replaces the old onStoryCreate trigger, which
+    // also fired on every view/like). Non-fatal: the story is already created,
+    // so a tag hiccup shouldn't fail the whole request.
+    try {
+      await incrementTags(tagsClean);
+    } catch (err) {
+      console.error('createStoryWithFirstChapter: tag increment failed', err);
     }
 
     return { storyId: storyRef.id };

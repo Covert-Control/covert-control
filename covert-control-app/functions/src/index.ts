@@ -18,15 +18,6 @@ export { completeGoogleRegistration } from './completeGoogleRegistration';
 export { incrementStoryView } from './incrementStoryView';
 
 /* ------------------------------------------------------------------ */
-/*  Tags                                                               */
-/* ------------------------------------------------------------------ */
-export {
-  updateTagsOnStoryCreate,
-  updateTagsOnStoryUpdate,
-  updateTagsOnStoryDelete,
-} from './tagCounters';
-
-/* ------------------------------------------------------------------ */
 /*  Account deletion                                                  */
 /* ------------------------------------------------------------------ */
 export { deleteMyAccount } from './deleteAccount.v1';

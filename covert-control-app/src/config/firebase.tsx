@@ -142,14 +142,11 @@ export const upsertNewsPostCallable = httpsCallable(functions, 'upsertNewsPost')
 export const updateNewsPostFlagsCallable = httpsCallable(functions, 'updateNewsPostFlags');
 export const deleteNewsPostCallable = httpsCallable(functions, 'deleteNewsPost');
 
-type SendVerificationEmailInput = {
-  email: string;
-};
+type SendVerificationEmailOutput = { ok: true };
 
-type SendVerificationEmailOutput = void;
-
+// No input: the server always sends to the caller's own token email.
 export const sendVerificationEmailCallable: HttpsCallable<
-  SendVerificationEmailInput,
+  void,
   SendVerificationEmailOutput
 > = httpsCallable(functions, 'sendVerificationEmail');
 

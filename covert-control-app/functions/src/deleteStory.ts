@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { decrementThenCleanupTags } from './lib/tags';
 
 type DeleteStoryInput = {
   storyId: string;
@@ -8,6 +9,7 @@ type DeleteStoryInput = {
 interface StoryDocData {
   ownerId?: string;
   chapterCount?: number;
+  tags?: string[];
 }
 
 async function commitBatches(
@@ -58,6 +60,7 @@ export const deleteStory = onCall<DeleteStoryInput>({ enforceAppCheck: true }, a
 
   const storyData = storySnap.data() as StoryDocData | undefined;
   const ownerId = storyData?.ownerId;
+  const storyTags = Array.isArray(storyData?.tags) ? storyData.tags : [];
 
   const isAdmin = auth.token?.isAdmin === true;
   const isOwner = auth.uid === ownerId;
@@ -111,6 +114,15 @@ export const deleteStory = onCall<DeleteStoryInput>({ enforceAppCheck: true }, a
   });
 
   await commitBatches(db, ops);
+
+  // Maintain tag counts inline (replaces the old onStoryDelete trigger). Non-fatal.
+  if (storyTags.length) {
+    try {
+      await decrementThenCleanupTags(storyTags);
+    } catch (err) {
+      console.error('deleteStory: tag decrement failed', err);
+    }
+  }
 
   return { ok: true, storyId };
 });

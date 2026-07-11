@@ -355,9 +355,7 @@ export function AuthenticationForm(props: PaperProps) {
       setLoadingMessage('Sending verification email...');
 
       console.log('[VERIFY EMAIL] sendVerificationEmail (post-register)');
-      await sendVerificationEmailCallable({
-        email: signedInUser.email,
-      });
+      await sendVerificationEmailCallable();
 
       // 4. Tell them to verify
       notifications.show({

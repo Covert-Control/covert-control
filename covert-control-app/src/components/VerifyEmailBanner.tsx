@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Alert, Button, Text, Stack, Group } from '@mantine/core';
 import { useAuthStore } from '../stores/authStore';
 import { auth, sendVerificationEmailCallable } from '../config/firebase';
+import { notifications } from '@mantine/notifications';
 
 const VERIFICATION_COOLDOWN_MS = 60_000;
 
@@ -64,9 +65,7 @@ export function EmailVerificationBanner() {
       await currentUser.getIdToken(true);
 
       console.log('[VERIFY EMAIL] Calling sendVerificationEmailCallable');
-      await sendVerificationEmailCallable({
-        email: currentUser.email,
-      });
+      await sendVerificationEmailCallable();
 
       const until = Date.now() + VERIFICATION_COOLDOWN_MS;
       setCooldownUntil(until);
@@ -76,8 +75,55 @@ export function EmailVerificationBanner() {
       } catch {
         // ignore
       }
+
+      notifications.show({
+        title: 'Verification email sent',
+        message:
+          'We sent a new link to your email. Check your inbox (and spam folder).',
+        color: 'teal',
+      });
     } catch (err) {
       console.error('Error resending verification email:', err);
+
+      const code = (err as { code?: string })?.code ?? '';
+      const message = (err as { message?: string })?.message ?? '';
+
+      if (code === 'functions/resource-exhausted') {
+        // Server-side cooldown/cap — e.g. an email was already sent at signup,
+        // which the banner's local cooldown didn't know about. Sync our cooldown
+        // from the server's wait time so the button reflects the real countdown.
+        const waitMatch = message.match(/(\d+)\s*s/);
+        const waitSec = waitMatch
+          ? Number(waitMatch[1])
+          : VERIFICATION_COOLDOWN_MS / 1000;
+        const until = Date.now() + waitSec * 1000;
+        setCooldownUntil(until);
+        try {
+          localStorage.setItem(cooldownKey, String(until));
+        } catch {
+          // ignore
+        }
+        notifications.show({
+          title: 'Please wait a moment',
+          message:
+            message ||
+            'You recently requested a verification email. Please wait before trying again.',
+          color: 'yellow',
+        });
+      } else if (code === 'functions/failed-precondition') {
+        notifications.show({
+          title: 'Heads up',
+          message: message || 'Could not send a verification email right now.',
+          color: 'yellow',
+        });
+      } else {
+        notifications.show({
+          title: 'Could not resend',
+          message:
+            'Something went wrong sending the verification email. Please try again shortly.',
+          color: 'red',
+        });
+      }
     } finally {
       setResendLoading(false);
     }

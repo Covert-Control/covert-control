@@ -1,6 +1,7 @@
 // functions/src/saveChapter.ts
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { incrementTags, decrementThenCleanupTags } from './lib/tags';
 
 const db = getFirestore();
 
@@ -46,6 +47,7 @@ interface StoryDoc {
   totalCharCount?: number;
   lastChapterPublishedAt?: Timestamp;
   chapters?: ChapterMetaEntry[];
+  tags?: string[];
 }
 
 interface ChapterDoc {
@@ -305,6 +307,9 @@ export const saveChapter = onCall<SaveChapterRequest>(
 
     const now = Timestamp.now();
     let isNewChapter = false;
+    // Captured inside the tx when chapter-1 tags change; applied after commit.
+    let tagsBefore: string[] | null = null;
+    let tagsAfter: string[] | null = null;
 
     await db.runTransaction(async (tx) => {
       const storySnap = await tx.get(storyRef);
@@ -456,6 +461,10 @@ export const saveChapter = onCall<SaveChapterRequest>(
           storyUpdate.title_lc = normalizedTitle.toLowerCase();
           storyUpdate.description = normalizedDesc;
           storyUpdate.tags = cleanTags;
+
+          // Capture old/new tags for post-commit count maintenance.
+          tagsBefore = Array.isArray(storyData.tags) ? storyData.tags : [];
+          tagsAfter = cleanTags;
         }
       }
 
@@ -500,6 +509,21 @@ export const saveChapter = onCall<SaveChapterRequest>(
 
       tx.set(chapterRef, baseChapterData, { merge: true });
     });
+
+    // Maintain tag counts inline (replaces the old onStoryUpdate trigger) — only
+    // when the chapter-1 tag set actually changed. Non-fatal.
+    if (tagsBefore && tagsAfter) {
+      try {
+        const before = new Set<string>(tagsBefore);
+        const after = new Set<string>(tagsAfter);
+        const added = [...after].filter((t) => !before.has(t));
+        const removed = [...before].filter((t) => !after.has(t));
+        if (added.length) await incrementTags(added);
+        if (removed.length) await decrementThenCleanupTags(removed);
+      } catch (err) {
+        console.error('saveChapter: tag maintenance failed', err);
+      }
+    }
 
     return {
       storyId,
