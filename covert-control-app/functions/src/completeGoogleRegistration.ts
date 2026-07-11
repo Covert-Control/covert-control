@@ -37,11 +37,11 @@ export const completeGoogleRegistration = onCall({ enforceAppCheck: true }, asyn
         } else if (existingUid === uid) {
           logger.warn(`User ${uid} attempted to re-register existing username ${username_lc}. Skipping update.`);
 
-          const userDocRef = admin.firestore().doc(`users/${uid}`);
-          const userDocSnap = await tx.get(userDocRef);
-
-          if (!userDocSnap.exists) {
-            tx.set(userDocRef, {
+          // Reuse `userSnap` (read at the top of this tx) instead of reading
+          // users/{uid} a second time — a transaction gives a consistent read,
+          // so the re-read returned identical data anyway.
+          if (!userSnap.exists) {
+            tx.set(userRef, {
               username,
               username_lc,
               createdAt: admin.firestore.FieldValue.serverTimestamp(),

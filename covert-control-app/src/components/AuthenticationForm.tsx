@@ -617,7 +617,7 @@ export function AuthenticationForm(props: PaperProps) {
       >
         <Stack>
           <Text>
-            We just sent a verification link to <b>{pendingEmail}</b>. Please open that email and click the link to activate your account. <b>Check your spam folder if you don't see it.</b>
+            We just sent a verification link to <b>{pendingEmail}</b>. Please verify your email by clicking the link in order to unlock all site features. <b>Check your spam folder if you don't see it.</b>
           </Text>
 
           <Button

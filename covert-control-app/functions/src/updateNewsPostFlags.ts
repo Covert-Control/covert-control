@@ -16,8 +16,8 @@ interface UpdateNewsPostFlagsRequest {
 }
 
 function getIsAdmin(auth: CallableAuth | undefined): boolean {
-  const token = auth?.token;
-  return token?.admin === true || token?.isAdmin === true;
+  // Matches the custom claim set by updateAdmin.ts (`isAdmin`).
+  return auth?.token?.isAdmin === true;
 }
 
 export const updateNewsPostFlags = onCall(
