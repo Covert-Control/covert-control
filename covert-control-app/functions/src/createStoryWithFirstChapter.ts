@@ -5,7 +5,7 @@ import {
 } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { randomInt } from 'crypto';
-import { incrementTags } from './lib/tags';
+import { incrementTags, SHORT_TAG_ALLOWLIST } from './lib/tags';
 
 const db = getFirestore();
 
@@ -40,7 +40,7 @@ const BODY_CHAR_LIMIT = 150000;
 // Tag constraints
 const TAGS_MAX = 30;
 const TAGS_MIN = 3;
-const TAG_MIN_LEN = 2; // per-tag min length
+const TAG_MIN_LEN = 3; // per-tag min length (SHORT_TAG_ALLOWLIST is exempt)
 const TAG_MAX_LEN = 30;
 
 // Required field constraints
@@ -115,7 +115,7 @@ function cleanTags(input: unknown): string[] {
     const tag = normalizeTag(t);
     if (!tag) continue;
 
-    if (tag.length < TAG_MIN_LEN) {
+    if (tag.length < TAG_MIN_LEN && !SHORT_TAG_ALLOWLIST.has(tag)) {
       throw new HttpsError(
         'invalid-argument',
         `Tag "${tag}" is too short (min ${TAG_MIN_LEN}).`

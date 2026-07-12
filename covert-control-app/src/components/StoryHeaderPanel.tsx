@@ -60,6 +60,9 @@ interface StoryHeaderPanelProps {
   onNavigateChapter: (chapter: number) => void;
   readingMenu: React.ReactNode;
   reportButton: React.ReactNode;
+  // Admin-only affordances rendered to the left of the tag row (edit tags /
+  // delete story). Null for non-admins.
+  adminTagControls?: React.ReactNode;
 }
 
 function formatShortDate(d: Date) {
@@ -89,6 +92,7 @@ export function StoryHeaderPanel({
   onNavigateChapter,
   readingMenu,
   reportButton,
+  adminTagControls,
 }: StoryHeaderPanelProps) {
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
@@ -287,7 +291,8 @@ export function StoryHeaderPanel({
               )}
             </Group>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {adminTagControls}
               {visibleTags.map((tag) => (
                 <TagPill key={tag} tag={tag} />
               ))}

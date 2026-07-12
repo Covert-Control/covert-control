@@ -138,6 +138,12 @@ export const saveChapterCallable: HttpsCallable<
   SaveChapterOutput
 > = httpsCallable(functions, 'saveChapter');
 
+// Admin-only: overwrite a story's full tag list (set semantics).
+export const adminSetStoryTagsCallable: HttpsCallable<
+  { storyId: string; tags: string[] },
+  { ok: true; storyId: string; tags: string[] }
+> = httpsCallable(functions, 'adminSetStoryTags');
+
 export const upsertNewsPostCallable = httpsCallable(functions, 'upsertNewsPost');
 export const updateNewsPostFlagsCallable = httpsCallable(functions, 'updateNewsPostFlags');
 export const deleteNewsPostCallable = httpsCallable(functions, 'deleteNewsPost');

@@ -25,6 +25,21 @@ export type FeaturedTagGroup = {
   tags: string[];
 };
 
+// Canonical short "primary" tag groups shown as recommended chips on the story
+// forms. Every tag here is exempt from the general min-length rule (see
+// SHORT_TAG_ALLOWLIST). Keep in sync with SHORT_TAG_ALLOWLIST in
+// functions/src/lib/tags.ts (the server enforces the same exemption).
+export const PRIMARY_TAG_GROUPS: FeaturedTagGroup[] = [
+  { label: 'Dominant Gender:', tags: ['fd', 'md'] },
+  { label: 'Gender Pairing:', tags: ['ff', 'mf', 'mm'] },
+];
+
+// Short tags that are always allowed even though they fall below minTagLength.
+// Derived from PRIMARY_TAG_GROUPS so the two never drift apart.
+export const SHORT_TAG_ALLOWLIST = new Set<string>(
+  PRIMARY_TAG_GROUPS.flatMap((g) => g.tags)
+);
+
 export type TagPickerProps = {
   value: string[];
   onChange: (next: string[]) => void;
@@ -96,7 +111,9 @@ export function TagPicker({
   hideFeaturedFromInput = true,
 }: TagPickerProps) {
   const [search, setSearch] = useState('');
-  const [debounced] = useDebouncedValue(search, 200);
+  // 350ms debounce: collapses most intermediate keystroke queries while typing
+  // a tag, with no perceptible UX cost.
+  const [debounced] = useDebouncedValue(search, 350);
 
   // Build featured canonical order + set
   const featuredOrder = useMemo(() => {
@@ -114,8 +131,10 @@ export function TagPicker({
   const { data } = useQuery<TagDoc[]>({
     queryKey: ['tags-suggest', normalizedSearch, suggestionLimit],
     enabled,
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
+    // Tag data changes slowly, so keep suggestions cached for an hour — every
+    // re-typed prefix within a session (and repeat searches) is then free.
+    staleTime: 60 * 60_000,
+    gcTime: 60 * 60_000,
     queryFn: async () => {
       const s = normalizedSearch;
       if (!s) return [];
@@ -161,8 +180,10 @@ export function TagPicker({
   const sanitizeWithFeatured = (arr: string[]) => {
     const cleaned = (arr ?? []).map((t) => cleanAllowedChars(normalize(t))).filter(Boolean);
 
-    // allow featured tags even if < minTagLength
-    const lengthFiltered = cleaned.filter((t) => featuredSet.has(t) || t.length >= minTagLength);
+    // allow featured + allowlisted short tags even if < minTagLength
+    const lengthFiltered = cleaned.filter(
+      (t) => featuredSet.has(t) || SHORT_TAG_ALLOWLIST.has(t) || t.length >= minTagLength
+    );
 
     const deduped = dedupeCaseInsensitive(lengthFiltered);
 

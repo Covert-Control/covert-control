@@ -37,7 +37,7 @@ import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import TipTapLink from '@tiptap/extension-link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { TagPicker } from '../../components/TagPicker';
+import { TagPicker, SHORT_TAG_ALLOWLIST, PRIMARY_TAG_GROUPS } from '../../components/TagPicker';
 
 /* ---------------------------------------------
   Route
@@ -69,7 +69,7 @@ const BODY_CHAR_LIMIT = 150000;
 // Tag constraints
 const TAGS_MAX = 30;
 const TAGS_MIN = 3;
-const TAG_MIN_LEN = 2;
+const TAG_MIN_LEN = 3; // SHORT_TAG_ALLOWLIST is exempt
 const TAG_MAX_LEN = 30;
 
 // Required story field constraints (only editable in chapter 1)
@@ -106,7 +106,11 @@ function normalizeTag(s: string) {
 function sanitizeTags(tags: string[]) {
   const cleaned = (tags ?? [])
     .map(normalizeTag)
-    .filter((t) => t.length >= TAG_MIN_LEN && t.length <= TAG_MAX_LEN);
+    .filter(
+      (t) =>
+        (t.length >= TAG_MIN_LEN || SHORT_TAG_ALLOWLIST.has(t)) &&
+        t.length <= TAG_MAX_LEN
+    );
 
   return Array.from(new Set(cleaned)).slice(0, TAGS_MAX);
 }
@@ -353,7 +357,8 @@ function EditStoryPage() {
         for (const t of tags) {
           const s = normalizeTag(t);
           if (!s) continue;
-          if (s.length < TAG_MIN_LEN) return `Tag "${t}" is too short`;
+          if (s.length < TAG_MIN_LEN && !SHORT_TAG_ALLOWLIST.has(s))
+            return `Tag "${t}" is too short`;
           if (s.length > TAG_MAX_LEN) return `Tag "${t}" is too long`;
         }
         return null;
@@ -596,7 +601,10 @@ function EditStoryPage() {
                 onChange={(next) => form.setFieldValue('tags', next)}
                 maxTags={TAGS_MAX}
                 minTagLength={TAG_MIN_LEN}
-                placeholder="Add tags (e.g., science fiction), separate with comma"
+                placeholder="Add tags (e.g., science fiction), separate with comma. Minimum character length of 3."
+                featuredTitle="Recommended tags"
+                featuredDescription="Please consider choosing at least 1 tag for the dominant gender and 1 tag for the gender pairing to help readers filter and find your story."
+                featuredGroups={PRIMARY_TAG_GROUPS}
               />
 
               {form.errors.tags && (

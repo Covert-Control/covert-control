@@ -38,7 +38,7 @@ import {
 } from 'firebase/firestore';
 
 import { useAuthStore } from '../../stores/authStore';
-import { TagPicker } from '../../components/TagPicker';
+import { TagPicker, SHORT_TAG_ALLOWLIST } from '../../components/TagPicker';
 import { TermsModal } from '../../components/TermsModal';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -51,7 +51,7 @@ const BODY_MIN_WORDS = 50;
 // Tag constraints
 const TAGS_MAX = 30;
 const TAGS_MIN = 3;
-const TAG_MIN_LEN = 2; // per-tag min length
+const TAG_MIN_LEN = 3; // per-tag min length (SHORT_TAG_ALLOWLIST is exempt)
 const TAG_MAX_LEN = 30;
 
 // Featured / strongly recommended tags
@@ -98,7 +98,7 @@ function cleanTags(tags: string[]) {
     const tag = normalizeTag(t);
     if (!tag) continue;
 
-    if (tag.length < TAG_MIN_LEN) {
+    if (tag.length < TAG_MIN_LEN && !SHORT_TAG_ALLOWLIST.has(tag)) {
       throw new Error(`Tag "${tag}" is too short`);
     }
     if (tag.length > TAG_MAX_LEN) {
@@ -609,7 +609,7 @@ export function TipTap2() {
                   error={form.errors.tags}
                   maxTags={TAGS_MAX}
                   minTagLength={TAG_MIN_LEN}
-                  placeholder="Add tags (e.g., science fiction, fantasy, super hero). Separate with comma."
+                  placeholder="Add tags (e.g., science fiction, fantasy, super hero). Separate with comma. Minimum character length of 3."
                   featuredTitle="Recommended tags"
                   featuredDescription="Please consider choosing at least 1 tag for the dominant gender and 1 tag for the gender pairing to help readers filter and find your story."
                   featuredGroups={[

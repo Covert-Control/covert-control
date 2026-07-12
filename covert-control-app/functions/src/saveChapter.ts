@@ -1,7 +1,7 @@
 // functions/src/saveChapter.ts
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { incrementTags, decrementThenCleanupTags } from './lib/tags';
+import { incrementTags, decrementThenCleanupTags, SHORT_TAG_ALLOWLIST } from './lib/tags';
 
 const db = getFirestore();
 
@@ -76,7 +76,7 @@ const CHAPTERS_MAX = 500;
 // Tag constraints
 const TAGS_MAX = 30;
 const TAGS_MIN = 3;
-const TAG_MIN_LEN = 2;
+const TAG_MIN_LEN = 3; // SHORT_TAG_ALLOWLIST is exempt
 const TAG_MAX_LEN = 30;
 
 // Required story fields (chapter 1 only)
@@ -127,7 +127,7 @@ function cleanTagsStrict(input: unknown): string[] {
     const tag = normalizeTag(raw);
     if (!tag) continue;
 
-    if (tag.length < TAG_MIN_LEN) {
+    if (tag.length < TAG_MIN_LEN && !SHORT_TAG_ALLOWLIST.has(tag)) {
       throw new HttpsError(
         'invalid-argument',
         `Tag "${tag}" is too short (min ${TAG_MIN_LEN}).`

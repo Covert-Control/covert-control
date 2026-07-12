@@ -55,6 +55,8 @@ export { createStoryWithFirstChapter } from './createStoryWithFirstChapter';
 
 export { saveChapter } from './saveChapter';
 
+export { adminSetStoryTags } from './adminSetStoryTags';
+
 /* ------------------------------------------------------------------ */
 /*  Submit or edit public profile                                           */
 /* ------------------------------------------------------------------ */

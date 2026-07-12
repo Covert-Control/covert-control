@@ -8,6 +8,7 @@ import {
 import { Route as StoryLayout } from './$storyId';
 
 import {
+  ActionIcon,
   Anchor,
   Box,
   Center,
@@ -20,8 +21,11 @@ import {
   Stack,
   Text,
   Title,
+  Tooltip,
   rem,
 } from '@mantine/core';
+
+import { PencilLine, Trash2 } from 'lucide-react';
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -63,6 +67,8 @@ import {
 import { ReportModal } from '../../components/ReportModal';
 
 import { StoryHeaderPanel } from '../../components/StoryHeaderPanel';
+
+import { AdminEditTagsModal } from '../../components/AdminEditTagsModal';
 
 import { ReaderBookmarkLayer } from '../../components/ReaderBookmarkLayer';
 
@@ -166,6 +172,16 @@ function StoryDetailPage() {
     story.ownerId &&
     user.uid === story.ownerId
   );
+
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+
+  // Admin tag editing. The router loader caches the story (staleTime: Infinity),
+  // so after an admin edit we keep the saved tags in local state and feed them
+  // to the header instead of re-reading the story doc.
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [tagsOverride, setTagsOverride] = useState<string[] | null>(null);
+  const effectiveStory =
+    tagsOverride ? { ...story, tags: tagsOverride } : story;
 
   const canReport = !!user && !isOwnStory;
 
@@ -412,6 +428,27 @@ function StoryDetailPage() {
     });
   }
 
+  // Admin can delete any story (deleteStory allows admin-or-owner, same call the
+  // reports page uses). Reuses performDelete; only the confirm wording differs.
+  function handleAdminDelete() {
+    if (!storyId || !isAdmin) return;
+
+    modals.openConfirmModal({
+      title: 'Delete story (admin)',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Delete <b>{story.title}</b> and all its chapters? This cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: 'Delete story', cancel: 'Cancel' },
+      confirmProps: { color: 'red.8' },
+      onConfirm: () => {
+        void performDelete();
+      },
+    });
+  }
+
   async function performDelete() {
     if (!storyId) return;
 
@@ -424,7 +461,7 @@ function StoryDetailPage() {
       notifications.show({
         title: 'Story deleted',
         message:
-          'Your story and all chapters were removed.',
+          'The story and all chapters were removed.',
         color: 'green',
         position: 'bottom-center',
       });
@@ -646,7 +683,7 @@ function StoryDetailPage() {
 
           {!readerMode && (
             <StoryHeaderPanel
-              story={story}
+              story={effectiveStory}
               storyId={storyId}
               isOwnStory={isOwnStory}
               safeChapter={safeChapter}
@@ -679,6 +716,47 @@ function StoryDetailPage() {
                   />
                 ) : null
               }
+              adminTagControls={
+                isAdmin ? (
+                  <Group gap={4} align="center" wrap="nowrap">
+                    <Tooltip label="Edit tags (admin)" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        size="sm"
+                        aria-label="Edit tags (admin)"
+                        onClick={() => setTagsModalOpen(true)}
+                      >
+                        <PencilLine size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                    {!isOwnStory && (
+                      <Tooltip label="Delete story (admin)" withArrow>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          size="sm"
+                          aria-label="Delete story (admin)"
+                          onClick={handleAdminDelete}
+                          loading={deleting}
+                        >
+                          <Trash2 size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
+                ) : null
+              }
+            />
+          )}
+
+          {isAdmin && (
+            <AdminEditTagsModal
+              opened={tagsModalOpen}
+              onClose={() => setTagsModalOpen(false)}
+              storyId={storyId}
+              initialTags={effectiveStory.tags ?? []}
+              onSaved={(next) => setTagsOverride(next)}
             />
           )}
 

@@ -6,6 +6,7 @@
 // no-opped. We now call these directly from the only three places tags actually
 // change (story create, chapter-1 meta edit, story delete), so no work happens
 // on views/likes.
+import { HttpsError } from 'firebase-functions/v2/https';
 import { admin } from './admin';
 
 export function normalizeTagId(tag: string): string {
@@ -14,6 +15,61 @@ export function normalizeTagId(tag: string): string {
     .toLowerCase()
     .replace(/\s*\(\d+\)\s*$/, '') // strip " (123)" suffix if present
     .replace(/\s+/g, ' '); // collapse spaces
+}
+
+// Shared tag-list validation (bounds + per-tag length), matching the rules in
+// createStoryWithFirstChapter / saveChapter. Kept here so new callers (e.g.
+// adminSetStoryTags) reuse one source of truth without touching those functions.
+const TAGS_MIN = 3;
+const TAGS_MAX = 30;
+const TAG_MIN_LEN = 3;
+const TAG_MAX_LEN = 30;
+
+// Canonical short "primary" tags (dominant gender + gender pairing) that are
+// exempt from the min-length rule. Mirrors SHORT_TAG_ALLOWLIST / PRIMARY_TAG_GROUPS
+// on the client (src/components/TagPicker.tsx) — keep the two in sync.
+export const SHORT_TAG_ALLOWLIST = new Set<string>(['fd', 'md', 'ff', 'mf', 'mm']);
+
+/**
+ * Normalize, dedupe, and validate a full desired tag list. Throws HttpsError on
+ * any violation. Returns the cleaned, deduped, normalized array.
+ */
+export function cleanTags(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    throw new HttpsError('invalid-argument', 'tags must be an array.');
+  }
+
+  const cleaned: string[] = [];
+  for (const raw of input) {
+    const tag = normalizeTagId(String(raw ?? ''));
+    if (!tag) continue;
+
+    if (tag.length < TAG_MIN_LEN && !SHORT_TAG_ALLOWLIST.has(tag)) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Tag "${tag}" is too short (min ${TAG_MIN_LEN}).`
+      );
+    }
+    if (tag.length > TAG_MAX_LEN) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Tag "${tag}" is too long (max ${TAG_MAX_LEN}).`
+      );
+    }
+
+    cleaned.push(tag);
+  }
+
+  const deduped = Array.from(new Set(cleaned));
+
+  if (deduped.length < TAGS_MIN) {
+    throw new HttpsError('invalid-argument', `Please add at least ${TAGS_MIN} tags.`);
+  }
+  if (deduped.length > TAGS_MAX) {
+    throw new HttpsError('invalid-argument', `Please use at most ${TAGS_MAX} tags.`);
+  }
+
+  return deduped;
 }
 
 /** Increment each tag's story-count, creating the tag doc if it doesn't exist. */
