@@ -42,6 +42,9 @@ export function AccountDropDown() {
         position="bottom"
         transitionProps={{ transition: 'pop' }}
         withinPortal
+        // The mobile navbar is z-index 300 (see Navbar.tsx), which ties Mantine's
+        // default popover z-index and hides this dropdown behind it. Sit above it.
+        zIndex={400}
       >
         <Menu.Target>
           <ActionIcon 

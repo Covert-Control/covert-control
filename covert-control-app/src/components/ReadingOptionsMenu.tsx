@@ -226,7 +226,7 @@ export function ReadingOptionsMenu({ onChange, currentValues }: ReadingOptionsMe
   return (
     <Menu withArrow shadow="md" position="bottom-end">
       <Menu.Target>
-        <Tooltip label="Reading options" withArrow position="bottom">
+        <Tooltip label="Reading options" withArrow position="top">
           <Button variant="subtle" size="xs" radius="md" leftSection={<SlidersHorizontal size={14} />}>
             Display
           </Button>

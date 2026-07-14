@@ -22,14 +22,16 @@ export function ReaderModeToggle({ variant, size = 'xs' }: Props) {
     if (readerMode) return null;
 
     return (
-      <Button
-        size={size}
-        variant="light"
-        leftSection={<BookOpen size={16} />}
-        onClick={() => setReaderMode(true)}
-      >
-        Hide UI
-      </Button>
+      <Tooltip label="Hide the interface for distraction-free reading" withArrow position="top">
+        <Button
+          size={size}
+          variant="light"
+          leftSection={<BookOpen size={16} />}
+          onClick={() => setReaderMode(true)}
+        >
+          Hide UI
+        </Button>
+      </Tooltip>
     );
   }
 

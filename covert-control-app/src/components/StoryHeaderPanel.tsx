@@ -328,7 +328,7 @@ export function StoryHeaderPanel({
             {isOwnStory && (
               <Menu withArrow shadow="md" position="bottom-end">
                 <Menu.Target>
-                  <Tooltip label="Story actions" withArrow position="bottom">
+                  <Tooltip label="Story actions" withArrow position="top">
                     <ActionIcon
                       variant="subtle"
                       radius="md"
