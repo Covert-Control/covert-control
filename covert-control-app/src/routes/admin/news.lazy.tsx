@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { createLazyFileRoute, Link as RouterLink } from '@tanstack/react-router';
+import { createLazyFileRoute, Link as RouterLink, useNavigate } from '@tanstack/react-router';
 import {
   Badge,
   Box,
@@ -17,7 +17,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { modals } from '@mantine/modals';
-import { AlertTriangle, Pin, PinOff, Trash2 } from 'lucide-react';
+import { Pin, PinOff, Trash2 } from 'lucide-react';
 
 import { RichTextEditor } from '@mantine/tiptap';
 import { useEditor } from '@tiptap/react';
@@ -64,6 +64,17 @@ function AdminNewsPage() {
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const authLoading = useAuthStore((s) => s.loading);
   const currentUser = useAuthStore((s) => s.user);
+
+  const navigate = useNavigate();
+
+  // Non-admins are redirected straight home — the admin pages don't announce
+  // themselves. Gated on !authLoading so a real admin isn't bounced before their
+  // claim loads. `replace` keeps the admin URL out of history. (This is UX only;
+  // real protection is the backend rules/claims.)
+  useEffect(() => {
+    if (authLoading || isAdmin) return;
+    navigate({ to: '/', replace: true });
+  }, [authLoading, isAdmin, navigate]);
 
   const [posts, setPosts] = useState<NewsPost[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -186,22 +197,9 @@ function AdminNewsPage() {
     );
   }
 
+  // Not an admin: render nothing while the effect above redirects home.
   if (!isAdmin) {
-    return (
-      <Container size="md" py="xl">
-        <Paper p="lg" radius="lg" withBorder>
-          <Group align="flex-start" gap="md">
-            <AlertTriangle size={24} />
-            <div>
-              <Title order={3}>Access denied</Title>
-              <Text size="sm" c="dimmed">
-                You must be an administrator to manage news posts.
-              </Text>
-            </div>
-          </Group>
-        </Paper>
-      </Container>
-    );
+    return null;
   }
 
   const selected = useMemo(() => posts.find((p) => p.id === editingId) ?? null, [posts, editingId]);

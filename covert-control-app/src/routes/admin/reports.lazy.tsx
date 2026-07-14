@@ -1,6 +1,6 @@
 // src/routes/admin/reports.lazy.tsx
 import { useEffect, useMemo, useState } from 'react';
-import { createLazyFileRoute, Link as RouterLink } from '@tanstack/react-router';
+import { createLazyFileRoute, Link as RouterLink, useNavigate } from '@tanstack/react-router';
 import {
   Badge,
   Box,
@@ -15,7 +15,7 @@ import {
   Spoiler,
   Tooltip,
 } from '@mantine/core';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { modals } from '@mantine/modals';
 
 import { db, deleteStoryCallable } from '../../config/firebase';
@@ -64,6 +64,17 @@ function AdminReportsPage() {
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const authLoading = useAuthStore((s) => s.loading);
   const currentUser = useAuthStore((s) => s.user);
+
+  const navigate = useNavigate();
+
+  // Non-admins are redirected straight home — the admin pages don't announce
+  // themselves. Gated on !authLoading so a real admin isn't bounced before their
+  // claim loads. `replace` keeps the admin URL out of history. (This is UX only;
+  // real protection is the backend rules/claims.)
+  useEffect(() => {
+    if (authLoading || isAdmin) return;
+    navigate({ to: '/', replace: true });
+  }, [authLoading, isAdmin, navigate]);
 
   const [filter, setFilter] = useState<'open' | 'all'>('open');
   const [reports, setReports] = useState<Report[]>([]);
@@ -152,22 +163,9 @@ function AdminReportsPage() {
     );
   };
 
+  // Not an admin: render nothing while the effect above redirects home.
   if (!isAdmin) {
-    return (
-      <Container size="md" py="xl">
-        <Paper p="lg" radius="lg" withBorder>
-          <Group align="flex-start" gap="md">
-            <AlertTriangle size={24} />
-            <div>
-              <Title order={3}>Access denied</Title>
-              <Text size="sm" c="dimmed">
-                You must be an administrator to view moderation reports.
-              </Text>
-            </div>
-          </Group>
-        </Paper>
-      </Container>
-    );
+    return null;
   }
 
   async function handleDismiss(report: Report) {

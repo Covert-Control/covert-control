@@ -1,7 +1,7 @@
 // src/routes/stories/$storyId.edit.tsx
 import './tiptap.css';
 
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { Route as StoryLayout } from './$storyId';
 
 import { doc, getDoc } from 'firebase/firestore';
@@ -180,6 +180,7 @@ function EditStoryPage() {
   const isAdmin = (user as any)?.isAdmin === true;
 
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const isOwnStory = !!user?.uid && user.uid === story.ownerId;
   const canEdit = isOwnStory || isAdmin;
@@ -500,6 +501,13 @@ function EditStoryPage() {
       notifications.show({
         message: data.isNewChapter ? 'Chapter created' : 'Chapter saved',
       });
+
+      // The reader's chapter count + selector come from the $storyId ROUTER
+      // loader (staleTime: Infinity), which the queryClient calls above don't
+      // touch. Re-run it so a newly added chapter (and any meta edits) show
+      // without a hard refresh; also refresh the chapters-overview list.
+      queryClient.invalidateQueries({ queryKey: ['storyChaptersList', storyId] });
+      await router.invalidate();
 
       navigate({
         to: '/stories/$storyId',
