@@ -249,11 +249,12 @@ function RouteComponent() {
         <Header count={0} />
         <Space h="md" />
         <Text c="dimmed" maw={520}>
-          You need to be signed in to view your favorites.
+          Save the stories you love to your favorites and find them all again in
+          one place. Sign in to start your collection.
         </Text>
         <Space h="md" />
         <Link to="/authentication" search={{ redirect: '/favorites' }}>
-          <Button>Sign in to continue</Button>
+          <Button>Sign in to save favorites</Button>
         </Link>
       </div>
     );

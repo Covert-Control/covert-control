@@ -114,11 +114,12 @@ function RouteComponent() {
         <Header count={0} />
         <Space h="md" />
         <Text c="dimmed" maw={520}>
-          You need to be signed in to view your bookmarks.
+          Bookmark your spot and save favorite passages so you can pick up right
+          where you left off. Sign in to start bookmarking.
         </Text>
         <Space h="md" />
         <Link to="/authentication" search={{ redirect: '/bookmarks' } as never}>
-          <Button>Sign in to continue</Button>
+          <Button>Sign in to add bookmarks</Button>
         </Link>
       </div>
     );

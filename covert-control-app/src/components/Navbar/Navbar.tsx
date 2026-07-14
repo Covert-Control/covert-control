@@ -61,8 +61,10 @@ export default function SiteNavbar({ desktopOpened, onToggleDesktop, onCloseMobi
         { label: "Last Week's Stories", link: '/stories/weeklynew' },
         { label: 'Random', link: '/stories/random' },
         { label: 'Authors', link: '/authors' },
-        ...(user ? [{ label: 'Favorites', link: '/favorites' }] : []),
-        ...(user ? [{ label: 'Bookmarks', link: '/bookmarks' }] : []),
+        // Shown to everyone — logged-out visitors get a feature-specific
+        // sign-in prompt on these pages (encourages sign-up + feature discovery).
+        { label: 'Favorites', link: '/favorites' },
+        { label: 'Bookmarks', link: '/bookmarks' },
       ],
     },
     { label: 'Submit Story', icon: PencilLine, link: '/submit' },
