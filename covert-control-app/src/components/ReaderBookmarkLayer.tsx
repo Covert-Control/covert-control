@@ -302,9 +302,8 @@ export function ReaderBookmarkLayer({
   return (
     <>
       <style>{`
-        .bm-marker { opacity: 0.28; transition: opacity 0.15s ease; }
-        .bm-marker:hover { opacity: 1; }
         .bm-marker-tab { opacity: 0.5; transition: opacity 0.15s ease; }
+        .bm-marker-tab:hover { opacity: 1; }
         .bm-marker-tab:active { opacity: 1; }
         @keyframes bmFlash {
           0% { background-color: rgba(190, 75, 219, 0.28); }
@@ -343,55 +342,32 @@ export function ReaderBookmarkLayer({
           >
             <Menu position="right-start" shadow="md" width={220} withArrow>
               <Menu.Target>
-                {isMobile ? (
-                  // Solid rounded tab hugging the left edge — visible + tappable
-                  // where a thin gutter bar would be clipped to a sliver.
-                  <UnstyledButton
-                    className="bm-marker-tab"
-                    aria-label={
-                      m.kind === 'place' ? 'Saved place' : 'Saved section'
-                    }
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-end',
-                      width: 17,
-                      height: 26,
-                      paddingRight: 2,
-                      borderRadius: '0 6px 6px 0',
-                      background: color,
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.28)',
-                    }}
-                  >
-                    {m.kind === 'place' ? (
-                      <Bookmark size={13} color="#fff" fill="#fff" />
-                    ) : (
-                      <ChevronRight size={14} color="#fff" strokeWidth={2.5} />
-                    )}
-                  </UnstyledButton>
-                ) : (
-                  <UnstyledButton
-                    className="bm-marker"
-                    aria-label={
-                      m.kind === 'place' ? 'Saved place' : 'Saved section'
-                    }
-                    style={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                  >
-                    <Box
-                      style={{
-                        width: 3,
-                        height: 22,
-                        borderRadius: 2,
-                        background: color,
-                      }}
-                    />
-                    {m.kind === 'place' ? (
-                      <Bookmark size={13} color={color} fill={color} />
-                    ) : (
-                      <ChevronRight size={13} color={color} />
-                    )}
-                  </UnstyledButton>
-                )}
+                {/* Solid rounded tab hugging the left edge — visible + tappable
+                    on both mobile and desktop (desktop previously used a faint
+                    thin bar that was hard to see). */}
+                <UnstyledButton
+                  className="bm-marker-tab"
+                  aria-label={
+                    m.kind === 'place' ? 'Saved place' : 'Saved section'
+                  }
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    width: 17,
+                    height: 26,
+                    paddingRight: 2,
+                    borderRadius: '0 6px 6px 0',
+                    background: color,
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.28)',
+                  }}
+                >
+                  {m.kind === 'place' ? (
+                    <Bookmark size={13} color="#fff" fill="#fff" />
+                  ) : (
+                    <ChevronRight size={14} color="#fff" strokeWidth={2.5} />
+                  )}
+                </UnstyledButton>
               </Menu.Target>
               <Menu.Dropdown>
                 {m.kind === 'place' ? (

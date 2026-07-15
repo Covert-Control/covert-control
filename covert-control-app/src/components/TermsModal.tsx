@@ -60,10 +60,14 @@ export function TermsModal({
           style={{
             maxHeight: 320,
             overflowY: 'auto',
-            paddingRight: 8,
+            overflowX: 'hidden',
+            boxSizing: 'border-box',
             border: '1px solid var(--mantine-color-default-border)',
-            borderRadius: '8px',
-            padding: '12px',
+            borderRadius: 8,
+            padding: 12,
+            // Extra right padding leaves room for the scrollbar so line ends
+            // aren't clipped. Must come AFTER `padding` so it isn't overridden.
+            paddingRight: 24,
           }}
         >
           <Text size="sm">
@@ -98,36 +102,16 @@ export function TermsModal({
           </Text>
 
           <List size="sm" spacing={6} mt="xs">
+            <List.Item>Submissions should belong to a general theme of mind control, hypnosis, or psychological manipulation.</List.Item>
+            <List.Item>Stories featuring underage characters (under the age of 18) are strictly prohibited. If characters are described as "students" or are otherwise in situations where their age is ambiguous, it should be explicitly stated that they are at least 18 years of age. Posting content with underage characters will likely result in immediate ban and account deletion.</List.Item>
+            <List.Item>No doxxing or sharing private personal information. Ensure you have consent if posting a chat log.</List.Item>
+            <List.Item>Inductions and similar content are acceptable, but must be clearly labeled as such.</List.Item>
+            <List.Item>No spam, scams, or attempts to manipulate the platform. Extremely low effort content may be removed.</List.Item>
             <List.Item>
-              Submissions should belong to a general theme of mind control, hypnosis, or psychological
-              manipulation.
+              Use tags accurately. Misleading or false tags may result in content removal. Please take the time to use tags that already exist and to avoid creating duplicate (but slightly different) tags unnecessarily.
             </List.Item>
-            <List.Item>
-              Stories featuring underage characters (under the age of 18) are strictly prohibited. If
-              characters are described as &quot;students&quot; or are otherwise in situations where their
-              age is ambiguous, it should be explicitly stated that they are at least 18 years of age.
-              Posting content with underage characters will likely result in immediate ban and account
-              deletion.
-            </List.Item>
-            <List.Item>
-              No doxxing or sharing private personal information. Ensure you have consent if posting a
-              chat log.
-            </List.Item>
-            <List.Item>
-              Submissions should be in the form of a story. This is not a platform for keeping baking
-              recipes or other non-fictional content.
-            </List.Item>
-            <List.Item>No spam, scams, or attempts to manipulate the platform.</List.Item>
-            <List.Item>
-              Use tags accurately. Misleading or false tags may result in content removal. Please take
-              the time to use tags that already exist and to avoid creating duplicate (but slightly
-              different) tags unnecessarily.
-            </List.Item>
-            <List.Item>
-              Stories featuring niche kinks that can be difficult or unnerving for some users, such as
-              scat/watersports, beastiality, incest, raceplay etc. must be properly tagged.
-            </List.Item>
-            <List.Item>Do not post another author&apos;s story. Any proven plagiarism will be removed.</List.Item>
+            <List.Item>Stories featuring niche kinks that can be difficult or unnerving for some users, such as scat/watersports, beastiality, incest, raceplay etc. must be properly tagged. As the admin, I may add tags to stories as I see fit (however admins will never touch the content of a story itself).</List.Item>
+            <List.Item>Do not post another author's story. Any proven plagiarism will be removed.</List.Item>
           </List>
 
           <Text size="sm" mt="xs">

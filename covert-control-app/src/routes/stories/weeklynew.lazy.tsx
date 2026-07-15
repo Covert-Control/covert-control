@@ -1,16 +1,13 @@
 // src/routes/stories/week.lazy.tsx
 import * as React from 'react';
 import { createLazyFileRoute, useNavigate } from '@tanstack/react-router';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   collection,
-  DocumentData,
   getDocs,
   limit as fbLimit,
   orderBy,
   query as fsQuery,
-  QueryDocumentSnapshot,
-  startAfter,
   Timestamp,
   where,
 } from 'firebase/firestore';
@@ -20,6 +17,7 @@ import {
   Center,
   Group,
   Loader,
+  Select,
   Stack,
   Text,
   Title,
@@ -30,7 +28,24 @@ export const Route = createLazyFileRoute('/stories/weeklynew')({
   component: StoriesThisWeekRoute,
 });
 
-const PAGE_SIZE = 20;
+// A single completed week is bounded and small, so we load the whole set once
+// (cheap + cached) rather than paginating. This lets us sort by any field
+// client-side — Firestore can't sort by title/likes/etc. while the week range
+// filter forces the primary orderBy onto updatedAt. Cap guards a runaway week.
+const MAX_STORIES = 300;
+
+type SortKey = 'newest' | 'title' | 'author' | 'likes' | 'views';
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'title', label: 'Title (A–Z)' },
+  { value: 'author', label: 'Author (A–Z)' },
+  { value: 'likes', label: 'Most likes' },
+  { value: 'views', label: 'Most views' },
+];
+
+// Case-insensitive, locale-aware alphabetical comparison.
+const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
 
 // Most recent Saturday at 00:00 local time.
 function mostRecentSaturdayStart(now: Date): Date {
@@ -84,6 +99,8 @@ function StoriesThisWeekRoute() {
 
   const navigate = useNavigate();
 
+  const [sortBy, setSortBy] = React.useState<SortKey>('newest');
+
   const { start, end } = React.useMemo(() => {
     // “This Week” = most recently completed Saturday→Saturday window.
     // boundary = most recent Saturday 00:00.
@@ -102,31 +119,24 @@ function StoriesThisWeekRoute() {
     [start, end],
   );
 
-  const storiesQuery = useInfiniteQuery({
+  const storiesQuery = useQuery({
     queryKey,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async () => {
       const startTs = Timestamp.fromDate(start);
       const endTs = Timestamp.fromDate(end);
 
-      const baseConstraints = [
+      const q = fsQuery(
+        collection(db, 'stories'),
         where('updatedAt', '>=', startTs),
         where('updatedAt', '<', endTs),
         orderBy('updatedAt', 'desc'),
-        fbLimit(PAGE_SIZE),
-      ] as const;
-
-      const q = pageParam
-        ? fsQuery(
-            collection(db, 'stories'),
-            ...baseConstraints,
-            startAfter(pageParam as QueryDocumentSnapshot<DocumentData>),
-          )
-        : fsQuery(collection(db, 'stories'), ...baseConstraints);
+        fbLimit(MAX_STORIES),
+      );
 
       const snap = await getDocs(q);
       console.log('[WEEKLY READ] getDocs —', snap.size, 'docs read');
 
-      const stories = snap.docs.map((doc) => {
+      return snap.docs.map((doc) => {
         const data = doc.data() as any;
 
         // Convert Firestore Timestamp -> Date for UI components that call .getTime()
@@ -153,16 +163,6 @@ function StoriesThisWeekRoute() {
           publishedAt,
         };
       });
-
-      const lastDoc = snap.docs.length ? snap.docs[snap.docs.length - 1] : undefined;
-
-      return { stories, lastDoc };
-    },
-    initialPageParam: undefined as QueryDocumentSnapshot<DocumentData> | undefined,
-    getNextPageParam: (lastPage) => {
-      if (!lastPage.lastDoc) return undefined;
-      if (lastPage.stories.length < PAGE_SIZE) return undefined;
-      return lastPage.lastDoc;
     },
     staleTime: Infinity,
     gcTime: Infinity,
@@ -171,10 +171,28 @@ function StoriesThisWeekRoute() {
     refetchOnReconnect: false,
   });
 
-  const allStories = React.useMemo(
-    () => storiesQuery.data?.pages.flatMap((p) => p.stories) ?? [],
-    [storiesQuery.data],
-  );
+  // Sort client-side. 'newest' keeps the query's updatedAt-desc order.
+  const sortedStories = React.useMemo(() => {
+    const arr = [...(storiesQuery.data ?? [])];
+    switch (sortBy) {
+      case 'title':
+        arr.sort((a, b) => collator.compare(String(a.title ?? ''), String(b.title ?? '')));
+        break;
+      case 'author':
+        arr.sort((a, b) => collator.compare(String(a.username ?? ''), String(b.username ?? '')));
+        break;
+      case 'likes':
+        arr.sort((a, b) => Number(b.likesCount ?? 0) - Number(a.likesCount ?? 0));
+        break;
+      case 'views':
+        arr.sort((a, b) => Number(b.viewCount ?? 0) - Number(a.viewCount ?? 0));
+        break;
+      case 'newest':
+      default:
+        break;
+    }
+    return arr;
+  }, [storiesQuery.data, sortBy]);
 
   const goToOffset = (nextOffset: number) => {
     navigate({
@@ -185,13 +203,28 @@ function StoriesThisWeekRoute() {
 
   return (
     <Stack gap="sm" style={{ padding: 20 }}>
-      <Group justify="space-between" align="flex-end">
-        <Stack gap={2}>
-          <Title order={2}>Weekly Stories</Title>
+      <Stack gap={2}>
+        <Title order={2}>Weekly Stories</Title>
+        <Text size="sm" c="dimmed">
+          Submitted or updated between {startStr} and {endStr}
+        </Text>
+      </Stack>
+
+      <Group justify="space-between" align="center">
+        <Group gap="xs">
           <Text size="sm" c="dimmed">
-            Updated between {startStr} and {endStr}
+            Sort by
           </Text>
-        </Stack>
+          <Select
+            value={sortBy}
+            onChange={(v) => setSortBy((v as SortKey) ?? 'newest')}
+            data={SORT_OPTIONS}
+            allowDeselect={false}
+            size="sm"
+            w={170}
+            aria-label="Sort stories"
+          />
+        </Group>
 
         <Group>
           <Button
@@ -203,7 +236,7 @@ function StoriesThisWeekRoute() {
           </Button>
 
           <Button onClick={() => goToOffset(offset + 1)}>
-            See what was new the previous week
+            Previous week
           </Button>
         </Group>
       </Group>
@@ -216,24 +249,13 @@ function StoriesThisWeekRoute() {
         <Text c="red">
           {(storiesQuery.error as Error)?.message ?? 'Failed to load stories.'}
         </Text>
-      ) : allStories.length === 0 ? (
+      ) : sortedStories.length === 0 ? (
         <Text c="dimmed">No stories were updated during this week.</Text>
       ) : (
         <Stack gap="sm">
-          {allStories.map((story) => (
+          {sortedStories.map((story) => (
             <StoryListCard key={(story as any).id} story={story as any} />
           ))}
-
-          <Center>
-            <Button
-              variant="default"
-              onClick={() => storiesQuery.fetchNextPage()}
-              loading={storiesQuery.isFetchingNextPage}
-              disabled={!storiesQuery.hasNextPage}
-            >
-              {storiesQuery.hasNextPage ? 'Load more' : 'No more stories'}
-            </Button>
-          </Center>
         </Stack>
       )}
     </Stack>
