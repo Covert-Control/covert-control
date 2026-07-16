@@ -388,14 +388,33 @@ function StoryDetailPage() {
     if (didTry.current || !storyId) return;
 
     const key = `viewed:${storyId}`;
+    // Count a view at most once per device per 24h. Unlike sessionStorage,
+    // localStorage persists across tabs/sessions/restarts, so we store the
+    // last-counted timestamp and skip the write while it's still fresh. This
+    // keeps a returning reader's repeat visits off Firestore's write quota.
+    const VIEW_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
 
-    if (sessionStorage.getItem(key)) return;
+    let last = 0;
+    try {
+      last = Number(localStorage.getItem(key)) || 0;
+    } catch {
+      // localStorage unavailable (private mode, disabled, quota) — fail open
+      // and let the view count.
+    }
+
+    if (last && Date.now() - last < VIEW_WINDOW_MS) return;
 
     didTry.current = true;
 
     console.log('[VIEW WRITE] incrementStoryView', storyId);
     incrementStoryViewCallable({ storyId })
-      .then(() => sessionStorage.setItem(key, '1'))
+      .then(() => {
+        try {
+          localStorage.setItem(key, String(Date.now()));
+        } catch {
+          // ignore storage write failures
+        }
+      })
       .catch((e) =>
         console.error('view increment failed', e)
       );
