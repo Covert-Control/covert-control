@@ -1,7 +1,6 @@
 // src/components/FavoriteButton.tsx
 import { ActionIcon, Tooltip } from '@mantine/core';
 import { Heart } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { useAuthStore } from '../stores/authStore';
 import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -23,6 +22,7 @@ export default function FavoriteButton({ storyId }: Props) {
 
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const cooldownTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -34,14 +34,17 @@ export default function FavoriteButton({ storyId }: Props) {
   const iconColor = isFav ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-dimmed)';
 
   const icon = (
-    <motion.span
-      initial={false}
-      animate={{ scale: isFav ? 1.12 : 1 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-      style={{ display: 'inline-flex' }}
+    // Pop the heart when favorited. The "back" easing overshoots slightly to
+    // mimic the old framer-motion spring, in pure CSS (no JS animation lib).
+    <span
+      style={{
+        display: 'inline-flex',
+        transform: isFav ? 'scale(1.12)' : 'scale(1)',
+        transition: 'transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+      }}
     >
       <Heart size={18} style={{ color: iconColor }} fill={isFav ? 'currentColor' : 'none'} />
-    </motion.span>
+    </span>
   );
 
   // Logged out: visible but non-destructive (you can wire this to login if you want)
@@ -116,14 +119,23 @@ export default function FavoriteButton({ storyId }: Props) {
   return (
     <Tooltip label={tooltipLabel} withArrow>
       <ActionIcon
-        component={motion.button}
         type="button"
-        whileTap={{ scale: 0.9 }}
         onClick={toggle}
+        onPointerDown={() => setPressed(true)}
+        onPointerUp={() => setPressed(false)}
+        onPointerLeave={() => setPressed(false)}
         aria-pressed={isFav}
         aria-label={isFav ? 'Unfavorite' : 'Favorite'}
         variant="transparent"
-        style={{ padding: 2, height: 26, width: 26, background: 'transparent' }}
+        style={{
+          padding: 2,
+          height: 26,
+          width: 26,
+          background: 'transparent',
+          // Tap-shrink feedback, replacing framer-motion's whileTap.
+          transform: pressed ? 'scale(0.9)' : 'scale(1)',
+          transition: 'transform 120ms ease',
+        }}
         disabled={disabled}
       >
         {icon}
