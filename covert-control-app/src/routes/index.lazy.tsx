@@ -472,9 +472,9 @@ function HomePage() {
                   style={
                     p.pinned
                       ? {
-                          background: 'rgba(255, 215, 0, 0.04)',
-                          borderColor: 'rgba(255, 215, 0, 0.18)',
-                          borderLeft: '4px solid rgba(255, 215, 0, 0.55)',
+                          background: 'var(--mantine-color-grape-light)',
+                          borderColor: 'var(--mantine-color-grape-light-hover)',
+                          borderLeft: '4px solid var(--mantine-color-grape-filled)',
                         }
                       : undefined
                   }
@@ -489,7 +489,7 @@ function HomePage() {
                           {p.pinned && (
                           <Badge
                             variant="light"
-                            color="yellow"
+                            color="grape"
                             leftSection={<Pin size={10} style={{ display: 'block' }} />}
                             style={{ textTransform: 'none' }}
                           >
