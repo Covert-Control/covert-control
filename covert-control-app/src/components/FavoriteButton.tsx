@@ -47,13 +47,20 @@ export default function FavoriteButton({ storyId }: Props) {
     </span>
   );
 
-  // Logged out: visible but non-destructive (you can wire this to login if you want)
+  // Logged out: visible, and clicking prompts login (mirrors LikeButton).
   if (!uid) {
     return (
       <Tooltip label="Log in to favorite" withArrow>
         <ActionIcon
           variant="transparent"
           aria-label="Favorite"
+          onClick={() =>
+            notifications.show({
+              title: 'Login required',
+              message: 'Please log in to favorite stories.',
+              color: 'yellow',
+            })
+          }
           style={{ padding: 2, height: 26, width: 26 }}
         >
           {icon}

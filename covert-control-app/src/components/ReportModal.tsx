@@ -85,6 +85,9 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
   const cooldownActive = cooldownRemainingSec > 0;
 
   const disabled = !canReport || !user;
+  // "blocked" = logged in but not permitted to report (e.g. own story). Logged-
+  // out users are NOT blocked — clicking prompts them to log in (see onClick).
+  const blocked = !!user && !canReport;
 
   async function handleSubmit() {
     if (!user) {
@@ -186,13 +189,21 @@ export function ReportModal({ story, canReport }: ReportModalProps) {
     radius="md"
     aria-label="Report this story"
     onClick={() => {
-      if (disabled) return;
+      if (!user) {
+        notifications.show({
+          title: 'Login required',
+          message: 'Please log in to report stories.',
+          color: 'yellow',
+        });
+        return;
+      }
+      if (blocked) return;
       setError(null);
       setOpen(true);
     }}
     style={{
-      opacity: disabled ? 0.4 : 1,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: blocked ? 0.4 : 1,
+      cursor: blocked ? 'not-allowed' : 'pointer',
     }}
   >
     <Flag size={18} />
