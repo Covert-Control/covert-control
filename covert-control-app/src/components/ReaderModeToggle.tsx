@@ -55,13 +55,12 @@ export function ReaderModeToggle({ variant, size = 'xs' }: Props) {
         opacity, holds, then settles to its resting semi-transparent state so
         readers can find it. Pure CSS — no animation library.
 
-        The bounce (transform) lives on the wrapper <div>, not the ActionIcon:
-        Mantine's ActionIcon controls `transform` on its own root, so an
-        animation targeting it gets its scale swallowed (opacity still animates,
-        which is why the earlier version only faded). The opacity fade stays on
-        the button, where it also drives the hover/focus brighten. Both
-        animations share the same 1.6s duration so they stay in sync.
-        prefers-reduced-motion drops the bounce but keeps the opacity cue.
+        The bounce (transform) lives on the wrapper <div>, and the opacity fade
+        on the button (where it also drives the hover/focus brighten). Both
+        share the same 1.6s duration so they stay in sync. The bounce is a small,
+        one-time discoverability cue, so it intentionally plays regardless of
+        prefers-reduced-motion (it's not decorative motion — it's how readers
+        find the exit control).
       */}
       <style>{`
         @keyframes readerExitBounce {
@@ -78,9 +77,6 @@ export function ReaderModeToggle({ variant, size = 'xs' }: Props) {
         }
         .reader-exit-bounce { animation: readerExitBounce 1.6s ease; transform-origin: center; }
         .reader-exit-btn    { animation: readerExitDim 1.6s ease; }
-        @media (prefers-reduced-motion: reduce) {
-          .reader-exit-bounce { animation: none; }
-        }
       `}</style>
       <div className="reader-exit-bounce" style={{ display: 'inline-flex' }}>
         <Tooltip label="Exit reader mode (Esc)" withArrow position="left">
