@@ -656,6 +656,11 @@ function StoryDetailPage() {
           display: 'flex',
           overflowX: 'hidden',
           justifyContent: 'center',
+          // In reader mode the AppShell header/navbar/footer all collapse, so
+          // Main fills the viewport with the (dark) app background. Stretch the
+          // reader panel's light background to the full viewport height so a
+          // short chapter doesn't leave a black bar below the text.
+          minHeight: readerMode ? '100dvh' : undefined,
           paddingTop: readerMode
             ? 0
             : 'var(--mantine-spacing-md)',
