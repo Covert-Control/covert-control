@@ -69,7 +69,7 @@ const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
   dark: {
     '--mantine-color-dimmed': '#897fa8',
     '--mantine-color-default-border': '#2e2845',
-    '--mantine-color-text': '#ede8ff',
+    '--mantine-color-text': '#d9d3ef',
     '--mantine-color-body': '#080807',
     '--mantine-color-dark-6': '#141210',   // card/paper fill
     '--mantine-color-dark-7': '#080807',   // page bg
