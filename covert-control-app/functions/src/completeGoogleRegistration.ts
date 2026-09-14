@@ -41,10 +41,12 @@ export const completeGoogleRegistration = onCall({ enforceAppCheck: true }, asyn
           // users/{uid} a second time — a transaction gives a consistent read,
           // so the re-read returned identical data anyway.
           if (!userSnap.exists) {
-            tx.set(userRef, {
+            const createdAt = admin.firestore.FieldValue.serverTimestamp();
+            tx.set(userRef, { username, username_lc, createdAt });
+            tx.set(admin.firestore().doc(`publicProfiles/${uid}`), {
               username,
               username_lc,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              createdAt,
             });
           }
 
@@ -62,13 +64,15 @@ export const completeGoogleRegistration = onCall({ enforceAppCheck: true }, asyn
         reservedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      const createdAt = admin.firestore.FieldValue.serverTimestamp();
       tx.set(
         userRef,
-        {
-          username,
-          username_lc,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
+        { username, username_lc, createdAt },
+        { merge: true },
+      );
+      tx.set(
+        admin.firestore().doc(`publicProfiles/${uid}`),
+        { username, username_lc, createdAt },
         { merge: true },
       );
 

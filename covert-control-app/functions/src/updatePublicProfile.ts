@@ -157,7 +157,7 @@ export const updatePublicProfile = onCall({ enforceAppCheck: true }, async (req:
   };
 
   try {
-    await admin.firestore().doc(`users/${uid}`).set(patch, { merge: true });
+    await admin.firestore().doc(`publicProfiles/${uid}`).set(patch, { merge: true });
 
     logger.log(`Public profile updated for uid=${uid}`);
 

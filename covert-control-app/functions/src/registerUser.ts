@@ -56,12 +56,21 @@ export const registerUser = onCall({ enforceAppCheck: true }, async (req) => {
     //    account can be created cleanly on a retry.
     try {
       const userRef = admin.firestore().doc(`users/${userRecord.uid}`);
+      const publicProfileRef = admin.firestore().doc(`publicProfiles/${userRecord.uid}`);
+      const createdAt = admin.firestore.FieldValue.serverTimestamp();
       const batch = admin.firestore().batch();
       batch.update(nameRef, { uid: userRecord.uid });
       batch.set(userRef, {
         username,
         username_lc,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt,
+      });
+      // World-readable public profile doc. Seeded with identity fields; the
+      // rest (aboutMe/contactEmail/etc.) is filled in later via updatePublicProfile.
+      batch.set(publicProfileRef, {
+        username,
+        username_lc,
+        createdAt,
       });
       await batch.commit();
     } catch (finalizeErr) {

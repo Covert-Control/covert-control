@@ -247,8 +247,8 @@ export function AccountSettingsForm() {
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      console.log('[SETTINGS READ] userProfile getDoc', user!.uid);
-      const snap = await getDoc(doc(db, 'users', user!.uid));
+      console.log('[SETTINGS READ] publicProfile getDoc', user!.uid);
+      const snap = await getDoc(doc(db, 'publicProfiles', user!.uid));
       return (snap.data() as Partial<UserProfile>) ?? {};
     },
   });

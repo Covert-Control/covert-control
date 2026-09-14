@@ -62,18 +62,13 @@ interface Story {
 interface UserProfile {
   uid: string;
   username: string;
-  email: string;
   dateCreated: Date;
   username_lc: string;
-  bio?: string; // legacy
   aboutMe?: string;
   contactEmail?: string;
   discord?: string;
   patreon?: string;
   other?: string;
-  banned?: boolean;
-  bannedAt?: Date | null;
-  bannedReason?: string | null;
 }
 
 export const Route = createLazyFileRoute('/authors/$authorId')({
@@ -124,12 +119,12 @@ function AuthorDetailPage() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       if (!authorId) throw new Error('Author username is missing.');
-      const usersCollectionRef = collection(db, 'users');
-      const userQuery = query(usersCollectionRef, where('username', '==', authorId));
-      const userSnapshot = await getQueryDocs(userQuery);
-      console.log('[AUTHOR READ] uidByUsername getDocs —', userSnapshot.size, 'docs read');
-      if (userSnapshot.empty) return null;
-      return { uid: userSnapshot.docs[0].id };
+      const profilesRef = collection(db, 'publicProfiles');
+      const profileQuery = query(profilesRef, where('username', '==', authorId));
+      const profileSnapshot = await getQueryDocs(profileQuery);
+      console.log('[AUTHOR READ] uidByUsername getDocs —', profileSnapshot.size, 'docs read');
+      if (profileSnapshot.empty) return null;
+      return { uid: profileSnapshot.docs[0].id };
     },
   });
 
@@ -146,26 +141,21 @@ function AuthorDetailPage() {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       if (!authorUid) return null;
-      const snap = await getDoc(doc(db, 'users', authorUid));
-      console.log('[AUTHOR READ] userProfile getDoc', authorUid);
+      const snap = await getDoc(doc(db, 'publicProfiles', authorUid));
+      console.log('[AUTHOR READ] publicProfile getDoc', authorUid);
       if (!snap.exists()) return null;
 
       const userData: any = snap.data();
       return {
         uid: snap.id,
         username: userData?.username,
-        email: userData?.email,
-        dateCreated: userData?.dateCreated?.toDate?.(),
+        dateCreated: userData?.createdAt?.toDate?.(),
         username_lc: userData?.username_lc,
-        aboutMe: userData?.aboutMe ?? userData?.bio ?? '',
+        aboutMe: userData?.aboutMe ?? '',
         contactEmail: userData?.contactEmail ?? '',
         discord: userData?.discord ?? '',
         patreon: userData?.patreon ?? '',
         other: userData?.other ?? '',
-        bio: userData?.bio ?? '',
-        banned: !!userData?.banned,
-        bannedAt: userData?.bannedAt?.toDate?.() ?? null,
-        bannedReason: userData?.bannedReason ?? null,
       } as UserProfile;
     },
     // If userProfile is already in cache (e.g., your own profile updated), show immediately
@@ -215,7 +205,24 @@ function AuthorDetailPage() {
   });
 
   const authUser = useAuthStore((s: any) => s.user ?? s.currentUser ?? null);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const isOwnProfile = !!authUser?.uid && !!author?.uid && authUser.uid === author.uid;
+
+  // Moderation status lives on the private user doc; only admins read it (for the
+  // banned badge + AdminDropdown). Non-admins never fetch it.
+  const { data: authorAdminInfo } = useQuery<{ banned: boolean; bannedReason: string | null } | null>({
+    queryKey: ['authorAdminInfo', authorUid],
+    enabled: !!authorUid && isAdmin,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      if (!authorUid) return null;
+      const snap = await getDoc(doc(db, 'users', authorUid));
+      console.log('[AUTHOR READ] admin banned info getDoc', authorUid);
+      if (!snap.exists()) return null;
+      const d: any = snap.data();
+      return { banned: !!d?.banned, bannedReason: d?.bannedReason ?? null };
+    },
+  });
 
   // Memos (safe on undefined)
   const tagStats = useMemo(() => {
@@ -385,7 +392,7 @@ function AuthorDetailPage() {
               <Badge variant="outline" leftSection={<Eye size={14} />}>
                 {totalViews} total story views
               </Badge>
-              {author.banned && (
+              {isAdmin && authorAdminInfo?.banned && (
                 <Badge color="red" variant="filled">
                   Banned
                 </Badge>
@@ -405,8 +412,8 @@ function AuthorDetailPage() {
             <AdminDropdown
               targetUid={author.uid}
               displayName={author.username}
-              isBanned={!!author.banned}
-              bannedReason={author.bannedReason ?? null}
+              isBanned={!!authorAdminInfo?.banned}
+              bannedReason={authorAdminInfo?.bannedReason ?? null}
             />
           </Group>
         </Group>

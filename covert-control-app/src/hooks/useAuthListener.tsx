@@ -57,13 +57,9 @@ export function useAuthListener() {
               username = (data?.username ?? data?.displayName ?? null) as string | null;
               isProfileComplete = Boolean(username && String(username).trim().length >= 3);
 
-              profileData = {
-                aboutMe: data?.aboutMe ?? null,
-                contactEmail: data?.contactEmail ?? null,
-                discord: data?.discord ?? null,
-                patreon: data?.patreon ?? null,
-                other: data?.other ?? null,
-              };
+              // Public profile fields (aboutMe/contactEmail/discord/patreon/other)
+              // now live on publicProfiles/{uid}; they're loaded lazily by the
+              // Account Settings form, not at login.
 
               // Favorites — extracted from the map field on the user doc
               const rawFavorites = data?.favorites ?? {};
