@@ -565,7 +565,7 @@ function EditStoryPage() {
             <Text size="sm" c="dimmed">
               {safeChapter === 1
                 ? 'This updates the main story metadata and Chapter 1 content.'
-                : 'Title, description, disclaimers and tags are only editable in Chapter 1.'}
+                : <b><i>Title, description, disclaimers and tags are only editable in Chapter 1.</i></b>}
             </Text>
 
 

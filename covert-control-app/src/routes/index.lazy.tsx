@@ -263,16 +263,6 @@ function HomePage() {
     return (newsQuery.data ?? []).find((p) => !p.pinned);
   }, [newsQuery.data]);
 
-  const defaultOpenNewsIds = React.useMemo(() => {
-    const items = newsQuery.data ?? [];
-    if (!items.length) return [];
-
-    const pinnedIds = items.filter((p) => p.pinned).map((p) => p.id);
-    const newestRegular = items.find((p) => !p.pinned);
-
-    return newestRegular ? [...pinnedIds, newestRegular.id] : pinnedIds;
-  }, [newsQuery.data]);
-
   return (
     <Container size="lg" pt="sm" pb="xl">
       <Stack gap="lg">
@@ -463,7 +453,7 @@ function HomePage() {
               variant="contained"
               radius="lg"
               multiple
-              defaultValue={defaultOpenNewsIds}
+              defaultValue={[]}
             >
               {newsQuery.data!.map((p) => (
                 <Accordion.Item

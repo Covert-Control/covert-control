@@ -215,15 +215,24 @@ function SearchPage() {
     [tags, afterDate, beforeDate]
   );
 
+  // Sync from the URL's ?tags= param — on first mount AND whenever the param
+  // changes while we're already on this page (e.g. clicking a tag link in the
+  // results). Keyed on the serialized tags so it only fires on real changes.
+  // We pass the filter built straight from the incoming tags rather than the
+  // memoized `filters`, which still reflects the not-yet-updated `tags` state
+  // this render.
+  const initialTagsKey = initialTags.join('');
   useEffect(() => {
+    setTags(initialTags);
     if (initialTags.length > 0) {
-      runSearch(0);
+      setPage(1);
+      runSearch(0, buildFilters(initialTags, afterDate, beforeDate));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialTagsKey]);
 
   // Run Algolia search w/ pagination & sort
-  const runSearch = (pageZeroBased = 0) => {
+  const runSearch = (pageZeroBased = 0, filtersOverride?: string) => {
     setLoading(true);
 
     const indexName = SORT_TO_INDEX[sort] ?? INDEX_NAME;
@@ -233,7 +242,7 @@ function SearchPage() {
         indexName,
         searchParams: {
           query: q,
-          filters,
+          filters: filtersOverride ?? filters,
           hitsPerPage: HITS_PER_PAGE, // only 10 results per page
           page: pageZeroBased,        // Algolia is 0-based
         },
