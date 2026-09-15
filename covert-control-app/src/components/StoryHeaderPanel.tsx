@@ -1,8 +1,8 @@
 //StoryHeaderPanel.tsx
 import {
-  ActionIcon,
   Anchor,
   Badge,
+  Button,
   Group,
   Menu,
   Paper,
@@ -315,7 +315,9 @@ export function StoryHeaderPanel({
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               alignItems: 'center',
+              rowGap: 8,
               columnGap: 8,
               marginLeft: isMobileInternal ? 0 : 'auto',
             }}
@@ -329,13 +331,15 @@ export function StoryHeaderPanel({
               <Menu withArrow shadow="md" position="bottom-end">
                 <Menu.Target>
                   <Tooltip label="Story actions" withArrow position="top">
-                    <ActionIcon
+                    <Button
                       variant="subtle"
+                      size="xs"
                       radius="md"
+                      leftSection={<Settings size={14} />}
                       aria-label="Story actions"
                     >
-                      <Settings size={18} />
-                    </ActionIcon>
+                      Edit/Delete/Add Chapter
+                    </Button>
                   </Tooltip>
                 </Menu.Target>
                 <Menu.Dropdown>

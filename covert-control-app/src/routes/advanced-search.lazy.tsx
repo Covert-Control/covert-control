@@ -420,21 +420,23 @@ function SearchPage() {
               disabled={loading}
               comboboxProps={{ withinPortal: true }}
             />
+            <Group>
+              <Button
+                onClick={() => runSearch(0)}
+                disabled={loading}
+              >
+                Search
+              </Button>
 
-            <Button
-              onClick={() => runSearch(0)}
-              disabled={loading}
-            >
-              Search
-            </Button>
+              <Button
+                variant="light"
+                onClick={clearAll}
+                disabled={loading}
+              >
+                Clear
+              </Button>
+            </Group>
 
-            <Button
-              variant="light"
-              onClick={clearAll}
-              disabled={loading}
-            >
-              Clear
-            </Button>
           </Group>
         </Stack>
       </Stack>

@@ -5,8 +5,7 @@ import { ArrowRight, Eye, BookOpen, BellPlus } from 'lucide-react';
 import FavoriteButton from './FavoriteButton';
 import LikeButton from './LikeButton';
 import type { Story } from '../types/story';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useMediaQuery } from '@mantine/hooks';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { TagPill, sortTags } from './TagPill';
 
 type StoryListCardProps = {
@@ -40,6 +39,9 @@ function formatDate(d?: Date | null) {
 }
 
 const MAX_VISIBLE_TAGS = 5;
+// Below this card width (measured on the card itself, not the viewport) the card
+// switches to its stacked layout. Tunable.
+const NARROW_CARD_WIDTH = 640;
 
 export default function StoryListCard({
   story,
@@ -49,8 +51,29 @@ export default function StoryListCard({
   expandableDescription = true,
 }: StoryListCardProps) {
 
-  // Slightly wider breakpoint so header stacks sooner
-  const isNarrow = useMediaQuery('(max-width: 768px)');
+  // Stack the card based on the CARD's own width, not the viewport. The viewport
+  // can be wide while the card is narrow (sidebar open, DevTools docked, split
+  // panes), which previously kept the card in its desktop layout and smushed the
+  // title into a single vertical column. A ResizeObserver ties the layout to the
+  // card itself, so it stacks whenever the card — not the window — is cramped.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [isNarrow, setIsNarrow] = useState(false);
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const apply = (w: number) => {
+      const narrow = w < NARROW_CARD_WIDTH;
+      setIsNarrow((prev) => (prev === narrow ? prev : narrow)); // only re-render on flip
+    };
+    apply(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const w = entry?.borderBoxSize?.[0]?.inlineSize ?? entry?.contentRect?.width;
+      if (typeof w === 'number') apply(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // ----- Description expand/collapse -----
   const [expanded, setExpanded] = useState(false);
@@ -149,7 +172,7 @@ export default function StoryListCard({
     Date.now() - updatedAt.getTime() < RECENT_UPDATE_DAYS * 24 * 60 * 60 * 1000;
 
   return (
-    <Card shadow="sm" padding="lg" radius="md" withBorder>
+    <Card ref={cardRef} shadow="sm" padding="lg" radius="md" withBorder>
 <Card.Section
   p={isNarrow ? 'md' : 'lg'} // ✅ md on mobile, lg on desktop
   style={{
@@ -261,8 +284,7 @@ export default function StoryListCard({
                 margin: 0,
                 minWidth: 0,
                 whiteSpace: 'normal',
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
               }}
             >
               {story.title}
@@ -338,8 +360,7 @@ export default function StoryListCard({
           mb={0}
           style={{
             whiteSpace: 'normal',
-            overflowWrap: 'anywhere',
-            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
             margin: 0,
           }}
         >

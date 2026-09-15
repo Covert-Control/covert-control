@@ -35,8 +35,9 @@ export function ReaderModeToggle({ variant, size = 'xs' }: Props) {
       <Tooltip label="Hide the interface for distraction-free reading" withArrow position="top">
         <Button
           size={size}
-          variant="light"
-          leftSection={<BookOpen size={16} />}
+          variant="subtle"
+          radius="md"
+          leftSection={<BookOpen size={14} />}
           onClick={() => setReaderMode(true)}
         >
           Hide UI
