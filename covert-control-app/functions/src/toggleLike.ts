@@ -21,31 +21,34 @@ export const toggleLike = onCall({ enforceAppCheck: true }, async (request) => {
   const userRef = db.collection('users').doc(uid);
   const storyRef = db.collection('stories').doc(storyId);
 
-  // Check story exists and isn't the user's own
-  const storySnap = await storyRef.get();
-  if (!storySnap.exists) throw new HttpsError('not-found', 'Story not found.');
-  if (storySnap.data()?.ownerId === uid) {
-    throw new HttpsError('failed-precondition', "You can't like your own story.");
-  }
+  // Run in a transaction so likesCount only ever moves on a *real* state change.
+  // This makes the call idempotent: repeated liked:true can't inflate the count,
+  // and repeated liked:false can't drive it negative. Reads must precede writes.
+  const changed = await db.runTransaction(async (tx) => {
+    const storySnap = await tx.get(storyRef);
+    if (!storySnap.exists) throw new HttpsError('not-found', 'Story not found.');
+    if (storySnap.data()?.ownerId === uid) {
+      throw new HttpsError('failed-precondition', "You can't like your own story.");
+    }
 
-  // Atomic batch: update user likes map + story count together
-  const batch = db.batch();
-  if (liked) {
-    batch.update(userRef, {
-      [`likedStories.${storyId}`]: true,
-    });
-    batch.update(storyRef, {
-      likesCount: admin.firestore.FieldValue.increment(1),
-    });
-  } else {
-    batch.update(userRef, {
-      [`likedStories.${storyId}`]: admin.firestore.FieldValue.delete(),
-    });
-    batch.update(storyRef, {
-      likesCount: admin.firestore.FieldValue.increment(-1),
-    });
-  }
+    const userSnap = await tx.get(userRef);
+    const likedMap =
+      (userSnap.get('likedStories') as Record<string, unknown> | undefined) ?? {};
+    const alreadyLiked = likedMap[storyId] === true;
 
-  await batch.commit();
-  return { success: true };
+    // Requested state already matches what's stored — touch nothing.
+    if (liked === alreadyLiked) return false;
+
+    if (liked) {
+      tx.update(userRef, { [`likedStories.${storyId}`]: true });
+      tx.update(storyRef, { likesCount: admin.firestore.FieldValue.increment(1) });
+    } else {
+      tx.update(userRef, { [`likedStories.${storyId}`]: admin.firestore.FieldValue.delete() });
+      tx.update(storyRef, { likesCount: admin.firestore.FieldValue.increment(-1) });
+    }
+
+    return true;
+  });
+
+  return { success: true, liked, changed };
 });
